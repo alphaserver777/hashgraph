@@ -1,0 +1,71 @@
+version: "3.9"
+
+services:
+  node1:
+    build: .
+    image: mdrj-dag:latest
+    container_name: mdrj-node1
+    command: ["python", "-m", "mdrj.cli", "node", "--config", "/app/docker/configs/node1.yaml"]
+    volumes:
+      - node1-data:/data
+    ports:
+      - "9101:9001"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9001/status || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  node2:
+    image: mdrj-dag:latest
+    container_name: mdrj-node2
+    command: ["python", "-m", "mdrj.cli", "node", "--config", "/app/docker/configs/node2.yaml"]
+    volumes:
+      - node2-data:/data
+    ports:
+      - "9102:9002"
+    depends_on:
+      node1:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9002/status || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  node3:
+    image: mdrj-dag:latest
+    container_name: mdrj-node3
+    command: ["python", "-m", "mdrj.cli", "node", "--config", "/app/docker/configs/node3.yaml"]
+    volumes:
+      - node3-data:/data
+    ports:
+      - "9103:9003"
+    depends_on:
+      node1:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9003/status || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  demo-baseline:
+    image: mdrj-dag:latest
+    profiles: ["demo-baseline"]
+    depends_on:
+      node1:
+        condition: service_healthy
+      node2:
+        condition: service_healthy
+      node3:
+        condition: service_healthy
+    command: ["/bin/bash", "/app/docker/scripts/demo_baseline.sh"]
+
+volumes:
+  node1-data:
+  node2-data:
+  node3-data:

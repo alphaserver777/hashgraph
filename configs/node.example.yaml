@@ -1,0 +1,21 @@
+node_id: "node-1"
+listen: "127.0.0.1:9001"
+peers:
+  - "127.0.0.1:9002"
+  - "127.0.0.1:9003"
+profile:
+  role: "light"
+  memory_mb: 64
+  bw_kbps: 128
+  cpu_quota: 0.5
+  threat_level: "LOW"
+gossip:
+  period_sec: 1.0
+  fan_out: 2
+prioritization:
+  level_threshold_B: "ELEV"
+  max_batch_bytes: 32768
+security:
+  hmac_key: "change-me"
+storage:
+  sqlite_path: "data/node1.db"

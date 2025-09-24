@@ -1,0 +1,21 @@
+node_id: "node-3"
+listen: "0.0.0.0:9003"
+peers:
+  - "node1:9001"
+  - "node2:9002"
+profile:
+  role: "relay"
+  memory_mb: 256
+  bw_kbps: 512
+  cpu_quota: 1.2
+  threat_level: "LOW"
+gossip:
+  period_sec: 1.0
+  fan_out: 2
+prioritization:
+  level_threshold_B: "LOW"
+  max_batch_bytes: 65536
+security:
+  hmac_key: "demo-key"
+storage:
+  sqlite_path: "/data/node.db"

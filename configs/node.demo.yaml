@@ -1,0 +1,19 @@
+node_id: "demo-node"
+listen: "127.0.0.1:10102"
+peers: []
+profile:
+  role: "light"
+  memory_mb: 64
+  bw_kbps: 256
+  cpu_quota: 0.5
+  threat_level: "LOW"
+gossip:
+  period_sec: 1.0
+  fan_out: 1
+prioritization:
+  level_threshold_B: "ELEV"
+  max_batch_bytes: 32768
+security:
+  hmac_key: "demo-key"
+storage:
+  sqlite_path: "data/demo-node.db"

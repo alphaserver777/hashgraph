@@ -1,0 +1,5 @@
+{
+  "source_ip": "10.0.0.5",
+  "action": "alert",
+  "severity": "high"
+}
