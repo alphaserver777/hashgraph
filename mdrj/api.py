@@ -25,7 +25,8 @@ VIZ_HTML = """
     h1 { font-size: 1.2rem; margin: 0; }
     #metrics { font-family: 'JetBrains Mono', Menlo, monospace; white-space: pre; margin-top: 0.6rem; }
     #graph-status { font-size: 0.85rem; margin-top: 0.35rem; color: rgba(198, 210, 255, 0.85); }
-    #graph { width: 100vw; height: calc(100vh - 88px); display: flex; }
+    #graph-wrapper { display: flex; flex-direction: row; align-items: stretch; width: 100vw; height: calc(100vh - 88px); background: rgba(6, 12, 20, 0.9); }
+    #graph { flex: 1 1 auto; min-height: calc(100vh - 88px); display: flex; }
     svg { width: 100%; height: 100%; background: radial-gradient(circle at top, rgba(255,255,255,0.06), transparent 60%); }
     .toolbar { font-size: 0.85rem; opacity: 0.75; }
     #controls { display: flex; flex-direction: column; gap: 0.6rem; padding: 0.75rem 1.5rem; background: rgba(10, 16, 28, 0.92); border-top: 1px solid rgba(255,255,255,0.08); border-bottom: 1px solid rgba(255,255,255,0.08); }
@@ -68,6 +69,21 @@ VIZ_HTML = """
     .dot-c { background: #5aa5ff; }
     .dot-seq { background: #e6ebff; border: 1px solid rgba(255,255,255,0.4); width: 18px; height: 18px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.7rem; color: #08111f; }
     .edge { width: 26px; height: 2px; display: inline-block; background: rgba(150, 190, 255, 0.45); border-radius: 2px; }
+    #details-panel { width: 320px; max-width: 360px; background: rgba(14, 20, 34, 0.97); border-left: 1px solid rgba(255,255,255,0.06); padding: 1rem 1.1rem; overflow-y: auto; color: rgba(233, 238, 255, 0.92); height: 100%; box-sizing: border-box; }
+    #details-panel h2 { margin: 0; font-size: 1rem; color: #f7f9ff; }
+    #details-panel h3 { margin: 0.9rem 0 0.4rem; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05rem; color: rgba(189, 205, 255, 0.85); }
+    #details-context { font-size: 0.78rem; margin-top: 0.25rem; color: rgba(189, 202, 255, 0.75); }
+    .details-section { margin-top: 0.8rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.6rem; }
+    .details-section:first-of-type { border-top: none; padding-top: 0; margin-top: 0.6rem; }
+    #details-meta { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.4rem; font-size: 0.82rem; }
+    .details-meta-row { display: flex; justify-content: space-between; gap: 0.8rem; }
+    .details-meta-key { color: rgba(189, 205, 255, 0.8); }
+    .details-meta-value { color: rgba(239, 243, 255, 0.95); text-align: right; word-break: break-all; }
+    #details-payload, #details-vclock, #details-sig { background: rgba(6, 12, 24, 0.85); border: 1px solid rgba(130, 158, 232, 0.25); border-radius: 6px; padding: 0.6rem; font-family: 'JetBrains Mono', Menlo, monospace; font-size: 0.75rem; line-height: 1.3; white-space: pre-wrap; word-break: break-word; color: #f1f6ff; }
+    .details-list { list-style: none; margin: 0.3rem 0 0; padding: 0; font-size: 0.8rem; }
+    .details-list li { padding: 0.15rem 0; color: rgba(229, 235, 255, 0.88); word-break: break-all; }
+    .details-hint { font-size: 0.78rem; color: rgba(185, 198, 235, 0.7); margin-top: 0.5rem; }
+    #details-panel .empty { opacity: 0.6; font-style: italic; }
   </style>
 </head>
 <body>
@@ -101,7 +117,40 @@ VIZ_HTML = """
       <button class="toggle-button active" data-filter-source="__all__">Все источники</button>
     </div>
   </div>
-  <div id="graph"></div>
+  <div id="graph-wrapper">
+    <div id="graph"></div>
+    <aside id="details-panel">
+      <h2 id="details-title">Нет выбранного события</h2>
+      <div id="details-context">Наведите курсор или нажмите на вершину, чтобы увидеть детали.</div>
+      <div class="details-section">
+        <h3>Метаданные</h3>
+        <div id="details-meta" class="details-meta">
+          <div class="details-hint">Событие не выбрано.</div>
+        </div>
+      </div>
+      <div class="details-section">
+        <h3>Payload</h3>
+        <pre id="details-payload" class="empty">—</pre>
+      </div>
+      <div class="details-section">
+        <h3>Векторные часы</h3>
+        <pre id="details-vclock" class="empty">—</pre>
+      </div>
+      <div class="details-section">
+        <h3>Причинный путь</h3>
+        <div><strong>Родители</strong>
+          <ul id="details-path-parents" class="details-list"></ul>
+        </div>
+        <div style="margin-top: 0.35rem;"><strong>Потомки</strong>
+          <ul id="details-path-children" class="details-list"></ul>
+        </div>
+      </div>
+      <div class="details-section">
+        <h3>Подпись</h3>
+        <pre id="details-sig" class="empty">—</pre>
+      </div>
+    </aside>
+  </div>
   <div id="legend">
     <div class="legend-item"><span class="dot dot-a"></span><span class="label">Класс A — критические события, транслируются обязательно</span></div>
     <div class="legend-item"><span class="dot dot-b"></span><span class="label">Класс B — важные события, доставляются по порогу угрозы</span></div>
@@ -133,6 +182,15 @@ VIZ_HTML = """
       var controlsStatus = document.getElementById('controls-status');
       var filterClassesRoot = document.getElementById('filter-classes');
       var filterSourcesRoot = document.getElementById('filter-sources');
+      var detailsPanel = document.getElementById('details-panel');
+      var detailsTitle = document.getElementById('details-title');
+      var detailsContext = document.getElementById('details-context');
+      var detailsMeta = document.getElementById('details-meta');
+      var detailsPayload = document.getElementById('details-payload');
+      var detailsVclock = document.getElementById('details-vclock');
+      var detailsParents = document.getElementById('details-path-parents');
+      var detailsChildren = document.getElementById('details-path-children');
+      var detailsSig = document.getElementById('details-sig');
       var syncTimer = null;
       var classFilterState = { A: true, B: true, C: true };
       var classFilterButtons = {};
@@ -140,6 +198,7 @@ VIZ_HTML = """
       var sourceFilterState = {};
       sourceFilterState[ALL_SOURCES_TOKEN] = true;
       var sourceFilterButtons = {};
+      var hoveredNodeId = null;
 
       function setControlsStatus(message, isError) {
         if (!controlsStatus) {
@@ -192,6 +251,7 @@ VIZ_HTML = """
         }
         classFilterState[cls] = !classFilterState[cls];
         updateClassButtonsUI();
+        hoveredNodeId = null;
         renderGraph();
       }
 
@@ -235,6 +295,7 @@ VIZ_HTML = """
           }
         });
         updateSourceButtonsUI();
+        hoveredNodeId = null;
         renderGraph();
       }
 
@@ -261,6 +322,7 @@ VIZ_HTML = """
           sourceFilterState[sourceId] = true;
         }
         updateSourceButtonsUI();
+        hoveredNodeId = null;
         renderGraph();
       }
 
@@ -299,6 +361,169 @@ VIZ_HTML = """
           }
         }
         return true;
+      }
+
+      function resetDetailsPanel() {
+        if (!detailsPanel) {
+          return;
+        }
+        detailsPanel.classList.remove('has-node');
+        if (detailsTitle) {
+          detailsTitle.textContent = 'Нет выбранного события';
+        }
+        if (detailsContext) {
+          detailsContext.textContent = 'Наведите курсор или нажмите на вершину, чтобы увидеть детали.';
+        }
+        if (detailsMeta) {
+          detailsMeta.innerHTML = '<div class="details-hint">Событие не выбрано.</div>';
+        }
+        if (detailsPayload) {
+          detailsPayload.textContent = '—';
+          detailsPayload.classList.add('empty');
+        }
+        if (detailsVclock) {
+          detailsVclock.textContent = '—';
+          detailsVclock.classList.add('empty');
+        }
+        if (detailsSig) {
+          detailsSig.textContent = '—';
+          detailsSig.classList.add('empty');
+        }
+        if (detailsParents) {
+          detailsParents.innerHTML = '<li class="empty">—</li>';
+        }
+        if (detailsChildren) {
+          detailsChildren.innerHTML = '<li class="empty">—</li>';
+        }
+      }
+
+      function renderMetaRow(container, label, value) {
+        if (!container) {
+          return;
+        }
+        var row = document.createElement('div');
+        row.className = 'details-meta-row';
+        var keyEl = document.createElement('div');
+        keyEl.className = 'details-meta-key';
+        keyEl.textContent = label;
+        var valueEl = document.createElement('div');
+        valueEl.className = 'details-meta-value';
+        valueEl.textContent = value;
+        row.appendChild(keyEl);
+        row.appendChild(valueEl);
+        container.appendChild(row);
+      }
+
+      function renderIdList(container, ids) {
+        if (!container) {
+          return;
+        }
+        container.innerHTML = '';
+        if (!ids || !ids.length) {
+          var emptyItem = document.createElement('li');
+          emptyItem.textContent = '—';
+          emptyItem.className = 'empty';
+          container.appendChild(emptyItem);
+          return;
+        }
+        var seen = {};
+        ids.forEach(function (id) {
+          if (!id || seen[id]) {
+            return;
+          }
+          seen[id] = true;
+          var li = document.createElement('li');
+          var label = id;
+          if (!nodes[id]) {
+            label += ' (нет локально)';
+          } else if (!isNodeVisible(nodes[id])) {
+            label += ' (скрыто фильтром)';
+          }
+          li.textContent = label;
+          container.appendChild(li);
+        });
+        if (!container.hasChildNodes()) {
+          var fallback = document.createElement('li');
+          fallback.textContent = '—';
+          fallback.className = 'empty';
+          container.appendChild(fallback);
+        }
+      }
+
+      function stringifyOrDash(obj) {
+        if (obj === null || obj === undefined) {
+          return '—';
+        }
+        try {
+          if (typeof obj === 'string') {
+            return obj.length ? obj : '—';
+          }
+          return JSON.stringify(obj, null, 2);
+        } catch (err) {
+          return String(obj);
+        }
+      }
+
+      function updateDetailsPanel(node, context) {
+        if (!detailsPanel) {
+          return;
+        }
+        if (!node) {
+          resetDetailsPanel();
+          return;
+        }
+        detailsPanel.classList.add('has-node');
+        if (detailsTitle) {
+          detailsTitle.textContent = node.id;
+        }
+        if (detailsContext) {
+          var contextLabel = context === 'focus' ? 'Фокус (выбрано кликом)' : 'Просмотр (наведение)';
+          detailsContext.textContent = contextLabel;
+        }
+        if (detailsMeta) {
+          detailsMeta.innerHTML = '';
+          renderMetaRow(detailsMeta, 'Класс', node.cls || '—');
+          renderMetaRow(detailsMeta, 'Источник', node.source || '—');
+          renderMetaRow(detailsMeta, 'Порядок', node.sequence ? '#' + node.sequence : '—');
+          renderMetaRow(detailsMeta, 'Consensus TS', node.consensus_ts !== null && node.consensus_ts !== undefined ? formatValue(node.consensus_ts, 6) : '—');
+          renderMetaRow(detailsMeta, 'Локальное время', node.ts_local !== null && node.ts_local !== undefined ? formatValue(node.ts_local, 6) : '—');
+          renderMetaRow(detailsMeta, 'Lamport', node.lamport_ts !== null && node.lamport_ts !== undefined ? String(node.lamport_ts) : '—');
+          renderMetaRow(detailsMeta, 'Подпись', node.sig ? 'установлена' : 'отсутствует');
+        }
+        if (detailsPayload) {
+          var payloadText = stringifyOrDash(node.payload);
+          detailsPayload.textContent = payloadText;
+          if (payloadText === '—') {
+            detailsPayload.classList.add('empty');
+          } else {
+            detailsPayload.classList.remove('empty');
+          }
+        }
+        if (detailsVclock) {
+          var vclockText = stringifyOrDash(node.vclock);
+          detailsVclock.textContent = vclockText;
+          if (vclockText === '—') {
+            detailsVclock.classList.add('empty');
+          } else {
+            detailsVclock.classList.remove('empty');
+          }
+        }
+        if (detailsSig) {
+          var sigText = node.sig ? String(node.sig) : '—';
+          detailsSig.textContent = sigText;
+          if (sigText === '—') {
+            detailsSig.classList.add('empty');
+          } else {
+            detailsSig.classList.remove('empty');
+          }
+        }
+        if (detailsParents) {
+          renderIdList(detailsParents, node.parents || []);
+        }
+        if (detailsChildren) {
+          var childs = childrenMap[node.id] ? childrenMap[node.id].slice(0) : [];
+          renderIdList(detailsChildren, childs);
+        }
       }
 
       function markStable() {
@@ -403,11 +628,31 @@ VIZ_HTML = """
         }
         updateClassButtonsUI();
         updateSourceButtonsUI();
+        resetDetailsPanel();
       }
 
       function valueOr(value, fallback) {
         if (value === undefined || value === null) {
           return fallback;
+        }
+        return value;
+      }
+
+      function cloneData(value) {
+        if (value === undefined || value === null) {
+          return value;
+        }
+        if (typeof structuredClone === 'function') {
+          try {
+            return structuredClone(value);
+          } catch (err) {}
+        }
+        if (typeof value === 'object') {
+          try {
+            return JSON.parse(JSON.stringify(value));
+          } catch (err) {
+            return value;
+          }
         }
         return value;
       }
@@ -608,13 +853,25 @@ VIZ_HTML = """
         rememberNode(event.id);
         var existing = nodes[event.id];
         if (!existing) {
+          var payloadCopy = cloneData(event.payload);
+          if (payloadCopy === undefined || payloadCopy === null) {
+            payloadCopy = {};
+          }
+          var vclockCopy = cloneData(event.vclock);
+          if (vclockCopy === undefined || vclockCopy === null) {
+            vclockCopy = {};
+          }
           existing = {
             id: event.id,
             cls: event.cls || 'C',
             source: event.source || 'unknown',
             consensus_ts: valueOr(event.consensus_ts, null),
             ts_local: valueOr(event.ts_local, null),
-            parents: (Array.isArray(event.parents) ? event.parents.slice(0) : [])
+            parents: (Array.isArray(event.parents) ? event.parents.slice(0) : []),
+            payload: payloadCopy,
+            vclock: vclockCopy,
+            sig: event.sig || null,
+            lamport_ts: valueOr(event.lamport_ts, null)
           };
           nodes[event.id] = existing;
         } else {
@@ -626,6 +883,26 @@ VIZ_HTML = """
           existing.ts_local = newTsLocal;
           if (Array.isArray(event.parents)) {
             existing.parents = event.parents.slice(0);
+          }
+          var updatedPayload = cloneData(event.payload);
+          if (updatedPayload !== undefined) {
+            if (updatedPayload === null) {
+              updatedPayload = {};
+            }
+            existing.payload = updatedPayload;
+          }
+          var updatedVclock = cloneData(event.vclock);
+          if (updatedVclock !== undefined) {
+            if (updatedVclock === null) {
+              updatedVclock = {};
+            }
+            existing.vclock = updatedVclock;
+          }
+          if (event.sig !== undefined) {
+            existing.sig = event.sig || null;
+          }
+          if (event.lamport_ts !== undefined && event.lamport_ts !== null) {
+            existing.lamport_ts = event.lamport_ts;
           }
         }
         registerSource(existing.source);
@@ -910,6 +1187,14 @@ VIZ_HTML = """
         }
 
         renderTimeline();
+
+        if (focusNodeId && nodes[focusNodeId] && isNodeVisible(nodes[focusNodeId])) {
+          updateDetailsPanel(nodes[focusNodeId], 'focus');
+        } else if (hoveredNodeId && nodes[hoveredNodeId] && isNodeVisible(nodes[hoveredNodeId])) {
+          updateDetailsPanel(nodes[hoveredNodeId], 'hover');
+        } else {
+          resetDetailsPanel();
+        }
       }
 
       var tooltip = document.createElement('div');
@@ -937,11 +1222,23 @@ VIZ_HTML = """
         tooltip.style.whiteSpace = 'pre';
         tooltip.style.opacity = '1';
         document.addEventListener('mousemove', positionTooltip);
+        hoveredNodeId = node.id;
+        if (focusNodeId && focusNodeId === node.id) {
+          updateDetailsPanel(node, 'focus');
+        } else {
+          updateDetailsPanel(node, 'hover');
+        }
       }
 
       function hideTooltip() {
         tooltip.style.opacity = '0';
         document.removeEventListener('mousemove', positionTooltip);
+        hoveredNodeId = null;
+        if (focusNodeId && nodes[focusNodeId] && isNodeVisible(nodes[focusNodeId])) {
+          updateDetailsPanel(nodes[focusNodeId], 'focus');
+        } else {
+          resetDetailsPanel();
+        }
       }
 
       function positionTooltip(event) {
@@ -1191,17 +1488,7 @@ async def handle_viz_graph(request: web.Request) -> web.Response:
     node = request.app["node"]
     events = await asyncio.to_thread(node.storage.all_events)
     edges = await asyncio.to_thread(node.storage.all_edges)
-    nodes = [
-        {
-            "id": event.id,
-            "cls": event.cls.value,
-            "source": event.source,
-            "consensus_ts": event.consensus_ts,
-            "ts_local": event.ts_local,
-            "parents": list(event.parents),
-        }
-        for event in events
-    ]
+    nodes = [event.to_dict() for event in events]
     links = [
         {"source": source, "target": target, "key": f"{source}->{target}"}
         for source, target in edges
