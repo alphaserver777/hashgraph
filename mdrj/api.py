@@ -4,6 +4,8 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import secrets
+from datetime import datetime
 from typing import Any, Dict, List
 
 from aiohttp import web
@@ -22,10 +24,19 @@ VIZ_HTML = """
     header { padding: 1rem 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; }
     h1 { font-size: 1.2rem; margin: 0; }
     #metrics { font-family: 'JetBrains Mono', Menlo, monospace; white-space: pre; margin-top: 0.6rem; }
+    #graph-status { font-size: 0.85rem; margin-top: 0.35rem; color: rgba(198, 210, 255, 0.85); }
     #graph { width: 100vw; height: calc(100vh - 88px); display: flex; }
     svg { width: 100%; height: 100%; background: radial-gradient(circle at top, rgba(255,255,255,0.06), transparent 60%); }
     .toolbar { font-size: 0.85rem; opacity: 0.75; }
-    .link { stroke: rgba(150, 190, 255, 0.25); stroke-width: 1.4px; }
+    #controls { display: flex; flex-direction: column; gap: 0.6rem; padding: 0.75rem 1.5rem; background: rgba(10, 16, 28, 0.92); border-top: 1px solid rgba(255,255,255,0.08); border-bottom: 1px solid rgba(255,255,255,0.08); }
+    #controls .controls-title { font-size: 0.9rem; color: rgba(233, 238, 255, 0.9); }
+    #controls .controls-buttons { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+    .sim-button { background: #22304a; color: #f1f6ff; border: 1px solid rgba(158, 182, 255, 0.4); border-radius: 6px; padding: 0.5rem 0.9rem; font-size: 0.85rem; cursor: pointer; transition: background 0.15s ease, transform 0.1s ease; }
+    .sim-button:hover { background: #2e3e5d; transform: translateY(-1px); }
+    .sim-button:disabled { opacity: 0.5; cursor: wait; transform: none; }
+    #controls-status { font-size: 0.8rem; color: rgba(198, 210, 255, 0.85); min-height: 1.1rem; }
+    .link { stroke: rgba(150, 190, 255, 0.4); stroke-width: 1.6px; marker-end: url(#arrowhead); }
+    .link-parent { stroke: rgba(255, 255, 255, 0.15); stroke-width: 1px; stroke-dasharray: 4 3; }
     .node { stroke: #04080f; stroke-width: 2px; }
     .label { fill: rgba(236, 242, 255, 0.9); font-size: 10px; pointer-events: none; }
     #legend { display: flex; gap: 1.2rem; padding: 0.75rem 1.5rem; font-size: 0.85rem; background: rgba(12, 20, 35, 0.95); border-top: 1px solid rgba(255,255,255,0.08); align-items: center; }
@@ -35,6 +46,7 @@ VIZ_HTML = """
     .dot-a { background: #ff6d6d; }
     .dot-b { background: #ffc971; }
     .dot-c { background: #5aa5ff; }
+    .dot-seq { background: #e6ebff; border: 1px solid rgba(255,255,255,0.4); width: 18px; height: 18px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.7rem; color: #08111f; }
     .edge { width: 26px; height: 2px; display: inline-block; background: rgba(150, 190, 255, 0.45); border-radius: 2px; }
   </style>
 </head>
@@ -43,16 +55,28 @@ VIZ_HTML = """
     <div>
       <h1>MDRJ-DAG / Hashgraph Visualizer</h1>
       <div id="metrics">Загрузка графа...</div>
+      <div id="graph-status">Подключение...</div>
     </div>
     <div class="toolbar">Поток событий: Server-Sent Events</div>
   </header>
+  <div id="controls">
+    <div class="controls-title">Имитация событий (создаёт новые вершины DAG):</div>
+    <div class="controls-buttons">
+      <button class="sim-button" data-sim="virus">Обнаружен вирус на узле</button>
+      <button class="sim-button" data-sim="admin_login">Удалённый вход администратора</button>
+      <button class="sim-button" data-sim="mac_spoof">Попытка MAC-spoofing</button>
+      <button class="sim-button" data-sim="portscan">Аномальный порт-скан</button>
+      <button class="sim-button" data-sim="heartbeat">Тестовый heartbeat</button>
+    </div>
+    <div id="controls-status">Готово к имитации.</div>
+  </div>
   <div id="graph"></div>
   <div id="legend">
     <div class="legend-item"><span class="dot dot-a"></span><span class="label">Класс A — критические события, транслируются обязательно</span></div>
     <div class="legend-item"><span class="dot dot-b"></span><span class="label">Класс B — важные события, доставляются по порогу угрозы</span></div>
     <div class="legend-item"><span class="dot dot-c"></span><span class="label">Класс C — вспомогательные/якорные события</span></div>
-    <div class="legend-item"><span class="edge"></span><span class="label">Рёбра показывают ссылку на родителей (причинную зависимость)</span></div>
-    <div class="legend-item"><span class="dot dot-seq"></span><span class="label">Номер (#) отражает итоговый порядок событий</span></div>
+    <div class="legend-item"><span class="edge"></span><span class="label">Рёбра показывают ссылку ребёнка на родителя (причинная зависимость)</span></div>
+    <div class="legend-item"><span class="dot dot-seq">#</span><span class="label">Номер (#) отражает итоговый порядок событий</span></div>
   </div>
   <script>
     (function () {
@@ -64,6 +88,104 @@ VIZ_HTML = """
       var linkOrder = [];
       var graphEl = document.getElementById('graph');
       var metricsEl = document.getElementById('metrics');
+      var statusEl = document.getElementById('graph-status');
+      var controlsRoot = document.getElementById('controls');
+      var controlsStatus = document.getElementById('controls-status');
+      var syncTimer = null;
+
+      function setControlsStatus(message, isError) {
+        if (!controlsStatus) {
+          return;
+        }
+        controlsStatus.textContent = message;
+        controlsStatus.style.color = isError ? '#ff8080' : 'rgba(198, 210, 255, 0.85)';
+      }
+
+      function setControlsDisabled(disabled) {
+        if (!controlsRoot) {
+          return;
+        }
+        var buttons = controlsRoot.querySelectorAll('.sim-button');
+        buttons.forEach(function (button) {
+          button.disabled = disabled;
+        });
+      }
+
+      function markStable() {
+        if (!statusEl) {
+          return;
+        }
+        statusEl.textContent = 'Граф стабилизирован: на этом узле известны все события.';
+        statusEl.style.color = 'rgba(140, 220, 150, 0.95)';
+        syncTimer = null;
+      }
+
+      function markSyncPending(message) {
+        if (!statusEl) {
+          return;
+        }
+        statusEl.textContent = message || 'Идёт синхронизация...';
+        statusEl.style.color = 'rgba(233, 196, 122, 0.9)';
+        if (syncTimer) {
+          clearTimeout(syncTimer);
+        }
+        syncTimer = setTimeout(markStable, 2000);
+      }
+
+      function markError(message) {
+        if (!statusEl) {
+          return;
+        }
+        statusEl.textContent = message;
+        statusEl.style.color = '#ff8080';
+      }
+
+      function triggerSimulation(key) {
+        if (!key) {
+          return;
+        }
+        setControlsDisabled(true);
+        setControlsStatus('Имитируем сценарий "' + key + '"...', false);
+        markSyncPending('Добавляется новое событие (' + key + ')...');
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/viz/simulate', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState === 4) {
+            setControlsDisabled(false);
+            if (xhr.status >= 200 && xhr.status < 300) {
+              setControlsStatus('Событие добавлено. Ожидайте появления на графе.', false);
+              markSyncPending('Идёт синхронизация...');
+            } else {
+              var msg = 'Ошибка запуска сценария';
+              if (xhr.responseText) {
+                msg += ': ' + xhr.responseText;
+              }
+              setControlsStatus(msg, true);
+              markError('Ошибка запуска сценария.');
+            }
+          }
+        };
+        xhr.onerror = function () {
+          setControlsDisabled(false);
+          setControlsStatus('Ошибка сети при запуске сценария', true);
+          markError('Ошибка сети при запуске сценария.');
+        };
+        xhr.send(JSON.stringify({ scenario: key }));
+      }
+
+      function setupControls() {
+        if (!controlsRoot) {
+          return;
+        }
+        var buttons = controlsRoot.querySelectorAll('.sim-button');
+        buttons.forEach(function (button) {
+          button.addEventListener('click', function () {
+            var key = button.getAttribute('data-sim');
+            triggerSimulation(key);
+          });
+        });
+      }
 
       function valueOr(value, fallback) {
         if (value === undefined || value === null) {
@@ -77,6 +199,21 @@ VIZ_HTML = """
       var linkGroup = document.createElementNS(svgNS, 'g');
       var nodeGroup = document.createElementNS(svgNS, 'g');
       var labelGroup = document.createElementNS(svgNS, 'g');
+      var defs = document.createElementNS(svgNS, 'defs');
+      var marker = document.createElementNS(svgNS, 'marker');
+      marker.setAttribute('id', 'arrowhead');
+      marker.setAttribute('markerWidth', '10');
+      marker.setAttribute('markerHeight', '7');
+      marker.setAttribute('refX', '13');
+      marker.setAttribute('refY', '3.5');
+      marker.setAttribute('orient', 'auto');
+      marker.setAttribute('markerUnits', 'strokeWidth');
+      var arrowPath = document.createElementNS(svgNS, 'path');
+      arrowPath.setAttribute('d', 'M0,0 L0,7 L10,3.5 z');
+      arrowPath.setAttribute('fill', 'rgba(150, 190, 255, 0.7)');
+      marker.appendChild(arrowPath);
+      defs.appendChild(marker);
+      svg.appendChild(defs);
       svg.appendChild(linkGroup);
       svg.appendChild(nodeGroup);
       svg.appendChild(labelGroup);
@@ -185,15 +322,15 @@ VIZ_HTML = """
           var linkKey = linkOrder[i];
           var link = links[linkKey];
           if (!link) { continue; }
-          var source = nodes[link.source];
-          var target = nodes[link.target];
-          if (!source || !target) { continue; }
+          var parentNode = nodes[link.source];
+          var childNode = nodes[link.target];
+          if (!parentNode || !childNode) { continue; }
           var line = document.createElementNS(svgNS, 'line');
           line.setAttribute('class', 'link');
-          line.setAttribute('x1', source.x);
-          line.setAttribute('y1', source.y);
-          line.setAttribute('x2', target.x);
-          line.setAttribute('y2', target.y);
+          line.setAttribute('x1', childNode.x);
+          line.setAttribute('y1', childNode.y);
+          line.setAttribute('x2', parentNode.x);
+          line.setAttribute('y2', parentNode.y);
           linkGroup.appendChild(line);
         }
 
@@ -280,6 +417,7 @@ VIZ_HTML = """
         info.push('C_net : ' + formatValue(Number(metrics.C_net) * 100, 2) + ' %');
         info.push('events : ' + valueOr(metrics.event_count, '-'));
         metricsEl.textContent = info.join('\\n');
+        markSyncPending('Обновление метрик...');
       }
 
       function loadGraph(callback) {
@@ -325,34 +463,42 @@ VIZ_HTML = """
           source.onmessage = function (event) {
             try {
               var data = JSON.parse(event.data);
-              if (data && data.event) {
-                addEvent(data.event);
-                renderGraph();
-              }
-              if (data && data.metrics) {
-                updateMetrics(data.metrics);
-              }
-            } catch (err) {
-              console.log('SSE parse error', err);
-            }
-          };
-          source.onerror = function () {
-            console.log('SSE disconnected, retry in 3s');
-            source.close();
-            setTimeout(connectStream, 3000);
-          };
+          if (data && data.event) {
+            addEvent(data.event);
+            renderGraph();
+            markSyncPending('Получено новое событие...');
+          }
+          if (data && data.metrics) {
+            updateMetrics(data.metrics);
+            markSyncPending('Идёт синхронизация...');
+          }
+        } catch (err) {
+          console.log('SSE parse error', err);
+        }
+      };
+      source.onerror = function () {
+        console.log('SSE disconnected, retry in 3s');
+        source.close();
+        markError('Поток событий временно прерван, перезапуск...');
+        setTimeout(connectStream, 3000);
+      };
         } catch (err) {
           console.log('EventSource unsupported', err);
         }
       }
 
+      setupControls();
+
       loadGraph(function (err) {
         if (err) {
           metricsEl.textContent = 'Ошибка загрузки графа: ' + err.message;
+          markError('Не удалось загрузить DAG.');
           return;
         }
         renderGraph();
         connectStream();
+        setControlsStatus('Готово к имитации.', false);
+        markStable();
       });
 
       window.addEventListener('resize', function () {
@@ -363,6 +509,46 @@ VIZ_HTML = """
 </body>
 </html>
 """
+
+SIMULATION_SCENARIOS: Dict[str, Dict[str, Any]] = {
+    "virus": {
+        "class": EventClass.A,
+        "payload": {
+            "category": "malware",
+            "description": "Обнаружен подозрительный исполняемый файл",
+            "severity": "high",
+        },
+    },
+    "admin_login": {
+        "class": EventClass.B,
+        "payload": {
+            "category": "authentication",
+            "description": "Удалённый вход администратора",
+            "source_ip": "192.0.2.15",
+        },
+    },
+    "mac_spoof": {
+        "class": EventClass.A,
+        "payload": {
+            "category": "network",
+            "description": "Попытка подмены MAC-адреса",
+        },
+    },
+    "portscan": {
+        "class": EventClass.B,
+        "payload": {
+            "category": "network",
+            "description": "Аномальный порт-скан внешним узлом",
+        },
+    },
+    "heartbeat": {
+        "class": EventClass.C,
+        "payload": {
+            "category": "diagnostic",
+            "description": "Тестовый heartbeat от панели мониторинга",
+        },
+    },
+}
 
 
 async def handle_event_batch(request: web.Request) -> web.Response:
@@ -385,6 +571,28 @@ async def handle_emit_local(request: web.Request) -> web.Response:
     body = payload.get("payload", {})
     emission = await node.emit_event(event_cls, body)
     return web.json_response({"event": emission.event.to_dict(), "stored": emission.stored})
+
+
+async def handle_viz_simulate(request: web.Request) -> web.Response:
+    node = request.app["node"]
+    try:
+        data = await request.json()
+    except json.JSONDecodeError as exc:
+        raise web.HTTPBadRequest(text="invalid json") from exc
+    scenario = data.get("scenario")
+    if scenario not in SIMULATION_SCENARIOS:
+        raise web.HTTPBadRequest(text="unknown scenario")
+    template = SIMULATION_SCENARIOS[scenario]
+    payload = dict(template["payload"])
+    payload.update(
+        {
+            "scenario": scenario,
+            "generated_at": datetime.utcnow().isoformat(timespec="seconds"),
+            "simulation_id": secrets.token_hex(6),
+        }
+    )
+    emission = await node.emit_event(template["class"], payload)
+    return web.json_response({"event": emission.event.to_dict()})
 
 
 async def handle_frontier(request: web.Request) -> web.Response:
@@ -496,6 +704,7 @@ def build_app(node) -> web.Application:
             web.get("/viz", handle_viz_page),
             web.get("/viz/graph", handle_viz_graph),
             web.get("/viz/stream", handle_viz_stream),
+            web.post("/viz/simulate", handle_viz_simulate),
         ]
     )
     return app
