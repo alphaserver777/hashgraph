@@ -31,6 +31,13 @@ VIZ_HTML = """
     #controls { display: flex; flex-direction: column; gap: 0.6rem; padding: 0.75rem 1.5rem; background: rgba(10, 16, 28, 0.92); border-top: 1px solid rgba(255,255,255,0.08); border-bottom: 1px solid rgba(255,255,255,0.08); }
     #controls .controls-title { font-size: 0.9rem; color: rgba(233, 238, 255, 0.9); }
     #controls .controls-buttons { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+    #filters { display: flex; flex-direction: column; gap: 0.45rem; background: rgba(9, 14, 24, 0.92); padding: 0.7rem 1.5rem; border-top: 1px solid rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.05); }
+    #filters .filters-title { font-size: 0.88rem; color: rgba(233, 238, 255, 0.85); }
+    #filters .filter-group { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .toggle-button { background: rgba(32, 48, 80, 0.8); color: #f6f8ff; border: 1px solid rgba(148, 178, 255, 0.35); border-radius: 6px; padding: 0.4rem 0.75rem; font-size: 0.82rem; cursor: pointer; transition: background 0.15s ease, transform 0.1s ease, opacity 0.15s ease; }
+    .toggle-button:hover { background: rgba(46, 68, 110, 0.9); }
+    .toggle-button.active { background: rgba(72, 138, 255, 0.8); border-color: rgba(255,255,255,0.6); color: #fff; }
+    .toggle-button.disabled { opacity: 0.35; cursor: default; transform: none; }
     .sim-button { background: #22304a; color: #f1f6ff; border: 1px solid rgba(158, 182, 255, 0.4); border-radius: 6px; padding: 0.5rem 0.9rem; font-size: 0.85rem; cursor: pointer; transition: background 0.15s ease, transform 0.1s ease; }
     .sim-button:hover { background: #2e3e5d; transform: translateY(-1px); }
     .sim-button:disabled { opacity: 0.5; cursor: wait; transform: none; }
@@ -83,6 +90,17 @@ VIZ_HTML = """
     </div>
     <div id="controls-status">Готово к имитации.</div>
   </div>
+  <div id="filters">
+    <div class="filters-title">Фильтры визуализации:</div>
+    <div class="filter-group" id="filter-classes">
+      <button class="toggle-button active" data-filter-class="A">Класс A</button>
+      <button class="toggle-button active" data-filter-class="B">Класс B</button>
+      <button class="toggle-button active" data-filter-class="C">Класс C</button>
+    </div>
+    <div class="filter-group" id="filter-sources">
+      <button class="toggle-button active" data-filter-source="__all__">Все источники</button>
+    </div>
+  </div>
   <div id="graph"></div>
   <div id="legend">
     <div class="legend-item"><span class="dot dot-a"></span><span class="label">Класс A — критические события, транслируются обязательно</span></div>
@@ -113,7 +131,15 @@ VIZ_HTML = """
       var statusEl = document.getElementById('graph-status');
       var controlsRoot = document.getElementById('controls');
       var controlsStatus = document.getElementById('controls-status');
+      var filterClassesRoot = document.getElementById('filter-classes');
+      var filterSourcesRoot = document.getElementById('filter-sources');
       var syncTimer = null;
+      var classFilterState = { A: true, B: true, C: true };
+      var classFilterButtons = {};
+      var ALL_SOURCES_TOKEN = '__all__';
+      var sourceFilterState = {};
+      sourceFilterState[ALL_SOURCES_TOKEN] = true;
+      var sourceFilterButtons = {};
 
       function setControlsStatus(message, isError) {
         if (!controlsStatus) {
@@ -131,6 +157,148 @@ VIZ_HTML = """
         buttons.forEach(function (button) {
           button.disabled = disabled;
         });
+      }
+
+      function activeClassCount() {
+        var count = 0;
+        Object.keys(classFilterState).forEach(function (cls) {
+          if (classFilterState[cls]) {
+            count += 1;
+          }
+        });
+        return count;
+      }
+
+      function updateClassButtonsUI() {
+        Object.keys(classFilterButtons).forEach(function (cls) {
+          var button = classFilterButtons[cls];
+          if (!button) {
+            return;
+          }
+          if (classFilterState[cls]) {
+            button.classList.add('active');
+          } else {
+            button.classList.remove('active');
+          }
+        });
+      }
+
+      function toggleClassFilter(cls) {
+        if (!cls || !classFilterState.hasOwnProperty(cls)) {
+          return;
+        }
+        if (classFilterState[cls] && activeClassCount() <= 1) {
+          return;
+        }
+        classFilterState[cls] = !classFilterState[cls];
+        updateClassButtonsUI();
+        renderGraph();
+      }
+
+      function countActiveSpecificSources() {
+        var count = 0;
+        Object.keys(sourceFilterState).forEach(function (key) {
+          if (key !== ALL_SOURCES_TOKEN && sourceFilterState[key]) {
+            count += 1;
+          }
+        });
+        return count;
+      }
+
+      function updateSourceButtonsUI() {
+        Object.keys(sourceFilterButtons).forEach(function (key) {
+          var button = sourceFilterButtons[key];
+          if (!button) {
+            return;
+          }
+          var shouldActivate;
+          if (key === ALL_SOURCES_TOKEN) {
+            shouldActivate = !!sourceFilterState[ALL_SOURCES_TOKEN];
+          } else if (sourceFilterState[ALL_SOURCES_TOKEN]) {
+            shouldActivate = false;
+          } else {
+            shouldActivate = !!sourceFilterState[key];
+          }
+          if (shouldActivate) {
+            button.classList.add('active');
+          } else {
+            button.classList.remove('active');
+          }
+        });
+      }
+
+      function activateAllSourcesFilter() {
+        sourceFilterState[ALL_SOURCES_TOKEN] = true;
+        Object.keys(sourceFilterState).forEach(function (key) {
+          if (key !== ALL_SOURCES_TOKEN) {
+            delete sourceFilterState[key];
+          }
+        });
+        updateSourceButtonsUI();
+        renderGraph();
+      }
+
+      function toggleSourceFilter(sourceId) {
+        if (!sourceId) {
+          return;
+        }
+        if (sourceId === ALL_SOURCES_TOKEN) {
+          activateAllSourcesFilter();
+          return;
+        }
+        if (!sourceFilterButtons[sourceId]) {
+          return;
+        }
+        var isActive = !!sourceFilterState[sourceId];
+        if (isActive) {
+          delete sourceFilterState[sourceId];
+          if (countActiveSpecificSources() === 0) {
+            activateAllSourcesFilter();
+            return;
+          }
+        } else {
+          sourceFilterState[ALL_SOURCES_TOKEN] = false;
+          sourceFilterState[sourceId] = true;
+        }
+        updateSourceButtonsUI();
+        renderGraph();
+      }
+
+      function registerSource(sourceId) {
+        var key = sourceId || 'unknown';
+        if (!filterSourcesRoot) {
+          return;
+        }
+        if (sourceFilterButtons[key]) {
+          return;
+        }
+        var button = document.createElement('button');
+        button.className = 'toggle-button';
+        button.textContent = key;
+        button.setAttribute('data-filter-source', key);
+        button.addEventListener('click', function () {
+          toggleSourceFilter(key);
+        });
+        filterSourcesRoot.appendChild(button);
+        sourceFilterButtons[key] = button;
+        updateSourceButtonsUI();
+      }
+
+      function isNodeVisible(node) {
+        if (!node) {
+          return false;
+        }
+        var classKey = node.cls || 'C';
+        if (classFilterState.hasOwnProperty(classKey) && !classFilterState[classKey]) {
+          return false;
+        }
+        if (!sourceFilterState[ALL_SOURCES_TOKEN]) {
+          var sourceKey = node.source || 'unknown';
+          if (!sourceFilterState[sourceKey]) {
+            return false;
+          }
+        }
+        return true;
       }
 
       function markStable() {
@@ -211,6 +379,30 @@ VIZ_HTML = """
             triggerSimulation(key);
           });
         });
+        if (filterClassesRoot) {
+          var classButtons = filterClassesRoot.querySelectorAll('[data-filter-class]');
+          classButtons.forEach(function (button) {
+            var cls = button.getAttribute('data-filter-class');
+            if (!cls) {
+              return;
+            }
+            classFilterButtons[cls] = button;
+            button.addEventListener('click', function () {
+              toggleClassFilter(cls);
+            });
+          });
+        }
+        if (filterSourcesRoot) {
+          var allButton = filterSourcesRoot.querySelector('[data-filter-source="' + ALL_SOURCES_TOKEN + '"]');
+          if (allButton) {
+            sourceFilterButtons[ALL_SOURCES_TOKEN] = allButton;
+            allButton.addEventListener('click', function () {
+              toggleSourceFilter(ALL_SOURCES_TOKEN);
+            });
+          }
+        }
+        updateClassButtonsUI();
+        updateSourceButtonsUI();
       }
 
       function valueOr(value, fallback) {
@@ -436,6 +628,7 @@ VIZ_HTML = """
             existing.parents = event.parents.slice(0);
           }
         }
+        registerSource(existing.source);
       }
 
       function addEvent(event) {
@@ -596,21 +789,33 @@ VIZ_HTML = """
 
         var colSpacing = 150;
         var rowSpacing = 150;
+        for (var resetIdx = 0; resetIdx < ordered.length; resetIdx += 1) {
+          var resetNode = nodes[ordered[resetIdx]];
+          if (resetNode) {
+            resetNode.sequence = null;
+          }
+        }
+
+        var visibleOrdered = [];
         for (var i = 0; i < ordered.length; i += 1) {
           var node = nodes[ordered[i]];
           if (!node) { continue; }
+          if (!isNodeVisible(node)) {
+            continue;
+          }
           var row = valueOr(rowByClass[node.cls], 3);
-          node.x = 120 + i * colSpacing;
+          node.x = 120 + visibleOrdered.length * colSpacing;
           node.y = 120 + row * rowSpacing;
-          node.sequence = i + 1;
+          node.sequence = visibleOrdered.length + 1;
+          visibleOrdered.push(node.id);
         }
 
-        var width = Math.max(ordered.length * colSpacing + 240, graphEl.clientWidth || 800);
+        var width = Math.max(visibleOrdered.length * colSpacing + 240, graphEl.clientWidth || 800);
         var height = Math.max(4 * rowSpacing + 200, graphEl.clientHeight || 600);
         updateViewBoxBase(width, height);
         svg.style.width = '100%';
         svg.style.height = '100%';
-        layoutOrder = ordered;
+        layoutOrder = visibleOrdered;
       }
 
       function renderGraph() {
@@ -618,6 +823,12 @@ VIZ_HTML = """
         linkGroup.innerHTML = '';
         nodeGroup.innerHTML = '';
         labelGroup.innerHTML = '';
+
+        if (focusNodeId && (!nodes[focusNodeId] || !isNodeVisible(nodes[focusNodeId]))) {
+          focusNodeId = null;
+          focusAncestors = {};
+          focusDescendants = {};
+        }
 
         var focusActive = !!focusNodeId;
         var focusRelated = {};
@@ -634,6 +845,7 @@ VIZ_HTML = """
           var parentNode = nodes[link.source];
           var childNode = nodes[link.target];
           if (!parentNode || !childNode) { continue; }
+          if (!isNodeVisible(parentNode) || !isNodeVisible(childNode)) { continue; }
           var line = document.createElementNS(svgNS, 'line');
           var edgeClass = 'link';
           if (focusActive) {
@@ -653,10 +865,10 @@ VIZ_HTML = """
           linkGroup.appendChild(line);
         }
 
-        for (var j = 0; j < nodeOrder.length; j += 1) {
-          var nodeId = nodeOrder[j];
+        for (var j = 0; j < layoutOrder.length; j += 1) {
+          var nodeId = layoutOrder[j];
           var node = nodes[nodeId];
-          if (!node) { continue; }
+          if (!node || !isNodeVisible(node)) { continue; }
           var circle = document.createElementNS(svgNS, 'circle');
           var circleClass = 'node';
           var radius = 10;
