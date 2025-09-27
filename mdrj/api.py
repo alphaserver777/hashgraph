@@ -39,6 +39,19 @@ VIZ_HTML = """
     .link-parent { stroke: rgba(255, 255, 255, 0.15); stroke-width: 1px; stroke-dasharray: 4 3; }
     .node { stroke: #04080f; stroke-width: 2px; }
     .label { fill: rgba(236, 242, 255, 0.9); font-size: 10px; pointer-events: none; }
+    .node-focus { stroke: #ffffff; stroke-width: 3px; }
+    .node-ancestor { stroke: #32c5ff; stroke-width: 2.5px; }
+    .node-descendant { stroke: #ffdd6d; stroke-width: 2.5px; }
+    .node-faded { opacity: 0.15; }
+    .link-highlight { stroke: rgba(255, 255, 255, 0.85); stroke-width: 2px; }
+    .link-faded { opacity: 0.12; }
+    #timeline { display: flex; flex-direction: column; gap: 0.45rem; padding: 0.75rem 1.5rem; background: rgba(10, 16, 28, 0.92); border-top: 1px solid rgba(255,255,255,0.08); border-bottom: 1px solid rgba(255,255,255,0.08); }
+    #timeline .timeline-title { font-size: 0.9rem; color: rgba(233, 238, 255, 0.9); }
+    #timeline-items { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+    .timeline-item { background: #121c31; border: 1px solid rgba(180, 200, 255, 0.25); color: rgba(233, 238, 255, 0.9); border-radius: 6px; padding: 0.35rem 0.7rem; font-size: 0.8rem; cursor: pointer; transition: background 0.15s ease, transform 0.1s ease; }
+    .timeline-item:hover { background: #1b2944; transform: translateY(-1px); }
+    .timeline-item.active { background: #3c4f7a; border-color: rgba(255,255,255,0.6); color: #fff; }
+    .timeline-item.faded { opacity: 0.4; }
     #legend { display: flex; gap: 1.2rem; padding: 0.75rem 1.5rem; font-size: 0.85rem; background: rgba(12, 20, 35, 0.95); border-top: 1px solid rgba(255,255,255,0.08); align-items: center; }
     .legend-item { display: flex; align-items: center; gap: 0.5rem; color: rgba(233, 238, 255, 0.8); }
     .legend-item .label { line-height: 1.2; }
@@ -78,6 +91,10 @@ VIZ_HTML = """
     <div class="legend-item"><span class="edge"></span><span class="label">Рёбра показывают ссылку ребёнка на родителя (причинная зависимость)</span></div>
     <div class="legend-item"><span class="dot dot-seq">#</span><span class="label">Номер (#) отражает итоговый порядок событий</span></div>
   </div>
+  <div id="timeline">
+    <div class="timeline-title">Порядок событий (нажмите, чтобы сфокусироваться):</div>
+    <div id="timeline-items"></div>
+  </div>
   <script>
     (function () {
       var colorByClass = { A: '#ff6d6d', B: '#ffc971', C: '#5aa5ff', default: '#99a9ff' };
@@ -86,6 +103,11 @@ VIZ_HTML = """
       var nodeOrder = [];
       var links = {};
       var linkOrder = [];
+      var childrenMap = {};
+      var layoutOrder = [];
+      var focusNodeId = null;
+      var focusAncestors = {};
+      var focusDescendants = {};
       var graphEl = document.getElementById('graph');
       var metricsEl = document.getElementById('metrics');
       var statusEl = document.getElementById('graph-status');
@@ -138,6 +160,10 @@ VIZ_HTML = """
         }
         statusEl.textContent = message;
         statusEl.style.color = '#ff8080';
+        if (syncTimer) {
+          clearTimeout(syncTimer);
+          syncTimer = null;
+        }
       }
 
       function triggerSimulation(key) {
@@ -225,6 +251,9 @@ VIZ_HTML = """
         }
         nodes[nodeId] = null;
         nodeOrder.push(nodeId);
+        if (!childrenMap[nodeId]) {
+          childrenMap[nodeId] = [];
+        }
       }
 
       function ensureNode(event) {
@@ -273,6 +302,124 @@ VIZ_HTML = """
             links[key] = { source: parentId, target: event.id };
             linkOrder.push(key);
           }
+          var childList = childrenMap[parentId];
+          if (!childList) {
+            childList = [];
+            childrenMap[parentId] = childList;
+          }
+          if (childList.indexOf(event.id) === -1) {
+            childList.push(event.id);
+          }
+        }
+      }
+
+      function computeAncestors(nodeId) {
+        var result = {};
+        var stack = [nodeId];
+        var visited = {};
+        while (stack.length > 0) {
+          var current = stack.pop();
+          var currentNode = nodes[current];
+          if (!currentNode) {
+            continue;
+          }
+          var parents = currentNode.parents || [];
+          for (var i = 0; i < parents.length; i += 1) {
+            var parentId = parents[i];
+            if (!parentId || result[parentId]) {
+              continue;
+            }
+            result[parentId] = true;
+            if (!visited[parentId]) {
+              visited[parentId] = true;
+              stack.push(parentId);
+            }
+          }
+        }
+        return result;
+      }
+
+      function computeDescendants(nodeId) {
+        var result = {};
+        var stack = [nodeId];
+        var visited = {};
+        while (stack.length > 0) {
+          var current = stack.pop();
+          var children = childrenMap[current] || [];
+          for (var i = 0; i < children.length; i += 1) {
+            var childId = children[i];
+            if (!childId || result[childId]) {
+              continue;
+            }
+            result[childId] = true;
+            if (!visited[childId]) {
+              visited[childId] = true;
+              stack.push(childId);
+            }
+          }
+        }
+        return result;
+      }
+
+      function setFocus(nodeId) {
+        if (nodeId === focusNodeId) {
+          focusNodeId = null;
+          focusAncestors = {};
+          focusDescendants = {};
+        } else {
+          focusNodeId = nodeId;
+          if (nodeId && nodes[nodeId]) {
+            focusAncestors = computeAncestors(nodeId);
+            focusDescendants = computeDescendants(nodeId);
+          } else {
+            focusAncestors = {};
+            focusDescendants = {};
+          }
+        }
+        renderGraph();
+      }
+
+      function renderTimeline() {
+        var container = document.getElementById('timeline-items');
+        if (!container) {
+          return;
+        }
+        container.innerHTML = '';
+
+        var resetBtn = document.createElement('button');
+        resetBtn.className = 'timeline-item';
+        resetBtn.textContent = 'Сбросить выделение';
+        resetBtn.addEventListener('click', function () {
+          setFocus(null);
+        });
+        if (!focusNodeId) {
+          resetBtn.classList.add('active');
+        }
+        container.appendChild(resetBtn);
+
+        for (var i = 0; i < layoutOrder.length; i += 1) {
+          var nodeId = layoutOrder[i];
+          var node = nodes[nodeId];
+          if (!node) {
+            continue;
+          }
+          var item = document.createElement('button');
+          item.className = 'timeline-item';
+          item.textContent = '#' + valueOr(node.sequence, '?') + ' · ' + node.cls + ' · ' + node.source;
+          if (focusNodeId === nodeId) {
+            item.classList.add('active');
+          } else if (focusNodeId) {
+            var related = focusAncestors[nodeId] || focusDescendants[nodeId];
+            if (!related) {
+              item.classList.add('faded');
+            }
+          }
+          (function (targetId) {
+            item.addEventListener('click', function () {
+              setFocus(targetId);
+            });
+          })(nodeId);
+          container.appendChild(item);
         }
       }
 
@@ -310,6 +457,7 @@ VIZ_HTML = """
         svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
         svg.style.width = '100%';
         svg.style.height = '100%';
+        layoutOrder = ordered;
       }
 
       function renderGraph() {
@@ -317,6 +465,14 @@ VIZ_HTML = """
         linkGroup.innerHTML = '';
         nodeGroup.innerHTML = '';
         labelGroup.innerHTML = '';
+
+        var focusActive = !!focusNodeId;
+        var focusRelated = {};
+        if (focusActive && nodes[focusNodeId]) {
+          focusRelated[focusNodeId] = true;
+          Object.keys(focusAncestors).forEach(function (key) { focusRelated[key] = true; });
+          Object.keys(focusDescendants).forEach(function (key) { focusRelated[key] = true; });
+        }
 
         for (var i = 0; i < linkOrder.length; i += 1) {
           var linkKey = linkOrder[i];
@@ -326,7 +482,17 @@ VIZ_HTML = """
           var childNode = nodes[link.target];
           if (!parentNode || !childNode) { continue; }
           var line = document.createElementNS(svgNS, 'line');
-          line.setAttribute('class', 'link');
+          var edgeClass = 'link';
+          if (focusActive) {
+            var parentIn = focusRelated[parentNode.id];
+            var childIn = focusRelated[childNode.id];
+            if (parentIn && childIn) {
+              edgeClass += ' link-highlight';
+            } else {
+              edgeClass += ' link-faded';
+            }
+          }
+          line.setAttribute('class', edgeClass);
           line.setAttribute('x1', childNode.x);
           line.setAttribute('y1', childNode.y);
           line.setAttribute('x2', parentNode.x);
@@ -339,14 +505,32 @@ VIZ_HTML = """
           var node = nodes[nodeId];
           if (!node) { continue; }
           var circle = document.createElementNS(svgNS, 'circle');
-          circle.setAttribute('class', 'node');
-          circle.setAttribute('r', '10');
+          var circleClass = 'node';
+          var radius = 10;
+          if (focusActive) {
+            if (nodeId === focusNodeId) {
+              circleClass += ' node-focus';
+              radius = 12;
+            } else if (focusAncestors[nodeId]) {
+              circleClass += ' node-ancestor';
+              radius = 11;
+            } else if (focusDescendants[nodeId]) {
+              circleClass += ' node-descendant';
+              radius = 11;
+            } else {
+              circleClass += ' node-faded';
+              radius = 9;
+            }
+          }
+          circle.setAttribute('class', circleClass);
+          circle.setAttribute('r', String(radius));
           circle.setAttribute('cx', node.x);
           circle.setAttribute('cy', node.y);
           circle.setAttribute('fill', colorByClass[node.cls] || colorByClass.default);
           circle.setAttribute('data-id', node.id);
           (function (n) {
             circle.addEventListener('mouseenter', function () { showTooltip(n); });
+            circle.addEventListener('click', function () { setFocus(n.id); });
           })(node);
           circle.addEventListener('mouseleave', function () { hideTooltip(); });
           nodeGroup.appendChild(circle);
@@ -359,6 +543,8 @@ VIZ_HTML = """
           label.textContent = '#' + valueOr(node.sequence, '?') + ' · ' + node.cls;
           labelGroup.appendChild(label);
         }
+
+        renderTimeline();
       }
 
       var tooltip = document.createElement('div');
