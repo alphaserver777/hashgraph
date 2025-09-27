@@ -225,6 +225,79 @@ VIZ_HTML = """
       var linkGroup = document.createElementNS(svgNS, 'g');
       var nodeGroup = document.createElementNS(svgNS, 'g');
       var labelGroup = document.createElementNS(svgNS, 'g');
+      var viewBoxState = {
+        baseWidth: 1200,
+        baseHeight: 800,
+        width: 1200,
+        height: 800,
+        x: 0,
+        y: 0,
+        scale: 1,
+        initialized: false
+      };
+      var MIN_SCALE = 0.4;
+      var MAX_SCALE = 4.0;
+
+      function clamp(value, min, max) {
+        return Math.min(Math.max(value, min), max);
+      }
+
+      function applyViewBox() {
+        svg.setAttribute(
+          'viewBox',
+          viewBoxState.x + ' ' + viewBoxState.y + ' ' + viewBoxState.width + ' ' + viewBoxState.height
+        );
+      }
+
+      function updateViewBoxBase(width, height) {
+        var safeWidth = Math.max(width, 10);
+        var safeHeight = Math.max(height, 10);
+        var centerX;
+        var centerY;
+        if (viewBoxState.initialized) {
+          centerX = viewBoxState.x + viewBoxState.width / 2;
+          centerY = viewBoxState.y + viewBoxState.height / 2;
+        } else {
+          centerX = safeWidth / 2;
+          centerY = safeHeight / 2;
+        }
+        viewBoxState.baseWidth = safeWidth;
+        viewBoxState.baseHeight = safeHeight;
+        viewBoxState.width = safeWidth / viewBoxState.scale;
+        viewBoxState.height = safeHeight / viewBoxState.scale;
+        viewBoxState.x = centerX - viewBoxState.width / 2;
+        viewBoxState.y = centerY - viewBoxState.height / 2;
+        viewBoxState.initialized = true;
+        applyViewBox();
+      }
+
+      function setScale(newScale, focusX, focusY) {
+        var clamped = clamp(newScale, MIN_SCALE, MAX_SCALE);
+        if (!isFinite(clamped) || clamped === viewBoxState.scale) {
+          return;
+        }
+        var prevWidth = viewBoxState.width;
+        var prevHeight = viewBoxState.height;
+        var pivotX = (typeof focusX === 'number') ? focusX : viewBoxState.x + prevWidth / 2;
+        var pivotY = (typeof focusY === 'number') ? focusY : viewBoxState.y + prevHeight / 2;
+        viewBoxState.scale = clamped;
+        viewBoxState.width = viewBoxState.baseWidth / viewBoxState.scale;
+        viewBoxState.height = viewBoxState.baseHeight / viewBoxState.scale;
+        var widthRatio = viewBoxState.width / prevWidth;
+        var heightRatio = viewBoxState.height / prevHeight;
+        viewBoxState.x = pivotX - (pivotX - viewBoxState.x) * widthRatio;
+        viewBoxState.y = pivotY - (pivotY - viewBoxState.y) * heightRatio;
+        applyViewBox();
+      }
+
+      function screenDeltaToViewBox(dx, dy) {
+        var rectWidth = svg.clientWidth || graphEl.clientWidth || 1;
+        var rectHeight = svg.clientHeight || graphEl.clientHeight || 1;
+        return {
+          dx: dx * (viewBoxState.width / rectWidth),
+          dy: dy * (viewBoxState.height / rectHeight)
+        };
+      }
       var defs = document.createElementNS(svgNS, 'defs');
       var marker = document.createElementNS(svgNS, 'marker');
       marker.setAttribute('id', 'arrowhead');
@@ -244,6 +317,86 @@ VIZ_HTML = """
       svg.appendChild(nodeGroup);
       svg.appendChild(labelGroup);
       graphEl.appendChild(svg);
+      svg.style.cursor = 'grab';
+      applyViewBox();
+
+      var isPanning = false;
+      var panPointerId = null;
+      var lastPanPoint = { x: 0, y: 0 };
+
+      function endPan(event) {
+        if (!isPanning) {
+          return;
+        }
+        if (
+          event && typeof event.pointerId === 'number' && panPointerId !== null && event.pointerId !== panPointerId
+        ) {
+          return;
+        }
+        if (panPointerId !== null) {
+          try {
+            svg.releasePointerCapture(panPointerId);
+          } catch (err) {}
+        }
+        isPanning = false;
+        panPointerId = null;
+        svg.style.cursor = 'grab';
+      }
+
+      svg.addEventListener('pointerdown', function (event) {
+        if (event.button !== 0) {
+          return;
+        }
+        var target = event.target;
+        if (
+          target &&
+          target.classList &&
+          (target.classList.contains('node') || target.classList.contains('label'))
+        ) {
+          return;
+        }
+        isPanning = true;
+        panPointerId = event.pointerId;
+        svg.setPointerCapture(panPointerId);
+        lastPanPoint.x = event.clientX;
+        lastPanPoint.y = event.clientY;
+        svg.style.cursor = 'grabbing';
+      });
+
+      svg.addEventListener('pointermove', function (event) {
+        if (!isPanning || event.pointerId !== panPointerId) {
+          return;
+        }
+        var deltaX = event.clientX - lastPanPoint.x;
+        var deltaY = event.clientY - lastPanPoint.y;
+        lastPanPoint.x = event.clientX;
+        lastPanPoint.y = event.clientY;
+        var delta = screenDeltaToViewBox(deltaX, deltaY);
+        viewBoxState.x -= delta.dx;
+        viewBoxState.y -= delta.dy;
+        applyViewBox();
+      });
+
+      svg.addEventListener('pointerup', endPan);
+      svg.addEventListener('pointerleave', endPan);
+      svg.addEventListener('pointercancel', endPan);
+
+      svg.addEventListener(
+        'wheel',
+        function (event) {
+          event.preventDefault();
+          var rect = svg.getBoundingClientRect();
+          var pointerX = viewBoxState.x + viewBoxState.width / 2;
+          var pointerY = viewBoxState.y + viewBoxState.height / 2;
+          if (rect.width > 0 && rect.height > 0) {
+            pointerX = viewBoxState.x + ((event.clientX - rect.left) / rect.width) * viewBoxState.width;
+            pointerY = viewBoxState.y + ((event.clientY - rect.top) / rect.height) * viewBoxState.height;
+          }
+          var factor = event.deltaY > 0 ? 0.9 : 1.1;
+          setScale(viewBoxState.scale * factor, pointerX, pointerY);
+        },
+        { passive: false }
+      );
 
       function rememberNode(nodeId) {
         if (nodes.hasOwnProperty(nodeId)) {
@@ -454,7 +607,7 @@ VIZ_HTML = """
 
         var width = Math.max(ordered.length * colSpacing + 240, graphEl.clientWidth || 800);
         var height = Math.max(4 * rowSpacing + 200, graphEl.clientHeight || 600);
-        svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+        updateViewBoxBase(width, height);
         svg.style.width = '100%';
         svg.style.height = '100%';
         layoutOrder = ordered;
