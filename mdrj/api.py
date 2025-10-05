@@ -22,10 +22,11 @@ VIZ_HTML = """
   <style>
     body { margin: 0; font-family: system-ui, sans-serif; background: #08111f; color: #eff3ff; }
     header { padding: 1rem 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; }
+    .header-actions { display: flex; align-items: center; gap: 0.75rem; }
     h1 { font-size: 1.2rem; margin: 0; }
     #metrics { font-family: 'JetBrains Mono', Menlo, monospace; white-space: pre; margin-top: 0.6rem; }
     #graph-status { font-size: 0.85rem; margin-top: 0.35rem; color: rgba(198, 210, 255, 0.85); }
-    #graph-wrapper { display: flex; flex-direction: row; align-items: stretch; width: 100vw; height: calc(100vh - 88px); background: rgba(6, 12, 20, 0.9); }
+    #graph-wrapper { display: flex; flex-direction: row; align-items: stretch; width: 100vw; height: calc(100vh - 88px); background: rgba(6, 12, 20, 0.9); position: relative; }
     #graph { flex: 1 1 auto; min-height: calc(100vh - 88px); display: flex; }
     svg { width: 100%; height: 100%; background: radial-gradient(circle at top, rgba(255,255,255,0.06), transparent 60%); }
     .toolbar { font-size: 0.85rem; opacity: 0.75; }
@@ -69,8 +70,12 @@ VIZ_HTML = """
     .dot-c { background: #5aa5ff; }
     .dot-seq { background: #e6ebff; border: 1px solid rgba(255,255,255,0.4); width: 18px; height: 18px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.7rem; color: #08111f; }
     .edge { width: 26px; height: 2px; display: inline-block; background: rgba(150, 190, 255, 0.45); border-radius: 2px; }
-    #details-panel { width: 320px; max-width: 360px; background: rgba(14, 20, 34, 0.97); border-left: 1px solid rgba(255,255,255,0.06); padding: 1rem 1.1rem; overflow-y: auto; color: rgba(233, 238, 255, 0.92); height: 100%; box-sizing: border-box; }
-    #details-panel h2 { margin: 0; font-size: 1rem; color: #f7f9ff; }
+    body.modal-open { overflow: hidden; }
+    #details-backdrop { position: fixed; inset: 0; background: rgba(6, 10, 22, 0.6); backdrop-filter: blur(2px); opacity: 0; pointer-events: none; transition: opacity 0.2s ease; z-index: 200; }
+    #details-backdrop.visible { opacity: 1; pointer-events: auto; }
+    #details-panel { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.96); width: min(600px, calc(100vw - 3rem)); max-height: calc(100vh - 4rem); overflow-y: auto; background: rgba(14, 20, 34, 0.97); border: 1px solid rgba(255,255,255,0.1); border-radius: 18px; padding: 1.6rem 1.6rem 1.3rem; color: rgba(233, 238, 255, 0.92); box-shadow: 0 28px 68px rgba(4, 10, 24, 0.55); opacity: 0; pointer-events: none; transition: transform 0.2s ease, opacity 0.18s ease; z-index: 240; }
+    #details-panel.is-open { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%) scale(1); }
+    #details-panel h2 { margin: 0; font-size: 1.08rem; color: #f7f9ff; padding-right: 2.2rem; }
     #details-panel h3 { margin: 0.9rem 0 0.4rem; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05rem; color: rgba(189, 205, 255, 0.85); }
     #details-context { font-size: 0.78rem; margin-top: 0.25rem; color: rgba(189, 202, 255, 0.75); }
     .details-section { margin-top: 0.8rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.6rem; }
@@ -84,6 +89,12 @@ VIZ_HTML = """
     .details-list li { padding: 0.15rem 0; color: rgba(229, 235, 255, 0.88); word-break: break-all; }
     .details-hint { font-size: 0.78rem; color: rgba(185, 198, 235, 0.7); margin-top: 0.5rem; }
     #details-panel .empty { opacity: 0.6; font-style: italic; }
+    .details-close { position: absolute; top: 1rem; right: 1rem; border: none; background: rgba(36, 50, 78, 0.7); color: rgba(235, 240, 255, 0.9); width: 34px; height: 34px; border-radius: 50%; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: 1.1rem; line-height: 1; transition: background 0.15s ease, transform 0.1s ease; }
+    .details-close:hover { background: rgba(49, 66, 102, 0.9); transform: translateY(-1px); }
+    .details-close:focus-visible { outline: 2px solid rgba(120, 150, 220, 0.8); outline-offset: 2px; }
+    @media (max-width: 640px) {
+      #details-panel { width: calc(100vw - 1.5rem); padding: 1.3rem 1.1rem 1.1rem; }
+    }
   </style>
 </head>
 <body>
@@ -93,7 +104,9 @@ VIZ_HTML = """
       <div id="metrics">Загрузка графа...</div>
       <div id="graph-status">Подключение...</div>
     </div>
-    <div class="toolbar">Поток событий: Server-Sent Events</div>
+    <div class="header-actions">
+      <div class="toolbar">Поток событий: Server-Sent Events</div>
+    </div>
   </header>
   <div id="controls">
     <div class="controls-title">Имитация событий (создаёт новые вершины DAG):</div>
@@ -119,7 +132,8 @@ VIZ_HTML = """
   </div>
   <div id="graph-wrapper">
     <div id="graph"></div>
-    <aside id="details-panel">
+    <aside id="details-panel" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="details-title" aria-describedby="details-context" tabindex="-1">
+      <button id="details-close" class="details-close" type="button" aria-label="Скрыть панель деталей"><span aria-hidden="true">&times;</span></button>
       <h2 id="details-title">Нет выбранного события</h2>
       <div id="details-context">Наведите курсор или нажмите на вершину, чтобы увидеть детали.</div>
       <div class="details-section">
@@ -151,6 +165,7 @@ VIZ_HTML = """
       </div>
     </aside>
   </div>
+  <div id="details-backdrop" aria-hidden="true"></div>
   <div id="legend">
     <div class="legend-item"><span class="dot dot-a"></span><span class="label">Класс A — критические события, транслируются обязательно</span></div>
     <div class="legend-item"><span class="dot dot-b"></span><span class="label">Класс B — важные события, доставляются по порогу угрозы</span></div>
@@ -191,6 +206,8 @@ VIZ_HTML = """
       var detailsParents = document.getElementById('details-path-parents');
       var detailsChildren = document.getElementById('details-path-children');
       var detailsSig = document.getElementById('details-sig');
+      var detailsClose = document.getElementById('details-close');
+      var detailsBackdrop = document.getElementById('details-backdrop');
       var syncTimer = null;
       var classFilterState = { A: true, B: true, C: true };
       var classFilterButtons = {};
@@ -199,6 +216,87 @@ VIZ_HTML = """
       sourceFilterState[ALL_SOURCES_TOKEN] = true;
       var sourceFilterButtons = {};
       var hoveredNodeId = null;
+      var isDetailsOpen = false;
+      var shouldOpenDetailsOnFocus = false;
+      var lastActiveElement = null;
+
+      function openDetailsPanel() {
+        if (!detailsPanel) {
+          return;
+        }
+        if (!isDetailsOpen) {
+          if (typeof document !== 'undefined') {
+            lastActiveElement = document.activeElement;
+          }
+          detailsPanel.classList.add('is-open');
+          if (detailsBackdrop) {
+            detailsBackdrop.classList.add('visible');
+          }
+          if (typeof document !== 'undefined' && document.body) {
+            document.body.classList.add('modal-open');
+          }
+        }
+        isDetailsOpen = true;
+        detailsPanel.setAttribute('aria-hidden', 'false');
+        if (typeof detailsPanel.focus === 'function') {
+          try {
+            detailsPanel.focus({ preventScroll: true });
+          } catch (err) {
+            detailsPanel.focus();
+          }
+        }
+      }
+
+      function closeDetailsPanel(options) {
+        var opts = options || {};
+        var preserveIntent = !!opts.preserveIntent;
+        var shouldRestoreFocus = opts.restoreFocus !== false;
+        if (!detailsPanel) {
+          return;
+        }
+        detailsPanel.classList.remove('is-open');
+        detailsPanel.classList.remove('has-node');
+        detailsPanel.setAttribute('aria-hidden', 'true');
+        if (detailsBackdrop) {
+          detailsBackdrop.classList.remove('visible');
+        }
+        if (typeof document !== 'undefined' && document.body) {
+          document.body.classList.remove('modal-open');
+        }
+        isDetailsOpen = false;
+        if (!preserveIntent) {
+          shouldOpenDetailsOnFocus = false;
+        }
+        if (lastActiveElement && typeof document !== 'undefined' && document.contains && !document.contains(lastActiveElement)) {
+          lastActiveElement = null;
+        }
+        if (shouldRestoreFocus && lastActiveElement && typeof lastActiveElement.focus === 'function') {
+          try {
+            lastActiveElement.focus();
+          } catch (err) {
+            /* ignore focus restore errors */
+          }
+        }
+        lastActiveElement = null;
+      }
+
+      if (detailsClose) {
+        detailsClose.addEventListener('click', function () {
+          closeDetailsPanel();
+        });
+      }
+      if (detailsBackdrop) {
+        detailsBackdrop.addEventListener('click', function () {
+          closeDetailsPanel();
+        });
+      }
+      if (typeof document !== 'undefined' && document.addEventListener) {
+        document.addEventListener('keydown', function (event) {
+          if (event.key === 'Escape') {
+            closeDetailsPanel();
+          }
+        });
+      }
 
       function setControlsStatus(message, isError) {
         if (!controlsStatus) {
@@ -367,7 +465,11 @@ VIZ_HTML = """
         if (!detailsPanel) {
           return;
         }
-        detailsPanel.classList.remove('has-node');
+        var preserveIntent = !!focusNodeId;
+        if (preserveIntent) {
+          shouldOpenDetailsOnFocus = true;
+        }
+        closeDetailsPanel({ preserveIntent: preserveIntent, restoreFocus: !preserveIntent });
         if (detailsTitle) {
           detailsTitle.textContent = 'Нет выбранного события';
         }
@@ -472,12 +574,25 @@ VIZ_HTML = """
           resetDetailsPanel();
           return;
         }
+        if (context !== 'focus' && !isDetailsOpen) {
+          return;
+        }
+        if (context === 'focus') {
+          if (!isDetailsOpen && shouldOpenDetailsOnFocus) {
+            openDetailsPanel();
+          }
+          shouldOpenDetailsOnFocus = false;
+        }
+        if (!isDetailsOpen) {
+          return;
+        }
         detailsPanel.classList.add('has-node');
+        detailsPanel.setAttribute('aria-hidden', 'false');
         if (detailsTitle) {
           detailsTitle.textContent = node.id;
         }
         if (detailsContext) {
-          var contextLabel = context === 'focus' ? 'Фокус (выбрано кликом)' : 'Просмотр (наведение)';
+          var contextLabel = 'Фокус (выбрано кликом)';
           detailsContext.textContent = contextLabel;
         }
         if (detailsMeta) {
@@ -985,20 +1100,37 @@ VIZ_HTML = """
       }
 
       function setFocus(nodeId) {
-        if (nodeId === focusNodeId) {
+        if (!nodeId) {
           focusNodeId = null;
           focusAncestors = {};
           focusDescendants = {};
-        } else {
-          focusNodeId = nodeId;
-          if (nodeId && nodes[nodeId]) {
-            focusAncestors = computeAncestors(nodeId);
-            focusDescendants = computeDescendants(nodeId);
-          } else {
+          shouldOpenDetailsOnFocus = false;
+          closeDetailsPanel();
+          renderGraph();
+          return;
+        }
+        if (nodeId === focusNodeId) {
+          if (isDetailsOpen) {
+            focusNodeId = null;
             focusAncestors = {};
             focusDescendants = {};
+            shouldOpenDetailsOnFocus = false;
+            closeDetailsPanel();
+          } else {
+            shouldOpenDetailsOnFocus = true;
           }
+          renderGraph();
+          return;
         }
+        focusNodeId = nodeId;
+        if (nodes[nodeId]) {
+          focusAncestors = computeAncestors(nodeId);
+          focusDescendants = computeDescendants(nodeId);
+        } else {
+          focusAncestors = {};
+          focusDescendants = {};
+        }
+        shouldOpenDetailsOnFocus = true;
         renderGraph();
       }
 
@@ -1190,8 +1322,6 @@ VIZ_HTML = """
 
         if (focusNodeId && nodes[focusNodeId] && isNodeVisible(nodes[focusNodeId])) {
           updateDetailsPanel(nodes[focusNodeId], 'focus');
-        } else if (hoveredNodeId && nodes[hoveredNodeId] && isNodeVisible(nodes[hoveredNodeId])) {
-          updateDetailsPanel(nodes[hoveredNodeId], 'hover');
         } else {
           resetDetailsPanel();
         }
@@ -1223,22 +1353,12 @@ VIZ_HTML = """
         tooltip.style.opacity = '1';
         document.addEventListener('mousemove', positionTooltip);
         hoveredNodeId = node.id;
-        if (focusNodeId && focusNodeId === node.id) {
-          updateDetailsPanel(node, 'focus');
-        } else {
-          updateDetailsPanel(node, 'hover');
-        }
       }
 
       function hideTooltip() {
         tooltip.style.opacity = '0';
         document.removeEventListener('mousemove', positionTooltip);
         hoveredNodeId = null;
-        if (focusNodeId && nodes[focusNodeId] && isNodeVisible(nodes[focusNodeId])) {
-          updateDetailsPanel(nodes[focusNodeId], 'focus');
-        } else {
-          resetDetailsPanel();
-        }
       }
 
       function positionTooltip(event) {
