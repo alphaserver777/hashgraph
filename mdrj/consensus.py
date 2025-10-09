@@ -21,8 +21,13 @@ class ConsensusEngine:
 
     def compute_timestamp(self, envelope: Envelope, arrival_ts: float) -> ConsensusResult:
         samples = envelope.consensus_candidates()
-        samples.append(arrival_ts)
-        consensus_ts = median(samples)
+        if samples:
+            consensus_ts = median(samples)
+        else:
+            lamport = envelope.event.lamport_ts
+            if lamport is None:
+                lamport = sum(int(counter) for counter in envelope.event.vclock.values())
+            consensus_ts = float(lamport)
         return ConsensusResult(
             event_id=envelope.event.id,
             consensus_ts=consensus_ts,
@@ -37,5 +42,4 @@ class ConsensusEngine:
         ]
         decorated.sort()
         return [ev for _, _, ev in decorated]
-
 

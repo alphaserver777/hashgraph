@@ -65,6 +65,13 @@ class DAGStorage:
                 """
             )
 
+    def clear_events(self) -> None:
+        """Remove all events, edges and envelopes from storage."""
+        with self._lock, self._conn:
+            self._conn.execute("DELETE FROM events")
+            self._conn.execute("DELETE FROM envelopes")
+            self._conn.execute("DELETE FROM edges")
+
     def _merge_path_meta(self, event_id: str, new_path: Sequence[Dict]) -> None:
         existing = self._conn.execute(
             "SELECT path_meta FROM envelopes WHERE event_id = ?", (event_id,)

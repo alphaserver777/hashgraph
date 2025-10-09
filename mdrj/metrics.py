@@ -46,6 +46,12 @@ class MetricsEngine:
         self._peer_health = list(peers)
         self._quorum = max(1, quorum)
 
+    def reset(self) -> None:
+        """Reset transient metrics after destructive operations (e.g. clearing DAG)."""
+        self._gossip_latencies.clear()
+        self._merge_quality = 1.0
+        self._last_batch_bytes = 0
+
     def _availability_estimate(self) -> float:
         if not self._peer_health:
             return 1.0
@@ -75,4 +81,3 @@ class MetricsEngine:
             c_net=c_net,
             event_count=self.storage.event_count(),
         )
-

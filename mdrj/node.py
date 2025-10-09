@@ -204,6 +204,17 @@ class Node:
             return 1.0
         return max(0.0, 1 - missing / total_edges)
 
+    def clear_events(self) -> None:
+        """Purge DAG and reinitialize with local genesis anchors."""
+        self.storage.clear_events()
+        self.vector_clock = VectorClock()
+        self._anchors = []
+        self.metrics.reset()
+        reset_metrics = self.metrics_snapshot()
+        self._notify_viz_reset(reset_metrics)
+        self._bootstrap_genesis(force=True)
+        self.metrics.update_peer_health(self.list_peers(), self._quorum())
+
     def _sign_payload(self, payload: Mapping[str, object]) -> str:
         if not self.config.security.hmac_key:
             return ""
@@ -219,8 +230,8 @@ class Node:
         self._anchors = anchors[:2]
         return self._anchors
 
-    def _bootstrap_genesis(self) -> None:
-        if self.storage.event_count() > 0:
+    def _bootstrap_genesis(self, *, force: bool = False) -> None:
+        if not force and self.storage.event_count() > 0:
             # ensure anchors cached for restarts
             self._anchor_ids()
             return
@@ -239,7 +250,7 @@ class Node:
             event.consensus_ts = event.ts_local
             self.storage.store_envelope(envelope, envelope.event.ts_local)
             anchors.append(event.id)
-            self._notify_viz(envelope.event, stored=True, metrics=None)
+            self._notify_viz(envelope.event, stored=True, metrics=self.metrics_snapshot())
         self._anchors = anchors
 
     # ------------------------------------------------------------------
@@ -253,8 +264,6 @@ class Node:
         self._viz_subscribers.discard(queue)
 
     def _notify_viz(self, event: Event, *, stored: bool, metrics: Optional[Dict[str, object]]) -> None:
-        if not self._viz_subscribers:
-            return
         payload: Dict[str, object] = {
             "type": "event",
             "stored": stored,
@@ -262,6 +271,17 @@ class Node:
         }
         if metrics is not None:
             payload["metrics"] = metrics
+        self._broadcast_viz(payload)
+
+    def _notify_viz_reset(self, metrics: Optional[Dict[str, object]]) -> None:
+        payload: Dict[str, object] = {"type": "reset"}
+        if metrics is not None:
+            payload["metrics"] = metrics
+        self._broadcast_viz(payload)
+
+    def _broadcast_viz(self, payload: Dict[str, object]) -> None:
+        if not self._viz_subscribers:
+            return
         loop = self._loop
         for queue in list(self._viz_subscribers):
             if loop and loop.is_running():

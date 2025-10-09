@@ -43,6 +43,8 @@ VIZ_HTML = """
     .sim-button { background: #22304a; color: #f1f6ff; border: 1px solid rgba(158, 182, 255, 0.4); border-radius: 6px; padding: 0.5rem 0.9rem; font-size: 0.85rem; cursor: pointer; transition: background 0.15s ease, transform 0.1s ease; }
     .sim-button:hover { background: #2e3e5d; transform: translateY(-1px); }
     .sim-button:disabled { opacity: 0.5; cursor: wait; transform: none; }
+    .sim-button.danger { background: rgba(110, 36, 52, 0.85); border-color: rgba(255, 146, 146, 0.45); }
+    .sim-button.danger:hover { background: rgba(142, 44, 63, 0.92); }
     #controls-status { font-size: 0.8rem; color: rgba(198, 210, 255, 0.85); min-height: 1.1rem; }
     .link { stroke: rgba(150, 190, 255, 0.4); stroke-width: 1.6px; marker-end: url(#arrowhead); }
     .link-parent { stroke: rgba(255, 255, 255, 0.15); stroke-width: 1px; stroke-dasharray: 4 3; }
@@ -118,6 +120,7 @@ VIZ_HTML = """
       <button class="sim-button" data-sim="mac_spoof">Попытка MAC-spoofing</button>
       <button class="sim-button" data-sim="portscan">Аномальный порт-скан</button>
       <button class="sim-button" data-sim="heartbeat">Тестовый heartbeat</button>
+      <button class="sim-button danger" id="clear-graph" type="button">Очистить DAG</button>
     </div>
     <div id="controls-status">Готово к имитации.</div>
   </div>
@@ -190,19 +193,22 @@ VIZ_HTML = """
       var layoutOrder = [];
       var laneOrder = [];
       var lanePositions = {};
-      var layoutDimensions = {
-        width: 800,
-        height: 600,
-        contentWidth: 800,
-        contentHeight: 600,
-        top: 200,
-        bottom: 200,
-        left: 160,
-        right: 160,
-        rowSpacing: 120,
-        colSpacing: 200,
-        lastNodeY: 200
-      };
+      function defaultLayoutDimensions() {
+        return {
+          width: 800,
+          height: 600,
+          contentWidth: 800,
+          contentHeight: 600,
+          top: 200,
+          bottom: 200,
+          left: 160,
+          right: 160,
+          rowSpacing: 120,
+          colSpacing: 200,
+          lastNodeY: 200
+        };
+      }
+      var layoutDimensions = defaultLayoutDimensions();
       var sourceOrder = [];
       var focusNodeId = null;
       var focusAncestors = {};
@@ -694,6 +700,25 @@ VIZ_HTML = """
         }
       }
 
+      function resetGraphState() {
+        nodes = {};
+        nodeOrder = [];
+        links = {};
+        linkOrder = [];
+        childrenMap = {};
+        layoutOrder = [];
+        laneOrder = [];
+        lanePositions = {};
+        layoutDimensions = defaultLayoutDimensions();
+        focusNodeId = null;
+        focusAncestors = {};
+        focusDescendants = {};
+        hoveredNodeId = null;
+        shouldOpenDetailsOnFocus = false;
+        closeDetailsPanel();
+        renderGraph();
+      }
+
       function triggerSimulation(key) {
         if (!key) {
           return;
@@ -728,16 +753,80 @@ VIZ_HTML = """
         xhr.send(JSON.stringify({ scenario: key }));
       }
 
+      function triggerGraphClear() {
+        var proceed = true;
+        if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+          proceed = window.confirm('Очистить известные события DAG на этом узле?');
+        }
+        if (!proceed) {
+          return;
+        }
+        setControlsDisabled(true);
+        setControlsStatus('Очищаем DAG...', false);
+        markSyncPending('Выполняется очистка графа...');
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/viz/clear', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState === 4) {
+            setControlsDisabled(false);
+            if (xhr.status >= 200 && xhr.status < 300) {
+              var payload = null;
+              if (xhr.responseText) {
+                try {
+                  payload = JSON.parse(xhr.responseText);
+                } catch (err) {
+                  /* ignore parse errors */
+                }
+              }
+              resetGraphState();
+              if (payload && payload.metrics) {
+                updateMetrics(payload.metrics);
+              }
+              setControlsStatus('Граф очищен, ждём новые события.', false);
+              markSyncPending('Получаем якорные события...');
+              loadGraph(function (err) {
+                if (err) {
+                  setControlsStatus('Ошибка повторной загрузки данных: ' + err.message, true);
+                  markError('Ошибка при повторной загрузке графа.');
+                } else {
+                  renderGraph();
+                }
+              });
+            } else {
+              var message = 'Не удалось очистить DAG';
+              if (xhr.responseText) {
+                message += ': ' + xhr.responseText;
+              }
+              setControlsStatus(message, true);
+              markError('Ошибка при очистке DAG.');
+            }
+          }
+        };
+        xhr.onerror = function () {
+          setControlsDisabled(false);
+          setControlsStatus('Ошибка сети при очистке DAG', true);
+          markError('Ошибка сети при очистке DAG.');
+        };
+        xhr.send('{}');
+      }
+
       function setupControls() {
         if (!controlsRoot) {
           return;
         }
         var buttons = controlsRoot.querySelectorAll('.sim-button');
         buttons.forEach(function (button) {
-          button.addEventListener('click', function () {
-            var key = button.getAttribute('data-sim');
-            triggerSimulation(key);
-          });
+          var simKey = button.getAttribute('data-sim');
+          if (simKey) {
+            button.addEventListener('click', function () {
+              triggerSimulation(simKey);
+            });
+          } else if (button.id === 'clear-graph') {
+            button.addEventListener('click', function () {
+              triggerGraphClear();
+            });
+          }
         });
         if (filterClassesRoot) {
           var classButtons = filterClassesRoot.querySelectorAll('[data-filter-class]');
@@ -1555,19 +1644,28 @@ VIZ_HTML = """
           source.onmessage = function (event) {
             try {
               var data = JSON.parse(event.data);
-          if (data && data.event) {
-            addEvent(data.event);
-            renderGraph();
-            markSyncPending('Получено новое событие...');
-          }
-          if (data && data.metrics) {
-            updateMetrics(data.metrics);
-            markSyncPending('Идёт синхронизация...');
-          }
-        } catch (err) {
-          console.log('SSE parse error', err);
-        }
-      };
+              if (data && data.type === 'reset') {
+                resetGraphState();
+                if (data.metrics) {
+                  updateMetrics(data.metrics);
+                }
+                setControlsStatus('Граф на узле был очищен.', false);
+                markSyncPending('Ожидаем якорные события...');
+                return;
+              }
+              if (data && data.event) {
+                addEvent(data.event);
+                renderGraph();
+                markSyncPending('Получено новое событие...');
+              }
+              if (data && data.metrics) {
+                updateMetrics(data.metrics);
+                markSyncPending('Идёт синхронизация...');
+              }
+            } catch (err) {
+              console.log('SSE parse error', err);
+            }
+          };
       source.onerror = function () {
         console.log('SSE disconnected, retry in 3s');
         source.close();
@@ -1687,6 +1785,12 @@ async def handle_viz_simulate(request: web.Request) -> web.Response:
     return web.json_response({"event": emission.event.to_dict()})
 
 
+async def handle_viz_clear(request: web.Request) -> web.Response:
+    node = request.app["node"]
+    await asyncio.to_thread(node.clear_events)
+    return web.json_response({"status": "cleared", "metrics": node.metrics_snapshot()})
+
+
 async def handle_frontier(request: web.Request) -> web.Response:
     node = request.app["node"]
     frontier = await asyncio.to_thread(node.storage.get_frontier)
@@ -1787,6 +1891,7 @@ def build_app(node) -> web.Application:
             web.get("/viz/graph", handle_viz_graph),
             web.get("/viz/stream", handle_viz_stream),
             web.post("/viz/simulate", handle_viz_simulate),
+            web.post("/viz/clear", handle_viz_clear),
         ]
     )
     return app
