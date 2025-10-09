@@ -46,8 +46,10 @@ VIZ_HTML = """
     #controls-status { font-size: 0.8rem; color: rgba(198, 210, 255, 0.85); min-height: 1.1rem; }
     .link { stroke: rgba(150, 190, 255, 0.4); stroke-width: 1.6px; marker-end: url(#arrowhead); }
     .link-parent { stroke: rgba(255, 255, 255, 0.15); stroke-width: 1px; stroke-dasharray: 4 3; }
+    .lane-line { stroke: rgba(240, 246, 255, 0.18); stroke-width: 1.6px; }
     .node { stroke: #04080f; stroke-width: 2px; }
     .label { fill: rgba(236, 242, 255, 0.9); font-size: 10px; pointer-events: none; }
+    .lane-label { fill: rgba(236, 242, 255, 0.85); font-size: 12px; pointer-events: none; letter-spacing: 0.02em; }
     .node-focus { stroke: #ffffff; stroke-width: 3px; }
     .node-ancestor { stroke: #32c5ff; stroke-width: 2.5px; }
     .node-descendant { stroke: #ffdd6d; stroke-width: 2.5px; }
@@ -180,13 +182,28 @@ VIZ_HTML = """
   <script>
     (function () {
       var colorByClass = { A: '#ff6d6d', B: '#ffc971', C: '#5aa5ff', default: '#99a9ff' };
-      var rowByClass = { C: 0, A: 1, B: 2 };
       var nodes = {};
       var nodeOrder = [];
       var links = {};
       var linkOrder = [];
       var childrenMap = {};
       var layoutOrder = [];
+      var laneOrder = [];
+      var lanePositions = {};
+      var layoutDimensions = {
+        width: 800,
+        height: 600,
+        contentWidth: 800,
+        contentHeight: 600,
+        top: 200,
+        bottom: 200,
+        left: 160,
+        right: 160,
+        rowSpacing: 120,
+        colSpacing: 200,
+        lastNodeY: 200
+      };
+      var sourceOrder = [];
       var focusNodeId = null;
       var focusAncestors = {};
       var focusDescendants = {};
@@ -431,6 +448,9 @@ VIZ_HTML = """
         }
         if (sourceFilterButtons[key]) {
           return;
+        }
+        if (sourceOrder.indexOf(key) === -1) {
+          sourceOrder.push(key);
         }
         var button = document.createElement('button');
         button.className = 'toggle-button';
@@ -774,6 +794,7 @@ VIZ_HTML = """
 
       var svgNS = 'http://www.w3.org/2000/svg';
       var svg = document.createElementNS(svgNS, 'svg');
+      var laneGroup = document.createElementNS(svgNS, 'g');
       var linkGroup = document.createElementNS(svgNS, 'g');
       var nodeGroup = document.createElementNS(svgNS, 'g');
       var labelGroup = document.createElementNS(svgNS, 'g');
@@ -865,6 +886,7 @@ VIZ_HTML = """
       marker.appendChild(arrowPath);
       defs.appendChild(marker);
       svg.appendChild(defs);
+      svg.appendChild(laneGroup);
       svg.appendChild(linkGroup);
       svg.appendChild(nodeGroup);
       svg.appendChild(labelGroup);
@@ -1196,8 +1218,13 @@ VIZ_HTML = """
           return (ta < tb) ? -1 : 1;
         });
 
-        var colSpacing = 150;
-        var rowSpacing = 150;
+        var colSpacing = 200;
+        var rowSpacing = 130;
+        var marginLeft = 200;
+        var marginRight = 200;
+        var marginTop = 240;
+        var marginBottom = 280;
+
         for (var resetIdx = 0; resetIdx < ordered.length; resetIdx += 1) {
           var resetNode = nodes[ordered[resetIdx]];
           if (resetNode) {
@@ -1205,33 +1232,130 @@ VIZ_HTML = """
           }
         }
 
-        var visibleOrdered = [];
+        var visibleSources = {};
         for (var i = 0; i < ordered.length; i += 1) {
           var node = nodes[ordered[i]];
           if (!node) { continue; }
-          if (!isNodeVisible(node)) {
-            continue;
+          if (isNodeVisible(node)) {
+            var sourceKey = node.source || 'unknown';
+            visibleSources[sourceKey] = true;
           }
-          var row = valueOr(rowByClass[node.cls], 3);
-          node.x = 120 + visibleOrdered.length * colSpacing;
-          node.y = 120 + row * rowSpacing;
-          node.sequence = visibleOrdered.length + 1;
-          visibleOrdered.push(node.id);
         }
 
-        var width = Math.max(visibleOrdered.length * colSpacing + 240, graphEl.clientWidth || 800);
-        var height = Math.max(4 * rowSpacing + 200, graphEl.clientHeight || 600);
+        var activeSources = [];
+        var seenSources = {};
+        for (var so = 0; so < sourceOrder.length; so += 1) {
+          var sourceCandidate = sourceOrder[so];
+          if (visibleSources[sourceCandidate]) {
+            activeSources.push(sourceCandidate);
+            seenSources[sourceCandidate] = true;
+          }
+        }
+        var sortedVisible = Object.keys(visibleSources).sort();
+        for (var sv = 0; sv < sortedVisible.length; sv += 1) {
+          if (!seenSources[sortedVisible[sv]]) {
+            activeSources.push(sortedVisible[sv]);
+          }
+        }
+        if (activeSources.length === 0 && sortedVisible.length > 0) {
+          activeSources = sortedVisible;
+        }
+
+        var localLanePositions = {};
+        for (var laneIdx = 0; laneIdx < activeSources.length; laneIdx += 1) {
+          localLanePositions[activeSources[laneIdx]] = marginLeft + laneIdx * colSpacing;
+        }
+        laneOrder = activeSources;
+        lanePositions = localLanePositions;
+
+        var positionedIds = [];
+        for (var j = 0; j < ordered.length; j += 1) {
+          var candidateNode = nodes[ordered[j]];
+          if (!candidateNode || !isNodeVisible(candidateNode)) {
+            continue;
+          }
+          var laneKey = candidateNode.source || 'unknown';
+          var laneX = localLanePositions.hasOwnProperty(laneKey)
+            ? localLanePositions[laneKey]
+            : (activeSources.length ? localLanePositions[activeSources[0]] : marginLeft);
+          var idx = positionedIds.length;
+          candidateNode.x = laneX;
+          candidateNode.y = marginTop + idx * rowSpacing;
+          candidateNode.sequence = idx + 1;
+          positionedIds.push(candidateNode.id);
+        }
+
+        var lastNodeY = positionedIds.length > 0 ? (marginTop + (positionedIds.length - 1) * rowSpacing) : marginTop;
+        var contentWidth = marginLeft + marginRight;
+        if (activeSources.length > 1) {
+          contentWidth += (activeSources.length - 1) * colSpacing;
+        }
+        var contentHeight = marginTop + marginBottom;
+        if (positionedIds.length > 1) {
+          contentHeight += (positionedIds.length - 1) * rowSpacing;
+        }
+
+        var width = Math.max(contentWidth, graphEl.clientWidth || 800);
+        var height = Math.max(contentHeight, graphEl.clientHeight || 600);
+
+        layoutDimensions = {
+          width: width,
+          height: height,
+          contentWidth: contentWidth,
+          contentHeight: contentHeight,
+          top: marginTop,
+          bottom: marginBottom,
+          left: marginLeft,
+          right: marginRight,
+          rowSpacing: rowSpacing,
+          colSpacing: colSpacing,
+          lastNodeY: lastNodeY
+        };
+
         updateViewBoxBase(width, height);
         svg.style.width = '100%';
         svg.style.height = '100%';
-        layoutOrder = visibleOrdered;
+        layoutOrder = positionedIds;
+        return { lanes: activeSources, positions: localLanePositions };
       }
 
       function renderGraph() {
-        computeLayout();
+        var layoutInfo = computeLayout();
         linkGroup.innerHTML = '';
         nodeGroup.innerHTML = '';
         labelGroup.innerHTML = '';
+        laneGroup.innerHTML = '';
+
+        var laneTop = layoutDimensions.top - 120;
+        var laneBottom = Math.max(layoutDimensions.lastNodeY + 120, layoutDimensions.top + 200);
+        if (laneBottom < laneTop + 200) {
+          laneBottom = laneTop + 200;
+        }
+
+        if (layoutInfo && layoutInfo.lanes) {
+          for (var li = 0; li < layoutInfo.lanes.length; li += 1) {
+            var sourceName = layoutInfo.lanes[li];
+            var laneX = layoutInfo.positions[sourceName];
+            if (typeof laneX !== 'number') {
+              continue;
+            }
+            var guide = document.createElementNS(svgNS, 'line');
+            guide.setAttribute('class', 'lane-line');
+            guide.setAttribute('x1', laneX);
+            guide.setAttribute('x2', laneX);
+            guide.setAttribute('y1', laneTop);
+            guide.setAttribute('y2', laneBottom);
+            laneGroup.appendChild(guide);
+
+            var label = document.createElementNS(svgNS, 'text');
+            label.setAttribute('class', 'lane-label');
+            label.setAttribute('x', laneX);
+            label.setAttribute('y', laneTop - 12);
+            label.setAttribute('text-anchor', 'middle');
+            label.textContent = sourceName;
+            laneGroup.appendChild(label);
+          }
+        }
 
         if (focusNodeId && (!nodes[focusNodeId] || !isNodeVisible(nodes[focusNodeId]))) {
           focusNodeId = null;
