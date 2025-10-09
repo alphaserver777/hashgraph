@@ -224,9 +224,20 @@ class Node:
         if self._anchors:
             return self._anchors
         events = self.storage.list_events(limit=10)
-        anchors = [event.id for event in events if event.source == "genesis"]
+        anchors = [
+            event.id
+            for event in events
+            if isinstance(event.payload, dict)
+            and event.payload.get("genesis")
+            and event.source == self.config.node_id
+        ]
         if len(anchors) < 2:
-            anchors.extend(event.id for event in events if event.source != "genesis")
+            for event in events:
+                if event.id in anchors:
+                    continue
+                anchors.append(event.id)
+                if len(anchors) >= 2:
+                    break
         self._anchors = anchors[:2]
         return self._anchors
 
@@ -237,16 +248,18 @@ class Node:
             return
         anchors: List[str] = []
         for idx in range(2):
-            payload = {"anchor": idx, "node": self.config.node_id}
+            payload = {"anchor": idx, "node": self.config.node_id, "genesis": True}
             event = Event.create(
                 cls_name=EventClass.C,
-                source="genesis",
+                source=self.config.node_id,
                 ts_local=utc_timestamp(),
                 vclock={},
                 parents=[],
                 payload=payload,
             )
-            envelope = Envelope(event=event, path_meta=[{"node": "genesis", "ts": utc_timestamp()}])
+            envelope = Envelope(
+                event=event, path_meta=[{"node": self.config.node_id, "ts": utc_timestamp()}]
+            )
             event.consensus_ts = event.ts_local
             self.storage.store_envelope(envelope, envelope.event.ts_local)
             anchors.append(event.id)
