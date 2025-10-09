@@ -449,6 +449,9 @@ VIZ_HTML = """
 
       function registerSource(sourceId) {
         var key = sourceId || 'unknown';
+        if (key === 'unknown') {
+          return;
+        }
         if (!filterSourcesRoot) {
           return;
         }
@@ -808,7 +811,7 @@ VIZ_HTML = """
           setControlsStatus('Ошибка сети при очистке DAG', true);
           markError('Ошибка сети при очистке DAG.');
         };
-        xhr.send('{}');
+        xhr.send(JSON.stringify({ propagate: true }));
       }
 
       function setupControls() {
@@ -1787,8 +1790,17 @@ async def handle_viz_simulate(request: web.Request) -> web.Response:
 
 async def handle_viz_clear(request: web.Request) -> web.Response:
     node = request.app["node"]
-    await asyncio.to_thread(node.clear_events)
-    return web.json_response({"status": "cleared", "metrics": node.metrics_snapshot()})
+    try:
+        data = await request.json()
+    except json.JSONDecodeError:
+        data = {}
+    token = data.get("token")
+    propagate = bool(data.get("propagate", True))
+    if not token:
+        token = secrets.token_hex(12)
+        propagate = True
+    metrics = await node.clear_events(token=token, propagate=propagate)
+    return web.json_response({"status": "cleared", "metrics": metrics, "token": token})
 
 
 async def handle_frontier(request: web.Request) -> web.Response:

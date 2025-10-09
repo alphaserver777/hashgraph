@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, Iterable, List, Mapping, Optional
@@ -58,6 +59,7 @@ class Node:
         self._stop_event = asyncio.Event()
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._viz_subscribers: set[asyncio.Queue] = set()
+        self._clear_tokens: Dict[str, float] = {}
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -75,6 +77,7 @@ class Node:
             fan_out=self.config.gossip.fan_out,
             period_sec=self.config.gossip.period_sec,
         )
+        self._prime_gossip()
         await self._gossip.start()
         from .api import build_app
 
@@ -204,8 +207,8 @@ class Node:
             return 1.0
         return max(0.0, 1 - missing / total_edges)
 
-    def clear_events(self) -> None:
-        """Purge DAG and reinitialize with local genesis anchors."""
+    def _clear_events_local(self) -> Dict[str, object]:
+        """Purge DAG locally and reinitialize anchors."""
         self.storage.clear_events()
         self.vector_clock = VectorClock()
         self._anchors = []
@@ -214,6 +217,31 @@ class Node:
         self._notify_viz_reset(reset_metrics)
         self._bootstrap_genesis(force=True)
         self.metrics.update_peer_health(self.list_peers(), self._quorum())
+        return reset_metrics
+
+    def _mark_clear_token(self, token: str) -> bool:
+        now = time.time()
+        expiry = now - 300
+        to_remove = [key for key, ts in self._clear_tokens.items() if ts < expiry]
+        for key in to_remove:
+            self._clear_tokens.pop(key, None)
+        if token in self._clear_tokens:
+            return False
+        self._clear_tokens[token] = now
+        if len(self._clear_tokens) > 128:
+            oldest = min(self._clear_tokens.items(), key=lambda item: item[1])[0]
+            self._clear_tokens.pop(oldest, None)
+        return True
+
+    async def clear_events(self, token: str, propagate: bool = True) -> Dict[str, object]:
+        if not token:
+            raise ValueError("clear token required")
+        if not self._mark_clear_token(token):
+            return self.metrics_snapshot()
+        reset_metrics = await asyncio.to_thread(self._clear_events_local)
+        if propagate:
+            await self._propagate_clear(token)
+        return reset_metrics
 
     def _sign_payload(self, payload: Mapping[str, object]) -> str:
         if not self.config.security.hmac_key:
@@ -228,8 +256,11 @@ class Node:
             event.id
             for event in events
             if isinstance(event.payload, dict)
-            and event.payload.get("genesis")
-            and event.source == self.config.node_id
+            and (
+                event.payload.get("genesis")
+                or event.source == "genesis"
+            )
+            and (event.source == self.config.node_id or event.source == "genesis")
         ]
         if len(anchors) < 2:
             for event in events:
@@ -262,9 +293,40 @@ class Node:
             )
             event.consensus_ts = event.ts_local
             self.storage.store_envelope(envelope, envelope.event.ts_local)
+            if self._gossip:
+                self._gossip.add_pending(event.id)
             anchors.append(event.id)
             self._notify_viz(envelope.event, stored=True, metrics=self.metrics_snapshot())
         self._anchors = anchors
+
+    def _prime_gossip(self) -> None:
+        if not self._gossip:
+            return
+        events = self.storage.list_events(limit=1000)
+        for event in events:
+            self._gossip.add_pending(event.id)
+
+    async def _propagate_clear(self, token: str) -> None:
+        if not self._session:
+            return
+        peers = self.list_peers()
+        if not peers:
+            return
+        payload = {"token": token, "propagate": True}
+        tasks = [
+            self._send_clear_request(peer.address, payload)
+            for peer in peers
+        ]
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+    async def _send_clear_request(self, address: str, payload: Dict[str, object]) -> None:
+        url = f"http://{address}/viz/clear"
+        try:
+            async with self._session.post(url, json=payload, timeout=5) as resp:
+                await resp.read()
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------
     # Visualization
