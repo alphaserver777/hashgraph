@@ -57,6 +57,13 @@ class GossipEngine:
             return
         self._known_pending.add(event_id)
         self._pending.put_nowait(event_id)
+    def _requeue_envelopes(self, envelopes: Sequence[Envelope]) -> None:
+        for env in envelopes:
+            event_id = env.event.id
+            if event_id in self._known_pending:
+                continue
+            self._known_pending.add(event_id)
+            self._pending.put_nowait(event_id)
 
     async def start(self) -> None:
         if self._task is None:
@@ -104,6 +111,7 @@ class GossipEngine:
         self.metrics.record_batch_size(plan.total_bytes)
         peers = list(self.peer_provider())
         if not peers:
+            self._requeue_envelopes(plan.envelopes)
             return GossipStats(sent=0, peers_contacted=0, dropped=plan.dropped)
         selected = random.sample(peers, min(self.fan_out, len(peers)))
         sent_total = 0
@@ -111,6 +119,8 @@ class GossipEngine:
             ok = await self._send_to_peer(peer.address, plan.envelopes)
             if ok:
                 sent_total += len(plan.envelopes)
+        if sent_total == 0:
+            self._requeue_envelopes(plan.envelopes)
         latency = time.time() - start
         self.metrics.record_gossip_latency(latency)
         return GossipStats(sent=sent_total, peers_contacted=len(selected), dropped=plan.dropped)

@@ -259,25 +259,18 @@ class Node:
     def _anchor_ids(self) -> List[str]:
         if self._anchors:
             return self._anchors
-        events = self.storage.list_events(limit=10)
-        anchors = [
-            event.id
-            for event in events
-            if isinstance(event.payload, dict)
-            and (
-                event.payload.get("genesis")
-                or event.source == "genesis"
-            )
-            and (event.source == self.config.node_id or event.source == "genesis")
-        ]
-        if len(anchors) < 2:
-            for event in events:
-                if event.id in anchors:
-                    continue
+        events = self.storage.list_events(limit=20)
+        anchors: List[str] = []
+        for event in events:
+            if (
+                isinstance(event.payload, dict)
+                and event.payload.get("genesis")
+                and event.id not in anchors
+            ):
                 anchors.append(event.id)
-                if len(anchors) >= 2:
-                    break
-        self._anchors = anchors[:2]
+        if not anchors and events:
+            anchors.append(events[0].id)
+        self._anchors = anchors
         return self._anchors
 
     def _bootstrap_genesis(self, *, force: bool = False) -> None:
@@ -285,27 +278,24 @@ class Node:
             # ensure anchors cached for restarts
             self._anchor_ids()
             return
-        anchors: List[str] = []
-        for idx in range(2):
-            payload = {"anchor": idx, "node": self.config.node_id, "genesis": True}
-            event = Event.create(
-                cls_name=EventClass.C,
-                source=self.config.node_id,
-                ts_local=utc_timestamp(),
-                vclock={},
-                parents=[],
-                payload=payload,
-            )
-            envelope = Envelope(
-                event=event, path_meta=[{"node": self.config.node_id, "ts": utc_timestamp()}]
-            )
-            event.consensus_ts = event.ts_local
-            self.storage.store_envelope(envelope, envelope.event.ts_local)
-            if self._gossip:
-                self._gossip.add_pending(event.id)
-            anchors.append(event.id)
-            self._notify_viz(envelope.event, stored=True, metrics=self.metrics_snapshot())
-        self._anchors = anchors
+        payload = {"anchor": 0, "node": self.config.node_id, "genesis": True}
+        event = Event.create(
+            cls_name=EventClass.C,
+            source=self.config.node_id,
+            ts_local=utc_timestamp(),
+            vclock={},
+            parents=[],
+            payload=payload,
+        )
+        envelope = Envelope(
+            event=event, path_meta=[{"node": self.config.node_id, "ts": utc_timestamp()}]
+        )
+        event.consensus_ts = event.ts_local
+        self.storage.store_envelope(envelope, envelope.event.ts_local)
+        if self._gossip:
+            self._gossip.add_pending(event.id)
+        self._anchors = [event.id]
+        self._notify_viz(envelope.event, stored=True, metrics=self.metrics_snapshot())
 
     def _prime_gossip(self) -> None:
         if not self._gossip:
