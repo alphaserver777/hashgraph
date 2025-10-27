@@ -452,14 +452,15 @@ VIZ_HTML = """
         if (key === 'unknown') {
           return;
         }
+        if (sourceOrder.indexOf(key) === -1) {
+          sourceOrder.push(key);
+          sourceOrder.sort();
+        }
         if (!filterSourcesRoot) {
           return;
         }
         if (sourceFilterButtons[key]) {
           return;
-        }
-        if (sourceOrder.indexOf(key) === -1) {
-          sourceOrder.push(key);
         }
         var button = document.createElement('button');
         button.className = 'toggle-button';
@@ -1352,6 +1353,7 @@ VIZ_HTML = """
             activeSources.push(sortedVisible[sv]);
           }
         }
+        activeSources.sort();
         if (activeSources.length === 0 && sortedVisible.length > 0) {
           activeSources = sortedVisible;
         }

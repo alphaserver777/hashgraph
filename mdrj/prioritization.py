@@ -44,7 +44,10 @@ class Prioritizer:
         cls: EventClass,
         *,
         required_for_causality: bool = False,
+        force: bool = False,
     ) -> bool:
+        if force:
+            return True
         if cls == EventClass.A:
             return True
         if cls == EventClass.B:
@@ -67,8 +70,17 @@ class Prioritizer:
         total_bytes = 0
         dropped = 0
         for envelope in sorted_envelopes:
-            is_required = envelope.event.id in required or bool(set(envelope.event.parents) & required)
-            if not self.should_relay(envelope.event.cls, required_for_causality=is_required):
+            is_genesis = isinstance(envelope.event.payload, dict) and envelope.event.payload.get("genesis")
+            is_required = (
+                envelope.event.id in required
+                or bool(set(envelope.event.parents) & required)
+                or is_genesis
+            )
+            if not self.should_relay(
+                envelope.event.cls,
+                required_for_causality=is_required,
+                force=is_genesis,
+            ):
                 dropped += 1
                 continue
             envelope_bytes = bytes_cost(envelope.to_dict())
@@ -79,4 +91,3 @@ class Prioritizer:
             total_bytes += envelope_bytes
             required.update(envelope.event.parents)
         return BatchPlan(envelopes=accepted, total_bytes=total_bytes, dropped=dropped)
-

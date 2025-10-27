@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import random
 import time
 from dataclasses import dataclass
 from enum import Enum
@@ -132,30 +133,37 @@ class Node:
     # Events
     async def emit_event(self, cls_name: EventClass, payload: Mapping[str, object]) -> EventEmission:
         ts = utc_timestamp()
-        frontier = self.storage.get_frontier()
-        frontier_ids = [fid for fid, _ in frontier]
-        if len(frontier_ids) < 2:
-            anchors = self._anchor_ids()
-            for anchor in anchors:
-                if anchor not in frontier_ids:
-                    frontier_ids.append(anchor)
-                if len(frontier_ids) >= 2:
-                    break
-        if len(frontier_ids) < 2:
-            # Repeat available nodes if we still fall short (early bootstrap)
-            frontier_ids = (frontier_ids + self._anchor_ids())[:2]
-        else:
-            frontier_ids = frontier_ids[:2]
+        parents: List[str] = []
+        self_parent = self.storage.latest_event_by_source(self.config.node_id)
+        if self_parent:
+            parents.append(self_parent.id)
+        recent_events = self.storage.list_recent_events(limit=256)
+        other_candidates = [
+            event.id
+            for event in recent_events
+            if event.source != self.config.node_id and event.id not in parents
+        ]
+        if other_candidates:
+            parents.append(random.choice(other_candidates))
+        anchors = self._anchor_ids()
+        for anchor in anchors:
+            if len(parents) >= 2:
+                break
+            if anchor not in parents:
+                parents.append(anchor)
+        parents = parents[:2]
         merged_clock = self.vector_clock.copy()
-        for _, vclock in frontier:
-            merged_clock = merged_clock.merge(vclock)
+        for parent_id in parents:
+            parent_event = self.storage.get_event(parent_id)
+            if parent_event:
+                merged_clock = merged_clock.merge(parent_event.vclock)
         local_clock = merged_clock.increment(self.config.node_id)
         event = Event.create(
             cls_name=cls_name,
             source=self.config.node_id,
             ts_local=ts,
             vclock=local_clock.to_dict(),
-            parents=frontier_ids,
+            parents=parents,
             payload=payload,
             sig=self._sign_payload(payload) if self.config.security.hmac_key else None,
         )

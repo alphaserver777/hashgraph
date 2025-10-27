@@ -142,6 +142,22 @@ class DAGStorage:
             return None
         return Event.from_record(row)
 
+    def latest_event_by_source(self, source: str) -> Optional[Event]:
+        row = self._conn.execute(
+            "SELECT * FROM events WHERE source = ? ORDER BY created_at DESC LIMIT 1",
+            (source,),
+        ).fetchone()
+        if not row:
+            return None
+        return Event.from_record(row)
+
+    def list_recent_events(self, limit: int = 256) -> List[Event]:
+        rows = self._conn.execute(
+            "SELECT * FROM events ORDER BY created_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [Event.from_record(row) for row in rows]
+
     def get_envelope(self, event_id: str) -> Optional[Envelope]:
         event = self.get_event(event_id)
         if not event:
