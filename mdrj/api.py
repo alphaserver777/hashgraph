@@ -1326,9 +1326,12 @@ VIZ_HTML = """
 
         var visibleSources = {};
         for (var i = 0; i < ordered.length; i += 1) {
-          var node = nodes[ordered[i]];
-          if (!node) { continue; }
-          if (isNodeVisible(node)) {
+        var node = nodes[ordered[i]];
+        if (!node) { continue; }
+        if (node.source === 'unknown') {
+          continue;
+        }
+        if (isNodeVisible(node)) {
             var sourceKey = node.source || 'unknown';
             visibleSources[sourceKey] = true;
           }
@@ -1363,7 +1366,7 @@ VIZ_HTML = """
         var positionedIds = [];
         for (var j = 0; j < ordered.length; j += 1) {
           var candidateNode = nodes[ordered[j]];
-          if (!candidateNode || !isNodeVisible(candidateNode)) {
+          if (!candidateNode || candidateNode.source === 'unknown' || !isNodeVisible(candidateNode)) {
             continue;
           }
           var laneKey = candidateNode.source || 'unknown';
@@ -1470,6 +1473,7 @@ VIZ_HTML = """
           var parentNode = nodes[link.source];
           var childNode = nodes[link.target];
           if (!parentNode || !childNode) { continue; }
+          if (parentNode.source === 'unknown' || childNode.source === 'unknown') { continue; }
           if (!isNodeVisible(parentNode) || !isNodeVisible(childNode)) { continue; }
           var line = document.createElementNS(svgNS, 'line');
           var edgeClass = 'link';
@@ -1493,7 +1497,7 @@ VIZ_HTML = """
         for (var j = 0; j < layoutOrder.length; j += 1) {
           var nodeId = layoutOrder[j];
           var node = nodes[nodeId];
-          if (!node || !isNodeVisible(node)) { continue; }
+          if (!node || node.source === 'unknown' || !isNodeVisible(node)) { continue; }
           var circle = document.createElementNS(svgNS, 'circle');
           var circleClass = 'node';
           var radius = 10;
