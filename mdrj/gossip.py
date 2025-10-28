@@ -106,6 +106,8 @@ class GossipEngine:
                 required.add(env.event.id)
                 required.update(env.event.parents)
         plan = self.prioritizer.plan_batch(envelopes, required_events=required)
+        if plan.deferred:
+            self._requeue_envelopes(plan.deferred)
         if not plan.envelopes:
             return GossipStats(sent=0, peers_contacted=0, dropped=plan.dropped)
         self.metrics.record_batch_size(plan.total_bytes)
@@ -127,7 +129,14 @@ class GossipEngine:
 
     async def _send_to_peer(self, address: str, envelopes: Sequence[Envelope]) -> bool:
         url = f"http://{address}/event/batch"
-        payload = [env.to_dict() for env in envelopes]
+        payload = []
+        for env in envelopes:
+            event_dict = env.event.to_dict()
+            event_dict['consensus_ts'] = env.event.consensus_ts
+            payload.append({
+                "event": event_dict,
+                "path_meta": env.path_meta,
+            })
         try:
             async with self.session.post(url, json=payload, timeout=self.period_sec * 2) as resp:
                 if resp.status != 200:

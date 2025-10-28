@@ -11,6 +11,7 @@ from typing import Any, Dict, List
 from aiohttp import web
 
 from .models import Envelope, EventClass
+from .simulation import SCENARIOS, scenario_payload
 
 VIZ_HTML = """
 <!DOCTYPE html>
@@ -25,6 +26,10 @@ VIZ_HTML = """
     .header-actions { display: flex; align-items: center; gap: 0.75rem; }
     h1 { font-size: 1.2rem; margin: 0; }
     #metrics { font-family: 'JetBrains Mono', Menlo, monospace; white-space: pre; margin-top: 0.6rem; }
+    #consensus-status { font-size: 0.82rem; margin-top: 0.25rem; color: rgba(198, 210, 255, 0.75); }
+    #consensus-status.ok { color: rgba(140, 220, 150, 0.95); }
+    #consensus-status.alert { color: #ff8080; }
+    #consensus-status.pending { color: rgba(233, 196, 122, 0.9); }
     #graph-status { font-size: 0.85rem; margin-top: 0.35rem; color: rgba(198, 210, 255, 0.85); }
     #graph-wrapper { display: flex; flex-direction: row; align-items: stretch; width: 100vw; height: calc(100vh - 88px); background: rgba(6, 12, 20, 0.9); position: relative; }
     #graph { flex: 1 1 auto; min-height: calc(100vh - 88px); display: flex; }
@@ -43,6 +48,10 @@ VIZ_HTML = """
     .sim-button { background: #22304a; color: #f1f6ff; border: 1px solid rgba(158, 182, 255, 0.4); border-radius: 6px; padding: 0.5rem 0.9rem; font-size: 0.85rem; cursor: pointer; transition: background 0.15s ease, transform 0.1s ease; }
     .sim-button:hover { background: #2e3e5d; transform: translateY(-1px); }
     .sim-button:disabled { opacity: 0.5; cursor: wait; transform: none; }
+    .sim-button.primary { background: rgba(76, 110, 196, 0.9); border-color: rgba(180, 210, 255, 0.65); }
+    .sim-button.primary:hover { background: rgba(96, 134, 226, 0.95); }
+    .sim-button.running { background: rgba(83, 186, 122, 0.9); border-color: rgba(118, 224, 153, 0.7); }
+    .sim-button.running:hover { background: rgba(94, 204, 135, 0.95); }
     .sim-button.danger { background: rgba(110, 36, 52, 0.85); border-color: rgba(255, 146, 146, 0.45); }
     .sim-button.danger:hover { background: rgba(142, 44, 63, 0.92); }
     #controls-status { font-size: 0.8rem; color: rgba(198, 210, 255, 0.85); min-height: 1.1rem; }
@@ -106,6 +115,7 @@ VIZ_HTML = """
     <div>
       <h1>MDRJ-DAG / Hashgraph Visualizer</h1>
       <div id="metrics">Загрузка графа...</div>
+      <div id="consensus-status">Консенсус: ожидание данных...</div>
       <div id="graph-status">Подключение...</div>
     </div>
     <div class="header-actions">
@@ -117,6 +127,7 @@ VIZ_HTML = """
     <div class="controls-buttons">
       <button class="sim-button" data-sim="virus">Обнаружен вирус на узле</button>
       <button class="sim-button" data-sim="admin_login">Удалённый вход администратора</button>
+      <button class="sim-button primary" id="simulation-toggle" type="button">СИМУЛЯЦИЯ</button>
       <button class="sim-button" data-sim="mac_spoof">Попытка MAC-spoofing</button>
       <button class="sim-button" data-sim="portscan">Аномальный порт-скан</button>
       <button class="sim-button" data-sim="heartbeat">Тестовый heartbeat</button>
@@ -215,11 +226,13 @@ VIZ_HTML = """
       var focusDescendants = {};
       var graphEl = document.getElementById('graph');
       var metricsEl = document.getElementById('metrics');
+      var consensusStatusEl = document.getElementById('consensus-status');
       var statusEl = document.getElementById('graph-status');
       var controlsRoot = document.getElementById('controls');
       var controlsStatus = document.getElementById('controls-status');
       var filterClassesRoot = document.getElementById('filter-classes');
       var filterSourcesRoot = document.getElementById('filter-sources');
+      var simulationButton = document.getElementById('simulation-toggle');
       var detailsPanel = document.getElementById('details-panel');
       var detailsTitle = document.getElementById('details-title');
       var detailsContext = document.getElementById('details-context');
@@ -241,6 +254,8 @@ VIZ_HTML = """
       var hoveredNodeId = null;
       var isDetailsOpen = false;
       var shouldOpenDetailsOnFocus = false;
+      var simulationActive = false;
+      var consensusState = {};
       var lastActiveElement = null;
 
       function openDetailsPanel() {
@@ -704,6 +719,88 @@ VIZ_HTML = """
         }
       }
 
+      function updateSimulationButton() {
+        if (!simulationButton) {
+          return;
+        }
+        if (simulationActive) {
+          simulationButton.textContent = 'Остановить симуляцию';
+          simulationButton.classList.add('running');
+        } else {
+          simulationButton.textContent = 'СИМУЛЯЦИЯ';
+          simulationButton.classList.remove('running');
+        }
+      }
+
+      function setSimulationRunning(running) {
+        simulationActive = !!running;
+        updateSimulationButton();
+      }
+
+      function setSimulationButtonDisabled(disabled) {
+        if (!simulationButton) {
+          return;
+        }
+        simulationButton.disabled = disabled;
+      }
+
+      function updateConsensusStatusDisplay() {
+        if (!consensusStatusEl) {
+          return;
+        }
+        var peerKeys = Object.keys(consensusState);
+        if (peerKeys.length === 0) {
+          consensusStatusEl.textContent = 'Консенсус: ожидание данных...';
+          consensusStatusEl.classList.remove('alert');
+          consensusStatusEl.classList.remove('ok');
+          consensusStatusEl.classList.remove('pending');
+          return;
+        }
+        var mismatched = 0;
+        var pendingCount = 0;
+        peerKeys.forEach(function (peer) {
+          var state = consensusState[peer];
+          if (!state) {
+            return;
+          }
+          if (state.pending) {
+            pendingCount += 1;
+            return;
+          }
+          if (state.error || !state.match) {
+            mismatched += 1;
+          }
+        });
+        consensusStatusEl.classList.remove('alert');
+        consensusStatusEl.classList.remove('ok');
+        consensusStatusEl.classList.remove('pending');
+        if (mismatched === 0 && pendingCount === 0) {
+          consensusStatusEl.textContent = 'Консенсус: OK (' + peerKeys.length + ')';
+          consensusStatusEl.classList.add('ok');
+        } else if (mismatched === 0 && pendingCount > 0) {
+          consensusStatusEl.textContent = 'Консенсус: синхронизация (' + pendingCount + '/' + peerKeys.length + ')';
+          consensusStatusEl.classList.add('pending');
+        } else {
+          consensusStatusEl.textContent = 'Консенсус: рассогласование (' + mismatched + '/' + peerKeys.length + ')';
+          consensusStatusEl.classList.add('alert');
+        }
+      }
+
+      function recordConsensusStatus(payload) {
+        if (!payload || !payload.peer) {
+          return;
+        }
+        consensusState[payload.peer] = {
+          match: !!payload.match,
+          peerNode: payload.peer_node || payload.peer,
+          error: payload.error || null,
+          pending: !!payload.pending,
+          localCount: payload.local && typeof payload.local.event_count === 'number' ? payload.local.event_count : null,
+          peerCount: payload.peer_state && typeof payload.peer_state.event_count === 'number' ? payload.peer_state.event_count : null
+        };
+        updateConsensusStatusDisplay();
+      }
+
       function resetGraphState() {
         nodes = {};
         nodeOrder = [];
@@ -755,6 +852,68 @@ VIZ_HTML = """
           markError('Ошибка сети при запуске сценария.');
         };
         xhr.send(JSON.stringify({ scenario: key }));
+      }
+
+      function toggleSimulation() {
+        if (!simulationButton) {
+          return;
+        }
+        setSimulationButtonDisabled(true);
+        var action = simulationActive ? 'stop' : 'start';
+        setControlsStatus((action === 'start') ? 'Запуск потоковой симуляции...' : 'Остановка симуляции...', false);
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/viz/simulation/control', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState === 4) {
+            setSimulationButtonDisabled(false);
+            if (xhr.status >= 200 && xhr.status < 300) {
+              var running = false;
+              try {
+                var resp = JSON.parse(xhr.responseText);
+                running = !!resp.running;
+              } catch (err) {}
+              setSimulationRunning(running);
+              if (running) {
+                setControlsStatus('Симуляция событий запущена.', false);
+                markSyncPending('Идёт симуляция распределённого потока...');
+              } else {
+                setControlsStatus('Симуляция остановлена.', false);
+                markSyncPending('Синхронизация остановленной симуляции...');
+              }
+            } else {
+              setControlsStatus('Не удалось переключить симуляцию', true);
+              markError('Ошибка управления симуляцией.');
+            }
+          }
+        };
+        xhr.onerror = function () {
+          setSimulationButtonDisabled(false);
+          setControlsStatus('Ошибка сети при управлении симуляцией', true);
+          markError('Ошибка сети при управлении симуляцией.');
+        };
+        xhr.send(JSON.stringify({ action: action }));
+      }
+
+      function fetchSimulationStatus() {
+        if (!simulationButton) {
+          return;
+        }
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/viz/simulation/control', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState === 4) {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              try {
+                var resp = JSON.parse(xhr.responseText);
+                setSimulationRunning(resp.running);
+              } catch (err) {}
+            }
+          }
+        };
+        xhr.onerror = function () {};
+        xhr.send(JSON.stringify({ action: 'status', propagate: false }));
       }
 
       function triggerGraphClear() {
@@ -826,6 +985,10 @@ VIZ_HTML = """
             button.addEventListener('click', function () {
               triggerSimulation(simKey);
             });
+          } else if (button.id === 'simulation-toggle') {
+            button.addEventListener('click', function () {
+              toggleSimulation();
+            });
           } else if (button.id === 'clear-graph') {
             button.addEventListener('click', function () {
               triggerGraphClear();
@@ -857,6 +1020,8 @@ VIZ_HTML = """
         updateClassButtonsUI();
         updateSourceButtonsUI();
         resetDetailsPanel();
+        updateSimulationButton();
+        updateConsensusStatusDisplay();
       }
 
       function valueOr(value, fallback) {
@@ -1662,6 +1827,14 @@ VIZ_HTML = """
                 markSyncPending('Ожидаем якорные события...');
                 return;
               }
+              if (data && data.type === 'consensus_status') {
+                recordConsensusStatus(data);
+                if (data && (!data.match || data.error) && !data.pending) {
+                  var peerLabel = data.peer_node || data.peer || 'пир';
+                  setControlsStatus('Внимание: рассогласование с ' + peerLabel, true);
+                }
+                return;
+              }
               if (data && data.event) {
                 addEvent(data.event);
                 renderGraph();
@@ -1687,6 +1860,7 @@ VIZ_HTML = """
       }
 
       setupControls();
+      fetchSimulationStatus();
 
       loadGraph(function (err) {
         if (err) {
@@ -1708,47 +1882,6 @@ VIZ_HTML = """
 </body>
 </html>
 """
-
-SIMULATION_SCENARIOS: Dict[str, Dict[str, Any]] = {
-    "virus": {
-        "class": EventClass.A,
-        "payload": {
-            "category": "malware",
-            "description": "Обнаружен подозрительный исполняемый файл",
-            "severity": "high",
-        },
-    },
-    "admin_login": {
-        "class": EventClass.B,
-        "payload": {
-            "category": "authentication",
-            "description": "Удалённый вход администратора",
-            "source_ip": "192.0.2.15",
-        },
-    },
-    "mac_spoof": {
-        "class": EventClass.A,
-        "payload": {
-            "category": "network",
-            "description": "Попытка подмены MAC-адреса",
-        },
-    },
-    "portscan": {
-        "class": EventClass.B,
-        "payload": {
-            "category": "network",
-            "description": "Аномальный порт-скан внешним узлом",
-        },
-    },
-    "heartbeat": {
-        "class": EventClass.C,
-        "payload": {
-            "category": "diagnostic",
-            "description": "Тестовый heartbeat от панели мониторинга",
-        },
-    },
-}
-
 
 async def handle_event_batch(request: web.Request) -> web.Response:
     node = request.app["node"]
@@ -1779,19 +1912,39 @@ async def handle_viz_simulate(request: web.Request) -> web.Response:
     except json.JSONDecodeError as exc:
         raise web.HTTPBadRequest(text="invalid json") from exc
     scenario = data.get("scenario")
-    if scenario not in SIMULATION_SCENARIOS:
+    if scenario not in SCENARIOS:
         raise web.HTTPBadRequest(text="unknown scenario")
-    template = SIMULATION_SCENARIOS[scenario]
-    payload = dict(template["payload"])
-    payload.update(
-        {
-            "scenario": scenario,
-            "generated_at": datetime.utcnow().isoformat(timespec="seconds"),
-            "simulation_id": secrets.token_hex(6),
-        }
-    )
-    emission = await node.emit_event(template["class"], payload)
+    bundle = scenario_payload(scenario)
+    emission = await node.emit_event(bundle["class"], bundle["payload"])
     return web.json_response({"event": emission.event.to_dict()})
+
+
+async def handle_viz_simulation_control(request: web.Request) -> web.Response:
+    node = request.app["node"]
+    try:
+        data = await request.json()
+    except json.JSONDecodeError:
+        data = {}
+    action = data.get("action", "toggle")
+    token = data.get("token")
+    propagate = bool(data.get("propagate", True))
+    interval = float(data.get("interval", 1.8))
+    jitter = float(data.get("jitter", 0.6))
+
+    if action == "start":
+        started = await node.start_simulation(interval=interval, jitter=jitter, token=token, propagate=propagate)
+        return web.json_response({"running": node.simulation_running(), "started": started, "token": node._simulation_token})
+    if action == "stop":
+        stopped = await node.stop_simulation(token=token, propagate=propagate)
+        return web.json_response({"running": node.simulation_running(), "stopped": stopped, "token": node._simulation_token})
+    if action == "status":
+        return web.json_response({"running": node.simulation_running(), "token": node._simulation_token})
+
+    if node.simulation_running():
+        stopped = await node.stop_simulation(token=token, propagate=propagate)
+        return web.json_response({"running": node.simulation_running(), "stopped": stopped, "token": node._simulation_token})
+    started = await node.start_simulation(interval=interval, jitter=jitter, token=token, propagate=propagate)
+    return web.json_response({"running": node.simulation_running(), "started": started, "token": node._simulation_token})
 
 
 async def handle_viz_clear(request: web.Request) -> web.Response:
@@ -1823,6 +1976,12 @@ async def handle_status(request: web.Request) -> web.Response:
 async def handle_metrics(request: web.Request) -> web.Response:
     node = request.app["node"]
     return web.json_response(node.metrics_snapshot())
+
+
+async def handle_consensus_digest(request: web.Request) -> web.Response:
+    node = request.app["node"]
+    snapshot = await node.get_consensus_snapshot()
+    return web.json_response(snapshot)
 
 
 async def handle_register_peer(request: web.Request) -> web.Response:
@@ -1909,7 +2068,9 @@ def build_app(node) -> web.Application:
             web.get("/viz/graph", handle_viz_graph),
             web.get("/viz/stream", handle_viz_stream),
             web.post("/viz/simulate", handle_viz_simulate),
+            web.post("/viz/simulation/control", handle_viz_simulation_control),
             web.post("/viz/clear", handle_viz_clear),
+            web.get("/consensus/digest", handle_consensus_digest),
         ]
     )
     return app

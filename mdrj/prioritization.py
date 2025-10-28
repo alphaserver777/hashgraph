@@ -16,6 +16,7 @@ class BatchPlan:
     envelopes: List[Envelope]
     total_bytes: int
     dropped: int
+    deferred: List[Envelope]
 
 
 class Prioritizer:
@@ -63,10 +64,18 @@ class Prioritizer:
         required = set(required_events or [])
         sorted_envelopes = sorted(
             envelopes,
-            key=lambda env: (0 if env.event.cls == EventClass.A else 1 if env.event.cls == EventClass.B else 2, env.event.ts_local),
+            key=lambda env: (
+                0
+                if env.event.cls == EventClass.A
+                else 1
+                if env.event.cls == EventClass.B
+                else 2,
+                env.event.ts_local,
+            ),
         )
         max_bytes = min(self._bandwidth_budget_bytes(), self.prioritization_cfg.max_batch_bytes)
         accepted: List[Envelope] = []
+        deferred: List[Envelope] = []
         total_bytes = 0
         dropped = 0
         for envelope in sorted_envelopes:
@@ -76,18 +85,19 @@ class Prioritizer:
                 or bool(set(envelope.event.parents) & required)
                 or is_genesis
             )
+            force_flag = is_genesis or envelope.event.cls == EventClass.B
             if not self.should_relay(
                 envelope.event.cls,
                 required_for_causality=is_required,
-                force=is_genesis,
+                force=force_flag,
             ):
                 dropped += 1
                 continue
             envelope_bytes = bytes_cost(envelope.to_dict())
             if total_bytes + envelope_bytes > max_bytes:
-                dropped += 1
+                deferred.append(envelope)
                 continue
             accepted.append(envelope)
             total_bytes += envelope_bytes
             required.update(envelope.event.parents)
-        return BatchPlan(envelopes=accepted, total_bytes=total_bytes, dropped=dropped)
+        return BatchPlan(envelopes=accepted, total_bytes=total_bytes, dropped=dropped, deferred=deferred)
