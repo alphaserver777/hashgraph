@@ -35,6 +35,14 @@ tests/
   ...
 ```
 
+## Артефакты Skaro
+В репозиторий добавлена ручная Skaro-структура в [`.skaro/`](/home/admsys/work/hashgraph/.skaro). С нее стоит начинать, если вы хотите, чтобы новая LLM или новый участник могли безопасно продолжить работу:
+- [`.skaro/constitution.md`](/home/admsys/work/hashgraph/.skaro/constitution.md) задает проектные правила и ограничения.
+- [`.skaro/architecture/architecture.md`](/home/admsys/work/hashgraph/.skaro/architecture/architecture.md) фиксирует текущую структуру системы.
+- [`.skaro/architecture/invariants.md`](/home/admsys/work/hashgraph/.skaro/architecture/invariants.md) перечисляет правила, которые нельзя нарушать.
+- [`.skaro/devplan/devplan.md`](/home/admsys/work/hashgraph/.skaro/devplan/devplan.md) содержит ближайшие шаги по документированию и укреплению проекта.
+- [`.skaro/milestones/`](/home/admsys/work/hashgraph/.skaro/milestones) предназначена для будущих задач с `spec.md`, `plan.md` и `AI_NOTES.md`.
+
 ## Quick Start
 1. **Install dependencies** (Python 3.11):
    ```bash
