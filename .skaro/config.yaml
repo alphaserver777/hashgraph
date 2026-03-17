@@ -1,0 +1,28 @@
+llm:
+  provider: openai
+  model: gpt-5.2
+  api_key_env: OPENAI_API_KEY
+  max_tokens: 16384
+  temperature: 0.3
+roles:
+  architect:
+    provider: openai
+    model: gpt-5.2
+  coder:
+    provider: openai
+    model: gpt-5.2
+  reviewer:
+    provider: openai
+    model: gpt-5.2
+lang: ru
+theme: dark
+project_name: hashgraph
+project_description: >
+  MDRJ-DAG prototype: leaderless DAG-based distributed event journal with gossip replication,
+  virtual voting, SQLite persistence, HTTP API, CLI tooling, visualization, and integration tests.
+skills:
+  preset: ""
+  active: []
+  disabled: []
+verify_commands:
+  - pytest

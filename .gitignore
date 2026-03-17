@@ -1,1 +1,4 @@
 .venv
+.skaro/secrets.yaml
+.skaro/token_usage.yaml
+.skaro/usage_log.jsonl

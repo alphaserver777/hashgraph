@@ -1,0 +1,24 @@
+# Secrets
+.env
+*.pem
+*.key
+.skaro/secrets.yaml
+
+# Databases and runtime data
+*.db
+*.sqlite3
+data/
+logs/
+
+# Python build and cache
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+
+# Containers and local artifacts
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

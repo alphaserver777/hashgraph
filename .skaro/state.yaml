@@ -1,0 +1,11 @@
+project:
+  initialized_from_existing_repo: true
+  import_mode: manual
+  last_manual_sync: 2026-03-15
+phases:
+  constitution: approved
+  architecture: approved
+  devplan: drafted
+review:
+  last_repo_review: 2026-03-15
+  status: baseline-documented
