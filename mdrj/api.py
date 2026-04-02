@@ -128,12 +128,12 @@ VIZ_HTML = """
       min-height: 100vh;
     }
     .dashboard-shell {
-      width: min(1860px, calc(100vw - 2rem));
+      width: min(1780px, calc(100vw - 2rem));
       margin: 0 auto;
-      padding: 1.25rem 0 1.75rem;
+      padding: 0.95rem 0 1.35rem;
       display: grid;
-      grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
-      gap: 1rem;
+      grid-template-columns: minmax(248px, 286px) minmax(0, 1fr);
+      gap: 0.9rem;
       align-items: start;
     }
     .dashboard-main {
@@ -145,16 +145,16 @@ VIZ_HTML = """
       position: sticky;
       top: 1rem;
       min-height: calc(100vh - 2rem);
-      padding: 0.95rem 0.8rem 0.9rem;
-      border-radius: 28px;
+      padding: 0.82rem 0.72rem 0.78rem;
+      border-radius: 24px;
       background:
-        linear-gradient(180deg, rgba(8, 14, 22, 0.985), rgba(5, 10, 16, 0.985)),
-        radial-gradient(circle at top right, rgba(106, 169, 255, 0.08), transparent 35%);
-      border: 1px solid rgba(255,255,255,0.05);
-      box-shadow: var(--shadow-soft);
+        linear-gradient(180deg, rgba(6, 10, 15, 0.992), rgba(4, 8, 13, 0.992)),
+        radial-gradient(circle at top right, rgba(106, 169, 255, 0.06), transparent 32%);
+      border: 1px solid rgba(255,255,255,0.04);
+      box-shadow: 0 26px 80px rgba(0, 0, 0, 0.24);
       display: flex;
       flex-direction: column;
-      gap: 0.9rem;
+      gap: 0.72rem;
       overflow: hidden;
     }
     .nav-head {
@@ -283,7 +283,7 @@ VIZ_HTML = """
       align-items: center;
       gap: 0.72rem;
       min-width: 0;
-      padding: 0.68rem 0.72rem;
+      padding: 0.62rem 0.68rem;
       border-radius: 12px;
       color: var(--text-1);
       text-decoration: none;
@@ -297,8 +297,8 @@ VIZ_HTML = """
       color: #ffffff;
     }
     .nav-item.active {
-      background: rgba(255,255,255,0.04);
-      border-color: rgba(255,255,255,0.03);
+      background: rgba(255,255,255,0.035);
+      border-color: rgba(255,255,255,0.025);
       color: #ffffff;
     }
     .nav-item-group {
@@ -375,11 +375,11 @@ VIZ_HTML = """
     }
     .nav-support {
       margin-top: auto;
-      padding: 1rem;
-      border-radius: 20px;
+      padding: 0.88rem 0.92rem;
+      border-radius: 18px;
       background:
-        linear-gradient(180deg, rgba(13, 23, 35, 0.96), rgba(8, 15, 24, 0.96)),
-        radial-gradient(circle at top right, rgba(244, 179, 99, 0.12), transparent 40%);
+        linear-gradient(180deg, rgba(10, 17, 27, 0.96), rgba(7, 13, 21, 0.96)),
+        radial-gradient(circle at top right, rgba(244, 179, 99, 0.08), transparent 40%);
       border: 1px solid rgba(255,255,255,0.05);
     }
     .nav-support h3 {
@@ -388,10 +388,10 @@ VIZ_HTML = """
       font-size: 0.95rem;
     }
     .nav-support p {
-      margin: 0.45rem 0 0;
+      margin: 0.4rem 0 0;
       color: var(--text-2);
-      font-size: 0.8rem;
-      line-height: 1.45;
+      font-size: 0.76rem;
+      line-height: 1.42;
     }
     .nav-support-meta {
       display: flex;
@@ -454,35 +454,35 @@ VIZ_HTML = """
       height: 18px;
     }
     header {
-      padding: 1.25rem 1.4rem;
-      border: 1px solid var(--line-soft);
-      border-radius: 28px;
+      padding: 1rem 1.1rem 1.05rem;
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 24px;
       background:
-        linear-gradient(135deg, rgba(20, 36, 54, 0.95), rgba(12, 24, 37, 0.92)),
-        radial-gradient(circle at top right, rgba(106, 169, 255, 0.18), transparent 35%);
-      box-shadow: var(--shadow-soft);
+        linear-gradient(135deg, rgba(16, 28, 42, 0.95), rgba(10, 20, 31, 0.94)),
+        radial-gradient(circle at top right, rgba(106, 169, 255, 0.12), transparent 34%);
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.2);
       align-items: flex-start;
-      gap: 1rem;
+      gap: 0.85rem;
     }
     h1 {
-      font-size: clamp(1.45rem, 2.8vw, 2.3rem);
+      font-size: clamp(1.36rem, 2.4vw, 2rem);
       letter-spacing: -0.03em;
-      line-height: 1.05;
+      line-height: 1.02;
       margin: 0;
     }
     .header-kicker {
-      font-size: 0.82rem;
+      font-size: 0.74rem;
       text-transform: uppercase;
-      letter-spacing: 0.14em;
+      letter-spacing: 0.16em;
       color: rgba(180, 205, 227, 0.72);
-      margin-bottom: 0.55rem;
+      margin-bottom: 0.42rem;
     }
     .header-subtitle {
-      max-width: 66ch;
-      margin-top: 0.75rem;
+      max-width: 56ch;
+      margin-top: 0.55rem;
       color: var(--text-2);
-      font-size: 0.95rem;
-      line-height: 1.5;
+      font-size: 0.86rem;
+      line-height: 1.45;
     }
     .header-actions {
       flex-direction: column;
@@ -499,30 +499,30 @@ VIZ_HTML = """
       display: inline-flex;
       align-items: center;
       gap: 0.45rem;
-      padding: 0.5rem 0.8rem;
+      padding: 0.42rem 0.7rem;
       border-radius: 999px;
-      background: rgba(27, 44, 63, 0.9);
-      border: 1px solid rgba(158, 191, 225, 0.18);
+      background: rgba(19, 31, 46, 0.82);
+      border: 1px solid rgba(158, 191, 225, 0.12);
       color: var(--text-1);
-      font-size: 0.8rem;
+      font-size: 0.76rem;
       white-space: nowrap;
     }
     .hero-pill strong { color: #ffffff; font-weight: 600; }
     .toolbar {
-      margin-top: 0.85rem;
-      padding: 0.8rem 0.95rem;
-      border-radius: 18px;
-      background: rgba(10, 19, 30, 0.84);
-      border: 1px solid rgba(255,255,255,0.06);
-      font-size: 0.82rem;
+      margin-top: 0.6rem;
+      padding: 0.68rem 0.82rem;
+      border-radius: 16px;
+      background: rgba(10, 19, 30, 0.68);
+      border: 1px solid rgba(255,255,255,0.05);
+      font-size: 0.78rem;
       opacity: 1;
       color: var(--text-2);
     }
     #overview-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 1rem;
-      margin-top: 1rem;
+      gap: 0.85rem;
+      margin-top: 0.85rem;
     }
     .overview-card,
     .panel-surface {
@@ -532,11 +532,11 @@ VIZ_HTML = """
       box-shadow: var(--shadow-soft);
     }
     .overview-card {
-      padding: 1rem 1.05rem 1.05rem;
-      min-height: 160px;
+      padding: 0.9rem 0.95rem 0.95rem;
+      min-height: 148px;
       display: flex;
       flex-direction: column;
-      gap: 0.85rem;
+      gap: 0.72rem;
     }
     .overview-card h2,
     .controls-title,
@@ -550,7 +550,7 @@ VIZ_HTML = """
       color: rgba(186, 206, 226, 0.72);
     }
     .hero-value {
-      font-size: 1.65rem;
+      font-size: 1.48rem;
       line-height: 1;
       letter-spacing: -0.04em;
       color: #ffffff;
@@ -561,9 +561,9 @@ VIZ_HTML = """
       gap: 0.55rem;
     }
     .meta-chip, .metric-box, .peer-summary-item, .activity-item {
-      padding: 0.7rem 0.8rem;
-      border-radius: 16px;
-      background: rgba(9, 20, 31, 0.86);
+      padding: 0.62rem 0.72rem;
+      border-radius: 14px;
+      background: rgba(9, 20, 31, 0.72);
       border: 1px solid rgba(255,255,255,0.05);
     }
     .meta-chip-label, .metric-box-label {
@@ -650,12 +650,12 @@ VIZ_HTML = """
     #workspace {
       display: grid;
       grid-template-columns: minmax(270px, 320px) minmax(0, 1fr) minmax(280px, 340px);
-      gap: 1rem;
-      margin-top: 1rem;
+      gap: 0.9rem;
+      margin-top: 0.9rem;
       align-items: start;
     }
     .rail-stack { display: flex; flex-direction: column; gap: 1rem; }
-    .panel-surface { padding: 1rem; }
+    .panel-surface { padding: 0.92rem; }
     .panel-heading {
       display: flex;
       justify-content: space-between;
@@ -1705,8 +1705,8 @@ VIZ_HTML = """
             '</div>' +
           '</nav>' +
           '<section class="nav-support">' +
-            '<h3>Операторский контекст</h3>' +
-            '<p>Панель показывает только данные текущего runtime. Если для нового блока нет данных в backend, интерфейс не должен рисовать выдуманную картину.</p>' +
+            '<h3>Контур панели</h3>' +
+            '<p>Живые данные текущего узла и кластера без перезагрузки.</p>' +
             '<div class="nav-support-meta">' +
               '<span class="nav-support-pill">Без перезагрузки</span>' +
               '<span class="nav-support-pill">Server-Sent Events</span>' +
@@ -1725,14 +1725,14 @@ VIZ_HTML = """
           var titleWrap = titleHost.parentElement;
           var kicker = document.createElement('div');
           kicker.className = 'header-kicker';
-          kicker.textContent = 'Панель наблюдения за узлом и кластером. Автор: Моисеенко Вадим Олегович';
+          kicker.textContent = 'Распределённый мониторинг событий ИБ';
           titleWrap.insertBefore(kicker, titleHost);
 
-          titleHost.textContent = 'РУСИБ - распределённое управление событиями информационной безопасности';
+          titleHost.textContent = 'РУСИБ / Единая аналитическая панель';
 
           var subtitle = document.createElement('div');
           subtitle.className = 'header-subtitle';
-          subtitle.textContent = 'Экран показывает состояние текущего узла, сходимость распределённого журнала, поток событий и причинные связи внутри графа.';
+          subtitle.textContent = 'Состояние узла, тревоги, синхронность журнала и оперативная активность на одном экране.';
           titleWrap.appendChild(subtitle);
         }
 
@@ -1747,7 +1747,7 @@ VIZ_HTML = """
           headerActions.insertBefore(pillRow, headerActions.firstChild);
           var toolbar = headerActions.querySelector('.toolbar');
           if (toolbar) {
-            toolbar.textContent = 'Поток событий: Server-Sent Events. Изменения на графе и статус согласованности подтягиваются без перезагрузки страницы.';
+            toolbar.textContent = 'Поток событий: Server-Sent Events';
           }
         }
 
