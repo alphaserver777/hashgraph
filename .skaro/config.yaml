@@ -19,7 +19,8 @@ theme: dark
 project_name: hashgraph
 project_description: >
   MDRJ-DAG prototype: leaderless DAG-based distributed event journal with gossip replication,
-  virtual voting, SQLite persistence, HTTP API, CLI tooling, visualization, and integration tests.
+  deterministic ordering heuristic, SQLite persistence, HTTP API, CLI tooling, visualization,
+  and integration tests.
 skills:
   preset: ""
   active: []
