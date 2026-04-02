@@ -1,12 +1,12 @@
 # MDRJ-DAG
 
-Prototype implementation of the "минимально-достаточный распределённый журнал" (MDRJ) with a DAG-based event log, leaderless gossip, and virtual voting for consensus. The goal is to replicate security events across heterogeneous nodes with prioritised delivery for critical incidents.
+Prototype implementation of the "минимально-достаточный распределённый журнал" (MDRJ) with a DAG-based event log, leaderless gossip, and deterministic event ordering. The goal is to replicate security events across heterogeneous nodes with prioritised delivery for critical incidents.
 
 ## Architecture Overview
-- **Two-contour DAG**: every event links to at least two parents, preserving causal skeleton (vector clocks + Lamport clocks) and critical containment.
-- **Prioritised replication**: class `A` events always gossip, `B` obey configurable threat thresholds, `C` flow on demand to keep the DAG closed.
+- **DAG event log**: nodes try to attach each new event to up to two parents (latest local event, one recent remote event, then anchors as fallback), preserving causal context via vector clocks and parent edges.
+- **Prioritised replication**: class `A` events always gossip; in the current implementation class `B` is also force-relayed, while class `C` flows on demand to keep the DAG closed.
 - **Leaderless gossip**: fixed-interval epidemic exchange, fan-out `f`, deduplication, adaptive batches constrained by memory/bandwidth quotas.
-- **Virtual voting**: each envelope accumulates hop timestamps; the median provides a deterministic consensus timestamp and a fair total order.
+- **Deterministic ordering heuristic**: each envelope accumulates hop timestamps; the current prototype derives `consensus_ts` from Lamport-style counters plus a deterministic source bias, raising it to the maximum observed hop timestamp when needed.
 - **Local durability**: SQLite stores events, edges, envelopes, and peer health. No PoW, no fees, no external dependencies.
 - **Runtime metrics**: availability estimate `A_est`, empirical gossip latency `T_gossip`, reconstruction factor `K_r`, memory/network pressure (`C_mem`, `C_net`).
 
@@ -16,7 +16,7 @@ mdrj/
   api.py          # aiohttp HTTP API
   cli.py          # Typer CLI (`mdrj ...`)
   config.py       # YAML config loader
-  consensus.py    # virtual voting + total order
+  consensus.py    # deterministic ordering heuristic + total order
   gossip.py       # epidemic fan-out loop
   metrics.py      # runtime metrics observer
   models.py       # dataclasses for Event / Envelope / NodeProfile
@@ -35,13 +35,20 @@ tests/
   ...
 ```
 
-## Артефакты Skaro
-В репозиторий добавлена ручная Skaro-структура в [`.skaro/`](/home/admsys/work/hashgraph/.skaro). С нее стоит начинать, если вы хотите, чтобы новая LLM или новый участник могли безопасно продолжить работу:
-- [`.skaro/constitution.md`](/home/admsys/work/hashgraph/.skaro/constitution.md) задает проектные правила и ограничения.
-- [`.skaro/architecture/architecture.md`](/home/admsys/work/hashgraph/.skaro/architecture/architecture.md) фиксирует текущую структуру системы.
-- [`.skaro/architecture/invariants.md`](/home/admsys/work/hashgraph/.skaro/architecture/invariants.md) перечисляет правила, которые нельзя нарушать.
-- [`.skaro/devplan/devplan.md`](/home/admsys/work/hashgraph/.skaro/devplan/devplan.md) содержит ближайшие шаги по документированию и укреплению проекта.
-- [`.skaro/milestones/`](/home/admsys/work/hashgraph/.skaro/milestones) предназначена для будущих задач с `spec.md`, `plan.md` и `AI_NOTES.md`.
+## Документация Проекта
+Единственная рабочая точка правды по документации находится в [`docs/`](/home/admsys/hashgraph/docs):
+- [`docs/WORKFLOW.md`](/home/admsys/hashgraph/docs/WORKFLOW.md) задаёт обязательный порядок работы.
+- [`docs/constitution.md`](/home/admsys/hashgraph/docs/constitution.md) фиксирует инженерные правила проекта.
+- [`docs/architecture/`](/home/admsys/hashgraph/docs/architecture) содержит текущее состояние системы, инварианты и обзор рисков.
+- [`docs/devplan/devplan.md`](/home/admsys/hashgraph/docs/devplan/devplan.md) содержит среднесрочный план развития.
+- [`docs/ops/DEPLOYMENT.md`](/home/admsys/hashgraph/docs/ops/DEPLOYMENT.md) фиксирует контур запуска и ограничения развёртывания.
+- [`docs/ops/`](/home/admsys/hashgraph/docs/ops) содержит эксплуатационные и security-заметки.
+- [`docs/review/review-log.md`](/home/admsys/hashgraph/docs/review/review-log.md) ведёт журнал важных проектных изменений.
+- [`docs/templates/`](/home/admsys/hashgraph/docs/templates) хранит шаблоны для ADR и вспомогательных документов.
+- [`docs/tasks/`](/home/admsys/hashgraph/docs/tasks) содержит task specs и правила ведения задач.
+- [`docs/event-classification.md`](/home/admsys/hashgraph/docs/event-classification.md) является точкой правды для классификации известных типов событий.
+
+Каталог [`.skaro/`](/home/admsys/hashgraph/.skaro) сохранён только как исторический след предыдущего этапа документирования. Использовать его как основной источник текущих правил и решений больше не нужно.
 
 ## Quick Start
 1. **Install dependencies** (Python 3.11):
@@ -138,6 +145,9 @@ Configuration files are generated under `configs/demo/`, logs under `logs/`. Man
 
 All payloads are canonical JSON; signatures (HMAC-SHA256) are optional and configured per-node.
 
+## Event Classes
+The source-of-truth classification policy for known event kinds lives in [`docs/event-classification.md`](/home/admsys/hashgraph/docs/event-classification.md). The runtime mirror used by the application lives in [`mdrj/event_catalog.py`](/home/admsys/hashgraph/mdrj/event_catalog.py) and should be kept synchronized with that document.
+
 ## Testing
 Run the unit and integration suite:
 ```bash
@@ -146,13 +156,13 @@ pytest
 Key coverage:
 - Vector/ Lamport clocks, DAG storage invariants.
 - Prioritisation rules and batch planning.
-- Consensus median timestamping.
+- Deterministic ordering and partition/heal convergence scenarios.
 - Multi-node gossip replication and partition/heal merge (`tests/test_gossip_integration.py`, `tests/test_merge_partition.py`).
 
 ## Extensibility & Limitations
 - **Security**: swap HMAC for Ed25519 (`cryptography`) via pluggable signature module.
 - **Transport**: MessagePack or QUIC transports can replace JSON/aiohttp.
-- **Persistence**: SQLite can be swapped for Postgres or LMDB; GC currently coarse.
+- **Persistence**: SQLite can be swapped for Postgres or LMDB; current GC is coarse and may remove parent links needed for long-lived DAG reconstruction.
 - **Policy**: integrate richer threat models or reputation scores for peer selection.
 - **Monitoring**: expose Prometheus metrics; current CLI watcher handles basic observation.
 
