@@ -518,11 +518,170 @@ VIZ_HTML = """
       opacity: 1;
       color: var(--text-2);
     }
+    #hero-analytics-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(420px, 0.9fr);
+      gap: 0.9rem;
+      margin-top: 0.85rem;
+      align-items: stretch;
+    }
+    .hero-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.85rem;
+      align-content: stretch;
+    }
+    .hero-kpi-card, .hero-spotlight-card {
+      border-radius: 24px;
+      border: 1px solid rgba(255,255,255,0.06);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
+    }
+    .hero-kpi-card {
+      padding: 1rem 1rem 0.9rem;
+      min-height: 172px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.72rem;
+      background:
+        radial-gradient(circle at top right, rgba(106, 169, 255, 0.12), transparent 38%),
+        linear-gradient(180deg, rgba(16, 29, 43, 0.96), rgba(10, 20, 31, 0.96));
+    }
+    .hero-kpi-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.75rem;
+      align-items: center;
+    }
+    .hero-kpi-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+    .hero-kpi-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: rgba(234, 243, 251, 0.92);
+      font-size: 0.88rem;
+    }
+    .hero-kpi-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      box-shadow: 0 0 0 8px rgba(255,255,255,0.03);
+    }
+    .hero-kpi-dot.mem { background: #4fd1a3; }
+    .hero-kpi-dot.net { background: #6aa9ff; }
+    .hero-kpi-dot.events { background: #f4b363; }
+    .hero-kpi-dot.intensity { background: #ff6d6d; }
+    .hero-kpi-delta {
+      padding: 0.34rem 0.6rem;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.05);
+      color: var(--text-2);
+      font-size: 0.74rem;
+      white-space: nowrap;
+    }
+    .hero-kpi-delta.up { color: #4fd1a3; background: rgba(79, 209, 163, 0.08); border-color: rgba(79, 209, 163, 0.16); }
+    .hero-kpi-delta.down { color: #ff8f8f; background: rgba(255, 109, 109, 0.08); border-color: rgba(255, 109, 109, 0.16); }
+    .hero-kpi-value { font-size: clamp(1.5rem, 2vw, 2rem); line-height: 0.98; letter-spacing: -0.05em; color: #ffffff; }
+    .hero-kpi-value.compact { font-size: clamp(0.98rem, 1.2vw, 1.2rem); line-height: 1.2; letter-spacing: -0.02em; }
+    .hero-kpi-caption { color: var(--text-2); font-size: 0.8rem; line-height: 1.45; }
+    .hero-kpi-spark { width: 100%; height: 82px; display: block; margin-top: auto; }
+    .hero-kpi-axis {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.75rem;
+      color: rgba(181, 200, 219, 0.62);
+      font-size: 0.68rem;
+      margin-top: -0.1rem;
+    }
+    .hero-kpi-expand {
+      width: 32px;
+      height: 32px;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 50%;
+      background: rgba(16, 28, 42, 0.82);
+      color: rgba(231, 239, 247, 0.82);
+      font: inherit;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 120ms ease;
+    }
+    .hero-kpi-expand:hover {
+      background: rgba(34, 55, 83, 0.92);
+      border-color: rgba(106, 169, 255, 0.18);
+      color: #ffffff;
+      transform: translateY(-1px);
+    }
+    .hero-spark-grid { stroke: rgba(181, 200, 219, 0.1); stroke-width: 1; stroke-dasharray: 4 5; }
+    .hero-spark-area { opacity: 0.18; }
+    .hero-spark-line { fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+    .hero-spark-line.class-a { stroke: #ff6d6d; }
+    .hero-spark-line.class-b { stroke: #ffc971; }
+    .hero-spark-line.class-c { stroke: #5aa5ff; }
+    .hero-spotlight-card {
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      background:
+        radial-gradient(circle at 18% 18%, rgba(255, 201, 113, 0.1), transparent 34%),
+        radial-gradient(circle at 85% 20%, rgba(106, 169, 255, 0.1), transparent 28%),
+        linear-gradient(180deg, rgba(16, 29, 43, 0.97), rgba(10, 20, 31, 0.97));
+    }
+    .hero-spotlight-top { display: flex; justify-content: space-between; gap: 0.85rem; align-items: flex-start; }
+    .hero-spotlight-kicker { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.16em; color: rgba(181, 200, 219, 0.68); margin-bottom: 0.45rem; }
+    .hero-spotlight-headline { margin: 0; font-size: 1.08rem; letter-spacing: -0.02em; }
+    .hero-spotlight-copy { margin-top: 0.3rem; color: var(--text-2); font-size: 0.82rem; line-height: 1.45; max-width: 44ch; }
+    .hero-spotlight-pills { display: flex; flex-wrap: wrap; gap: 0.45rem; justify-content: flex-end; }
+    .hero-spot-pill { padding: 0.36rem 0.68rem; border-radius: 999px; border: 1px solid rgba(255,255,255,0.05); background: rgba(10, 19, 30, 0.72); color: var(--text-2); font-size: 0.74rem; white-space: nowrap; }
+    .hero-spot-pill.ok { color: #4fd1a3; background: rgba(79, 209, 163, 0.08); border-color: rgba(79, 209, 163, 0.16); }
+    .hero-spot-pill.warn { color: #ffc971; background: rgba(255, 201, 113, 0.08); border-color: rgba(255, 201, 113, 0.16); }
+    .hero-spot-pill.alert { color: #ff8f8f; background: rgba(255, 109, 109, 0.08); border-color: rgba(255, 109, 109, 0.16); }
+    .hero-spotlight-body { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 1rem; align-items: center; }
+    #hero-class-donut { width: 240px; height: 240px; border-radius: 50%; margin: 0 auto; position: relative; background: conic-gradient(#223344 0deg, #223344 360deg); box-shadow: inset 0 0 0 18px rgba(8, 16, 25, 0.86); }
+    #hero-class-donut::after { content: ""; position: absolute; inset: 28px; border-radius: 50%; background: rgba(8, 16, 25, 0.97); border: 1px solid rgba(255,255,255,0.05); }
+    .hero-class-breakdown { display: flex; flex-direction: column; gap: 0.75rem; }
+    .hero-spotlight-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.65rem; margin-top: 0.2rem; }
+    .hero-spot-stat { padding: 0.78rem 0.82rem; border-radius: 16px; background: rgba(8, 18, 29, 0.76); border: 1px solid rgba(255,255,255,0.05); }
+    .hero-spot-stat-label { color: rgba(181, 200, 219, 0.68); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; }
+    .hero-spot-stat-value { margin-top: 0.35rem; color: #ffffff; font-size: 0.98rem; font-weight: 600; }
+    .analytics-modal-shell { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; padding: 1.5rem; z-index: 295; }
+    .analytics-modal-shell.open { display: flex; }
+    .analytics-modal-backdrop { position: absolute; inset: 0; background: rgba(5, 10, 18, 0.72); backdrop-filter: blur(4px); }
+    .analytics-modal {
+      position: relative;
+      width: min(1080px, calc(100vw - 2rem));
+      max-height: calc(100vh - 2rem);
+      overflow: auto;
+      padding: 1.2rem;
+      border-radius: 24px;
+      background: linear-gradient(180deg, rgba(16, 29, 43, 0.98), rgba(10, 20, 31, 0.97));
+      border: 1px solid rgba(255,255,255,0.07);
+      box-shadow: 0 28px 80px rgba(0, 0, 0, 0.35);
+      z-index: 1;
+    }
+    .analytics-modal-head { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; margin-bottom: 1rem; }
+    .analytics-modal-head h3 { margin: 0; color: #ffffff; font-size: 1.08rem; }
+    .analytics-modal-stage {
+      border-radius: 18px;
+      background: radial-gradient(circle at top, rgba(255,255,255,0.04), transparent 60%), rgba(8, 16, 25, 0.82);
+      border: 1px solid rgba(255,255,255,0.05);
+      padding: 1rem;
+    }
+    .analytics-modal-legend { display: flex; flex-wrap: wrap; gap: 0.55rem; margin-bottom: 0.75rem; }
+    .analytics-modal-chart { width: 100%; height: 320px; display: block; }
+    .analytics-modal-caption { display: flex; justify-content: space-between; gap: 1rem; margin-top: 0.8rem; color: var(--text-2); font-size: 0.78rem; }
     #overview-grid {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 0.85rem;
       margin-top: 0.85rem;
+      align-items: start;
     }
     .overview-card,
     .panel-surface {
@@ -533,7 +692,7 @@ VIZ_HTML = """
     }
     .overview-card {
       padding: 0.9rem 0.95rem 0.95rem;
-      min-height: 148px;
+      min-height: 0;
       display: flex;
       flex-direction: column;
       gap: 0.72rem;
@@ -648,13 +807,29 @@ VIZ_HTML = """
       font-weight: 400;
     }
     #workspace {
+      --workspace-stage-height: clamp(760px, 78vh, 980px);
       display: grid;
-      grid-template-columns: minmax(270px, 320px) minmax(0, 1fr) minmax(280px, 340px);
+      grid-template-columns: 320px minmax(0, 1fr) 320px;
       gap: 0.9rem;
       margin-top: 0.9rem;
-      align-items: start;
+      align-items: stretch;
+      min-height: var(--workspace-stage-height);
     }
-    .rail-stack { display: flex; flex-direction: column; gap: 1rem; }
+    .rail-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      align-self: stretch;
+      min-height: 0;
+      height: var(--workspace-stage-height);
+    }
+    #workspace > .rail-stack > .panel-surface:last-child {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
     .panel-surface { padding: 0.92rem; }
     .panel-heading {
       display: flex;
@@ -664,6 +839,10 @@ VIZ_HTML = """
       margin-bottom: 0.85rem;
     }
     .panel-hint { color: var(--text-2); font-size: 0.82rem; }
+    #workspace > .rail-stack > .panel-surface,
+    #workspace > .rail-stack > section.panel-surface {
+      border-radius: 24px;
+    }
     #controls, #filters, #timeline, #legend { padding: 0; background: transparent; border: none; }
     #controls-status {
       margin-top: 0.1rem;
@@ -675,7 +854,14 @@ VIZ_HTML = """
     .sim-button, .toggle-button, .timeline-item { border-radius: 14px; font-family: inherit; }
     .sim-button { background: rgba(30, 49, 74, 0.92); }
     .toggle-button { background: rgba(19, 34, 52, 0.86); }
-    #legend { display: flex; flex-direction: column; gap: 0.65rem; }
+    #legend {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      flex: 1 1 auto;
+      min-height: 0;
+      justify-content: space-between;
+    }
     .legend-item {
       padding: 0.72rem 0.8rem;
       border-radius: 16px;
@@ -683,7 +869,15 @@ VIZ_HTML = """
       border: 1px solid rgba(255,255,255,0.05);
       align-items: flex-start;
     }
-    #graph-panel { overflow: hidden; padding: 0; }
+    #graph-panel {
+      overflow: hidden;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-self: stretch;
+      min-height: 0;
+      height: var(--workspace-stage-height);
+    }
     .graph-panel-head {
       display: flex;
       justify-content: space-between;
@@ -706,30 +900,39 @@ VIZ_HTML = """
     }
     #graph-wrapper {
       width: 100%;
-      height: 72vh;
-      min-height: 640px;
+      height: auto;
+      flex: 1 1 auto;
+      min-height: 560px;
+      max-height: 100%;
+      overflow: hidden;
       border-top: 1px solid rgba(255,255,255,0.05);
       background:
         radial-gradient(circle at top, rgba(255,255,255,0.05), transparent 55%),
         linear-gradient(180deg, rgba(7, 15, 24, 0.96), rgba(5, 11, 18, 0.98));
     }
-    #graph { min-height: 640px; }
+    #graph {
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
+    }
     #timeline-items { max-height: 72vh; overflow: auto; padding-right: 0.25rem; }
     .timeline-item { width: 100%; text-align: left; background: rgba(12, 23, 36, 0.84); }
     .timeline-item.active { background: rgba(56, 86, 132, 0.95); }
     #analytics-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.95fr);
+      grid-template-columns: 1fr;
       gap: 1rem;
       margin-top: 1rem;
+      align-items: start;
     }
     .analytics-stack {
       display: flex;
       flex-direction: column;
       gap: 1rem;
+      align-self: start;
     }
     .chart-card {
-      min-height: 320px;
+      min-height: 0;
     }
     .chart-head {
       display: flex;
@@ -958,6 +1161,8 @@ VIZ_HTML = """
       max-height: 500px;
       overflow: auto;
       padding-right: 0.15rem;
+      flex: 1 1 auto;
+      min-height: 0;
     }
     .alert-item {
       padding: 0.85rem 0.9rem;
@@ -990,17 +1195,20 @@ VIZ_HTML = """
     .alert-text { color: var(--text-2); font-size: 0.82rem; line-height: 1.45; }
     #analytics-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.95fr);
+      grid-template-columns: 1fr;
       gap: 1rem;
       margin-top: 1rem;
+      align-items: start;
     }
     .analytics-stack {
       display: flex;
       flex-direction: column;
       gap: 1rem;
+      align-self: start;
+      width: 100%;
     }
     .chart-card {
-      min-height: 320px;
+      min-height: 0;
     }
     .chart-head {
       display: flex;
@@ -1447,8 +1655,15 @@ VIZ_HTML = """
       }
       .dashboard-shell.nav-collapsed { grid-template-columns: 1fr; }
       .dashboard-shell.nav-collapsed .dashboard-nav { display: none; }
+      #hero-analytics-grid { grid-template-columns: 1fr; }
       #overview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      #workspace { grid-template-columns: 320px minmax(0, 1fr); }
+      #workspace { grid-template-columns: 300px minmax(0, 1fr); }
+      #workspace,
+      .rail-stack,
+      #graph-panel {
+        min-height: 0;
+        height: auto;
+      }
       #workspace > .rail-stack:last-child { grid-column: 1 / -1; flex-direction: row; align-items: stretch; }
       #workspace > .rail-stack:last-child > .panel-surface { flex: 1 1 0; }
       #analytics-grid { grid-template-columns: 1fr; }
@@ -1460,9 +1675,19 @@ VIZ_HTML = """
       .nav-status-strip { grid-template-columns: 1fr; }
       header { flex-direction: column; }
       .pill-row { justify-content: flex-start; }
+      .hero-kpi-grid { grid-template-columns: 1fr; }
+      .hero-spotlight-body { grid-template-columns: 1fr; }
+      .hero-spotlight-stats { grid-template-columns: 1fr; }
+      #hero-class-donut { width: 210px; height: 210px; }
       #overview-grid, #workspace { grid-template-columns: 1fr; }
+      .rail-stack, #graph-panel { height: auto; }
       #workspace > .rail-stack:last-child { flex-direction: column; }
-      #graph-wrapper, #graph { min-height: 500px; height: 60vh; }
+      #graph-wrapper {
+        min-height: 500px;
+        height: min(62vh, 620px);
+        max-height: 620px;
+      }
+      #graph { min-height: 0; height: 100%; }
       .hero-meta, .metrics-strip { grid-template-columns: 1fr; }
       .donut-layout { grid-template-columns: 1fr; }
       #class-donut { width: 200px; height: 200px; }
@@ -1590,6 +1815,12 @@ VIZ_HTML = """
           reportVizBootstrapError('runtime', event && (event.error || event.message));
         });
       }
+      document.addEventListener('click', function (event) {
+        var expandButton = event.target && event.target.closest ? event.target.closest('[data-hero-expand]') : null;
+        if (expandButton) {
+          openAnalyticsModal(expandButton.getAttribute('data-hero-expand'));
+        }
+      });
       var colorByClass = { A: '#ff6d6d', B: '#ffc971', C: '#5aa5ff', default: '#99a9ff' };
       var nodes = {};
       var nodeOrder = [];
@@ -1673,7 +1904,7 @@ VIZ_HTML = """
           '<div class="nav-head">' +
             '<div class="nav-brand">' +
               '<div class="nav-brand-mark">MD</div>' +
-              '<div class="nav-brand-copy"><strong>Журнал MDRJ</strong><span id="nav-node-caption">ID: —</span></div>' +
+              '<div class="nav-brand-copy"><strong>Журнал РУСИБ</strong><span id="nav-node-caption">ID: —</span></div>' +
             '</div>' +
             '<div class="nav-actions">' +
               '<button class="nav-action" type="button" aria-label="Поиск по панели" title="Поиск по панели">⌕</button>' +
@@ -1689,10 +1920,9 @@ VIZ_HTML = """
               '<div class="nav-branch">' +
                 '<div class="nav-branch-label"><span class="nav-icon">◫</span><span class="nav-copy">Панель мониторинга</span></div>' +
                 '<div class="nav-tree">' +
-                  '<a class="nav-item active" href="#analytics-grid"><span class="nav-item-group"><span class="nav-icon">•</span><span class="nav-copy">Аналитика ИБ</span></span></a>' +
+                  '<a class="nav-item active" href="#hero-analytics-grid"><span class="nav-item-group"><span class="nav-icon">•</span><span class="nav-copy">Аналитика ИБ</span></span></a>' +
                   '<a class="nav-item" href="#overview-grid"><span class="nav-item-group"><span class="nav-icon">•</span><span class="nav-copy">Обзор узла</span></span></a>' +
                   '<a class="nav-item" href="#graph-panel"><span class="nav-item-group"><span class="nav-icon">•</span><span class="nav-copy">Граф событий</span></span></a>' +
-                  '<a class="nav-item" href="#timeline"><span class="nav-item-group"><span class="nav-icon">•</span><span class="nav-copy">Лента журнала</span></span></a>' +
                 '</div>' +
               '</div>' +
               '<div class="nav-list nav-secondary">' +
@@ -1751,6 +1981,18 @@ VIZ_HTML = """
           }
         }
 
+        var heroAnalytics = document.createElement('section');
+        heroAnalytics.id = 'hero-analytics-grid';
+        heroAnalytics.innerHTML =
+          '<div class="hero-kpi-grid">' +
+            '<article class="hero-kpi-card"><div class="hero-kpi-head"><div class="hero-kpi-label"><span class="hero-kpi-dot mem"></span>Память журнала</div><div class="hero-kpi-actions"><span class="hero-kpi-delta" id="hero-kpi-mem-delta">—</span><button class="hero-kpi-expand" type="button" data-hero-expand="mem" aria-label="Раскрыть график памяти" title="Раскрыть график памяти">↗</button></div></div><div class="hero-kpi-value" id="hero-kpi-mem-value">—</div><div class="hero-kpi-caption" id="hero-kpi-mem-caption">Использование памяти под распределённый журнал.</div><svg class="hero-kpi-spark" id="hero-kpi-mem-spark" viewBox="0 0 220 82" preserveAspectRatio="none"></svg><div class="hero-kpi-axis"><span>Y: %</span><span>X: обновления</span></div></article>' +
+            '<article class="hero-kpi-card"><div class="hero-kpi-head"><div class="hero-kpi-label"><span class="hero-kpi-dot net"></span>Сетевая нагрузка</div><div class="hero-kpi-actions"><span class="hero-kpi-delta" id="hero-kpi-net-delta">—</span><button class="hero-kpi-expand" type="button" data-hero-expand="net" aria-label="Раскрыть график сети" title="Раскрыть график сети">↗</button></div></div><div class="hero-kpi-value" id="hero-kpi-net-value">—</div><div class="hero-kpi-caption" id="hero-kpi-net-caption">Текущий бюджет обмена между узлами.</div><svg class="hero-kpi-spark" id="hero-kpi-net-spark" viewBox="0 0 220 82" preserveAspectRatio="none"></svg><div class="hero-kpi-axis"><span>Y: %</span><span>X: обновления</span></div></article>' +
+            '<article class="hero-kpi-card"><div class="hero-kpi-head"><div class="hero-kpi-label"><span class="hero-kpi-dot events"></span>Объём журнала</div><div class="hero-kpi-actions"><span class="hero-kpi-delta" id="hero-kpi-events-delta">—</span><button class="hero-kpi-expand" type="button" data-hero-expand="events" aria-label="Раскрыть график объёма журнала" title="Раскрыть график объёма журнала">↗</button></div></div><div class="hero-kpi-value" id="hero-kpi-events-value">—</div><div class="hero-kpi-caption" id="hero-kpi-events-caption">Количество известных событий на узле.</div><svg class="hero-kpi-spark" id="hero-kpi-events-spark" viewBox="0 0 220 82" preserveAspectRatio="none"></svg><div class="hero-kpi-axis"><span>Y: события</span><span>X: обновления</span></div></article>' +
+            '<article class="hero-kpi-card"><div class="hero-kpi-head"><div class="hero-kpi-label"><span class="hero-kpi-dot intensity"></span>Интенсивность потока</div><div class="hero-kpi-actions"><span class="hero-kpi-delta" id="hero-kpi-intensity-delta">—</span><button class="hero-kpi-expand" type="button" data-hero-expand="intensity" aria-label="Раскрыть график интенсивности" title="Раскрыть график интенсивности">↗</button></div></div><div class="hero-kpi-value compact" id="hero-kpi-intensity-value">—</div><div class="hero-kpi-caption" id="hero-kpi-intensity-caption">Три класса A/B/C в одном потоке за окно 5 минут.</div><svg class="hero-kpi-spark" id="hero-kpi-intensity-spark" viewBox="0 0 220 82" preserveAspectRatio="none"></svg><div class="hero-kpi-axis"><span>Y: событий/мин</span><span>X: окна 5 мин</span></div></article>' +
+          '</div>' +
+          '<article class="hero-spotlight-card"><div class="hero-spotlight-top"><div><div class="hero-spotlight-kicker">Главный обзор</div><h2 class="hero-spotlight-headline">Распределение сигналов и состояние контура</h2><div class="hero-spotlight-copy">Верхний экран собирает визуальную сводку по классам событий, синхронности кластера и текущему давлению на узел.</div></div><div class="hero-spotlight-pills"><span class="hero-spot-pill" id="hero-spot-sync">Синхронность: ожидание</span><span class="hero-spot-pill" id="hero-spot-threat">Угроза: —</span><span class="hero-spot-pill" id="hero-spot-pressure">Нагрузка: —</span></div></div><div class="hero-spotlight-body"><div id="hero-class-donut"><div class="donut-center"><div class="donut-total" id="hero-donut-total">0</div><div class="donut-label">Всего событий</div></div></div><div><div class="hero-class-breakdown" id="hero-class-breakdown"></div><div class="hero-spotlight-stats"><div class="hero-spot-stat"><div class="hero-spot-stat-label">Критичные A</div><div class="hero-spot-stat-value" id="hero-spot-class-a">0</div></div><div class="hero-spot-stat"><div class="hero-spot-stat-label">Важные B</div><div class="hero-spot-stat-value" id="hero-spot-class-b">0</div></div><div class="hero-spot-stat"><div class="hero-spot-stat-label">Источники</div><div class="hero-spot-stat-value" id="hero-spot-sources">0</div></div></div></div></div></article>';
+        main.appendChild(heroAnalytics);
+
         var overview = document.createElement('section');
         overview.id = 'overview-grid';
         overview.innerHTML =
@@ -1765,38 +2007,27 @@ VIZ_HTML = """
             '</div>' +
           '</article>' +
           '<article class="overview-card">' +
-            '<h2>Здоровье узла</h2>' +
-            '<div class="metrics-strip">' +
-              '<div class="metric-box"><span class="metric-box-label">Готовность кворума</span><span class="metric-box-value" id="metric-a-est">—</span></div>' +
-              '<div class="metric-box"><span class="metric-box-label">Задержка обмена</span><span class="metric-box-value" id="metric-t-gossip">—</span></div>' +
-              '<div class="metric-box"><span class="metric-box-label">Целостность графа</span><span class="metric-box-value" id="metric-k-r">—</span></div>' +
-              '<div class="metric-box"><span class="metric-box-label">Объём журнала</span><span class="metric-box-value" id="metric-event-count">—</span></div>' +
-            '</div>' +
-          '</article>' +
-          '<article class="overview-card">' +
-            '<h2>Согласованность</h2>' +
-            '<ul id="consensus-peer-summary"><li class="peer-summary-item">Пока нет данных о сравнении с соседними узлами.</li></ul>' +
-          '</article>' +
-          '<article class="overview-card">' +
-            '<h2>Оперативная активность</h2>' +
+            '<h2>Технические сигналы</h2>' +
             '<div class="hero-meta">' +
-              '<div class="meta-chip"><span class="meta-chip-label">Критичные A</span><span class="meta-chip-value" id="activity-class-a">0</span></div>' +
-              '<div class="meta-chip"><span class="meta-chip-label">Важные B</span><span class="meta-chip-value" id="activity-class-b">0</span></div>' +
-              '<div class="meta-chip"><span class="meta-chip-label">Служебные C</span><span class="meta-chip-value" id="activity-class-c">0</span></div>' +
-              '<div class="meta-chip"><span class="meta-chip-label">Источники</span><span class="meta-chip-value" id="activity-source-count">0</span></div>' +
+              '<div class="meta-chip"><span class="meta-chip-label">Готовность</span><span class="meta-chip-value" id="metric-a-est">—</span></div>' +
+              '<div class="meta-chip"><span class="meta-chip-label">Задержка</span><span class="meta-chip-value" id="metric-t-gossip">—</span></div>' +
+              '<div class="meta-chip"><span class="meta-chip-label">Целостность</span><span class="meta-chip-value" id="metric-k-r">—</span></div>' +
+              '<div class="meta-chip"><span class="meta-chip-label">Событий</span><span class="meta-chip-value" id="metric-event-count">—</span></div>' +
             '</div>' +
-            '<div id="activity-intensity" class="intensity-grid"><div class="intensity-row"><div><div class="intensity-title">Интенсивность ещё не рассчитана</div><div class="intensity-meta">Нужны события с временными отметками.</div></div><div class="intensity-rate">—</div></div></div>' +
-            '<ul id="activity-feed"><li class="activity-item">События ещё не поступили.</li></ul>' +
           '</article>';
         main.appendChild(overview);
-        var metricsCard = overview.children[1];
-        var consensusCard = overview.children[2];
-        if (metricsCard && metricsEl) {
-          metricsCard.appendChild(metricsEl);
+        if (metricsEl) {
+          metricsEl.style.display = 'none';
         }
-        if (consensusCard && consensusStatusEl && statusEl) {
-          consensusCard.insertBefore(consensusStatusEl, consensusCard.firstChild.nextSibling);
-          consensusCard.insertBefore(statusEl, consensusCard.querySelector('#consensus-peer-summary'));
+        var timelineEl = document.getElementById('timeline');
+        if (timelineEl) {
+          timelineEl.style.display = 'none';
+        }
+        if (consensusStatusEl) {
+          consensusStatusEl.style.display = 'none';
+        }
+        if (statusEl) {
+          statusEl.style.display = 'none';
         }
 
         var workspace = document.createElement('main');
@@ -1844,62 +2075,40 @@ VIZ_HTML = """
           legendLabels[3].textContent = 'Ребро показывает ссылку ребёнка на родителя и причинную связь';
         }
 
-        rightRail.appendChild(wrapPanel(document.getElementById('timeline'), null, null));
         graphPanel.appendChild(graphEl.parentElement);
 
-        var analytics = document.createElement('section');
-        analytics.id = 'analytics-grid';
-        analytics.innerHTML =
-          '<div class="analytics-stack">' +
-            '<section class="panel-surface chart-card">' +
-              '<div class="chart-head">' +
-                '<div><h3>Динамика ресурсов и журнала</h3><div class="chart-subtitle">История строится по текущим обновлениям метрик узла: память, сеть и объём известных событий.</div></div>' +
-              '</div>' +
-              '<div class="chart-stage">' +
-                '<div class="chart-toolbar">' +
-                  '<div class="chart-tabs">' +
-                    '<button class="chart-tab active" id="trend-tab-resources" type="button">Ресурсы</button>' +
-                    '<button class="chart-tab" id="trend-tab-intensity" type="button">Интенсивность</button>' +
-                  '</div>' +
-                  '<div class="trend-legend" id="trend-legend">' +
-                    '<span class="trend-chip"><span class="trend-dot mem"></span>Память журнала</span>' +
-                    '<span class="trend-chip"><span class="trend-dot net"></span>Сетевая нагрузка</span>' +
-                    '<span class="trend-chip"><span class="trend-dot events"></span>Количество событий</span>' +
-                  '</div>' +
-                '</div>' +
-                '<div class="chart-axis-notes">' +
-                  '<span id="trend-y-axis">Ось Y: относительная загрузка и объём журнала</span>' +
-                  '<span id="trend-x-axis">Ось X: последовательность наблюдений во времени</span>' +
-                '</div>' +
-                '<svg id="trend-chart" viewBox="0 0 820 220" preserveAspectRatio="none"></svg>' +
-                '<div class="trend-caption"><span>Левая часть показывает более ранние точки, правая часть — последние обновления.</span><span id="trend-caption-value">История ещё не накоплена.</span></div>' +
-              '</div>' +
-            '</section>' +
-            '<section class="panel-surface chart-card">' +
-              '<div class="chart-head">' +
-                '<div><h3>Распределение событий по классам</h3><div class="chart-subtitle">Сводка по классам A, B и C внутри текущего графа на этом узле.</div></div>' +
-              '</div>' +
-              '<div class="chart-stage donut-layout">' +
-                '<div id="class-donut"><div class="donut-center"><div class="donut-total" id="donut-total">0</div><div class="donut-label">Всего событий</div></div></div>' +
-                '<div id="class-breakdown"></div>' +
-              '</div>' +
-            '</section>' +
-          '</div>' +
-          '<div class="analytics-stack">' +
-            '<section class="panel-surface chart-card">' +
-              '<div class="chart-head">' +
-                '<div><h3>Источники и устройства</h3><div class="chart-subtitle">Где фиксируются события разных классов и какие устройства дают наибольшую нагрузку.</div></div>' +
-              '</div>' +
-              '<div id="source-summary"></div>' +
-            '</section>' +
-            '<section class="panel-surface chart-card">' +
-              '<div class="chart-head">' +
-                '<div><h3>Окно тревог</h3><div class="chart-subtitle">Критичные события, рассогласование между узлами и признаки давления на ресурсы.</div></div>' +
-              '</div>' +
-              '<div id="alert-window"><div class="alert-item info"><div class="alert-meta"><span class="alert-level">НЕТ АКТИВНЫХ</span></div><div class="alert-title">Ожидание сигналов</div><div class="alert-text">Тревожные уведомления появятся здесь по мере поступления событий и изменения состояния кластера.</div></div></div>' +
-            '</section>' +
+        var sourceSummaryPanel = document.createElement('section');
+        sourceSummaryPanel.className = 'panel-surface';
+        sourceSummaryPanel.innerHTML =
+          '<div class="panel-heading"><h3>Источники и устройства</h3><div class="panel-hint">Где фиксируются события разных классов и какие устройства дают наибольшую нагрузку.</div></div>' +
+          '<div id="source-summary"></div>';
+        rightRail.appendChild(sourceSummaryPanel);
+
+        var alertWindowPanel = document.createElement('section');
+        alertWindowPanel.className = 'panel-surface';
+        alertWindowPanel.innerHTML =
+          '<div class="panel-heading"><h3>Окно тревог</h3><div class="panel-hint">Критичные события, рассогласование между узлами и признаки давления на ресурсы.</div></div>' +
+          '<div id="alert-window"><div class="alert-item info"><div class="alert-meta"><span class="alert-level">НЕТ АКТИВНЫХ</span></div><div class="alert-title">Ожидание сигналов</div><div class="alert-text">Тревожные уведомления появятся здесь по мере поступления событий и изменения состояния кластера.</div></div></div>';
+        rightRail.appendChild(alertWindowPanel);
+
+        var analyticsModal = document.createElement('div');
+        analyticsModal.id = 'analytics-modal-shell';
+        analyticsModal.className = 'analytics-modal-shell';
+        analyticsModal.innerHTML =
+          '<div class="analytics-modal-backdrop" id="analytics-modal-backdrop"></div>' +
+          '<div class="analytics-modal">' +
+            '<div class="analytics-modal-head">' +
+              '<div><h3 id="analytics-modal-title">Расширенная аналитика</h3><div class="panel-hint" id="analytics-modal-subtitle">Подробный вид выбранной мини-карточки.</div></div>' +
+              '<div class="incident-modal-actions"><button class="incident-cancel-btn" id="analytics-modal-close" type="button">Закрыть</button></div>' +
+            '</div>' +
+            '<div class="analytics-modal-stage">' +
+              '<div class="analytics-modal-legend" id="analytics-modal-legend"></div>' +
+              '<div class="chart-axis-notes"><span id="analytics-modal-y-axis">Ось Y</span><span id="analytics-modal-x-axis">Ось X</span></div>' +
+              '<svg class="analytics-modal-chart" id="analytics-modal-chart" viewBox="0 0 920 320" preserveAspectRatio="none"></svg>' +
+              '<div class="analytics-modal-caption"><span id="analytics-modal-caption-left">История строится по реальным данным узла.</span><span id="analytics-modal-caption-right">—</span></div>' +
+            '</div>' +
           '</div>';
-        main.appendChild(analytics);
+        body.appendChild(analyticsModal);
 
         var incidentWorkbench = document.createElement('section');
         incidentWorkbench.id = 'incident-workbench';
@@ -2015,6 +2224,31 @@ VIZ_HTML = """
       var heroNodeIdEl = document.getElementById('hero-node-id');
       var heroNodeStateEl = document.getElementById('hero-node-state');
       var heroNodeRoleEl = document.getElementById('hero-node-role');
+      var heroKpiMemDeltaEl = document.getElementById('hero-kpi-mem-delta');
+      var heroKpiMemValueEl = document.getElementById('hero-kpi-mem-value');
+      var heroKpiMemCaptionEl = document.getElementById('hero-kpi-mem-caption');
+      var heroKpiMemSparkEl = document.getElementById('hero-kpi-mem-spark');
+      var heroKpiNetDeltaEl = document.getElementById('hero-kpi-net-delta');
+      var heroKpiNetValueEl = document.getElementById('hero-kpi-net-value');
+      var heroKpiNetCaptionEl = document.getElementById('hero-kpi-net-caption');
+      var heroKpiNetSparkEl = document.getElementById('hero-kpi-net-spark');
+      var heroKpiEventsDeltaEl = document.getElementById('hero-kpi-events-delta');
+      var heroKpiEventsValueEl = document.getElementById('hero-kpi-events-value');
+      var heroKpiEventsCaptionEl = document.getElementById('hero-kpi-events-caption');
+      var heroKpiEventsSparkEl = document.getElementById('hero-kpi-events-spark');
+      var heroKpiIntensityDeltaEl = document.getElementById('hero-kpi-intensity-delta');
+      var heroKpiIntensityValueEl = document.getElementById('hero-kpi-intensity-value');
+      var heroKpiIntensityCaptionEl = document.getElementById('hero-kpi-intensity-caption');
+      var heroKpiIntensitySparkEl = document.getElementById('hero-kpi-intensity-spark');
+      var heroExpandButtons = Array.prototype.slice.call(document.querySelectorAll('[data-hero-expand]'));
+      var heroSpotSyncEl = document.getElementById('hero-spot-sync');
+      var heroSpotThreatEl = document.getElementById('hero-spot-threat');
+      var heroSpotPressureEl = document.getElementById('hero-spot-pressure');
+      var heroSpotClassAEl = document.getElementById('hero-spot-class-a');
+      var heroSpotClassBEl = document.getElementById('hero-spot-class-b');
+      var heroSpotSourcesEl = document.getElementById('hero-spot-sources');
+      var heroDonutTotalEl = document.getElementById('hero-donut-total');
+      var heroClassBreakdownEl = document.getElementById('hero-class-breakdown');
       var statusStateValueEl = document.getElementById('status-state-value');
       var statusNodeIdEl = document.getElementById('status-node-id');
       var statusPeerCountEl = document.getElementById('status-peer-count');
@@ -2038,6 +2272,16 @@ VIZ_HTML = """
       var trendCaptionValueEl = document.getElementById('trend-caption-value');
       var trendTabResourcesEl = document.getElementById('trend-tab-resources');
       var trendTabIntensityEl = document.getElementById('trend-tab-intensity');
+      var analyticsModalShellEl = document.getElementById('analytics-modal-shell');
+      var analyticsModalBackdropEl = document.getElementById('analytics-modal-backdrop');
+      var analyticsModalCloseEl = document.getElementById('analytics-modal-close');
+      var analyticsModalTitleEl = document.getElementById('analytics-modal-title');
+      var analyticsModalSubtitleEl = document.getElementById('analytics-modal-subtitle');
+      var analyticsModalLegendEl = document.getElementById('analytics-modal-legend');
+      var analyticsModalYAxisEl = document.getElementById('analytics-modal-y-axis');
+      var analyticsModalXAxisEl = document.getElementById('analytics-modal-x-axis');
+      var analyticsModalChartEl = document.getElementById('analytics-modal-chart');
+      var analyticsModalCaptionRightEl = document.getElementById('analytics-modal-caption-right');
       var donutTotalEl = document.getElementById('donut-total');
       var classBreakdownEl = document.getElementById('class-breakdown');
       var sourceSummaryEl = document.getElementById('source-summary');
@@ -2077,6 +2321,11 @@ VIZ_HTML = """
       var alertFeed = [];
       var trendView = 'resources';
       var lastOperationalNodes = [];
+      var lastMetricsSnapshot = null;
+      var lastStatusSnapshot = null;
+      var lastClassSummary = { A: 0, B: 0, C: 0 };
+      var lastSourceCount = 0;
+      var analyticsModalKind = null;
       var incidentView = 'table';
       var incidentOperatorNodeId = 'node-1';
       var incidentEnabled = false;
@@ -2909,6 +3158,12 @@ VIZ_HTML = """
       if (incidentAddCheckBtnEl) {
         incidentAddCheckBtnEl.addEventListener('click', addIncidentChecklistItem);
       }
+      if (analyticsModalCloseEl) {
+        analyticsModalCloseEl.addEventListener('click', closeAnalyticsModal);
+      }
+      if (analyticsModalBackdropEl) {
+        analyticsModalBackdropEl.addEventListener('click', closeAnalyticsModal);
+      }
 
       function openDetailsPanel() {
         if (!detailsPanel) {
@@ -2983,6 +3238,7 @@ VIZ_HTML = """
       if (typeof document !== 'undefined' && document.addEventListener) {
         document.addEventListener('keydown', function (event) {
           if (event.key === 'Escape') {
+            closeAnalyticsModal();
             closeIncidentModal();
             closeDetailsPanel();
           }
@@ -3128,6 +3384,7 @@ VIZ_HTML = """
         if (!status) {
           return;
         }
+        lastStatusSnapshot = status;
         var peerCount = Array.isArray(status.peers) ? status.peers.length : 0;
         var profile = status.profile || {};
         var nextNodeId = valueOr(status.node_id, '');
@@ -3148,6 +3405,7 @@ VIZ_HTML = """
           renderIncidentWorkbench();
         }
         setIncidentWorkbenchEnabled(shouldEnableIncidents);
+        updateHeroOverview();
       }
 
       function fetchNodeStatus() {
@@ -3596,6 +3854,7 @@ VIZ_HTML = """
           consensusStatusEl.classList.add('alert');
         }
         renderConsensusPeerSummary();
+        updateHeroOverview();
       }
 
       function recordConsensusStatus(payload) {
@@ -3698,6 +3957,8 @@ VIZ_HTML = """
           sourceStats[node.source].total += 1;
         });
         lastOperationalNodes = realNodes.slice(0);
+        lastClassSummary = { A: classCounts.A || 0, B: classCounts.B || 0, C: classCounts.C || 0 };
+        lastSourceCount = Object.keys(sourceMap).length;
         if (incidentEnabled) {
           realNodes.forEach(function (node) {
             ensureIncidentFromEvent(node);
@@ -3711,6 +3972,7 @@ VIZ_HTML = """
         renderClassDistribution(classCounts, realNodes.length);
         renderSourceSummary(sourceStats);
         renderEventIntensity(realNodes);
+        updateHeroOverview();
 
         if (!activityFeedEl) {
           return;
@@ -3791,6 +4053,7 @@ VIZ_HTML = """
         if (!metrics) {
           return;
         }
+        lastMetricsSnapshot = metrics;
         metricHistory.push({
           mem: Number(metrics.C_mem || 0),
           net: Number(metrics.C_net || 0),
@@ -3800,6 +4063,7 @@ VIZ_HTML = """
           metricHistory = metricHistory.slice(metricHistory.length - 24);
         }
         renderTrendChart();
+        updateHeroOverview();
       }
 
       function buildPolyline(points, width, height, maxValue) {
@@ -3814,6 +4078,369 @@ VIZ_HTML = """
           result.push(x.toFixed(2) + ',' + y.toFixed(2));
         }
         return result.join(' ');
+      }
+
+      function buildAreaPath(points, width, height, maxValue) {
+        if (!points.length) {
+          return '';
+        }
+        var denominator = Math.max(points.length - 1, 1);
+        var commands = ['M0,' + height.toFixed(2)];
+        for (var i = 0; i < points.length; i += 1) {
+          var x = (i / denominator) * width;
+          var y = height - ((points[i] / Math.max(maxValue, 1)) * height);
+          commands.push('L' + x.toFixed(2) + ',' + y.toFixed(2));
+        }
+        commands.push('L' + width.toFixed(2) + ',' + height.toFixed(2));
+        commands.push('Z');
+        return commands.join(' ');
+      }
+
+      function setHeroDelta(el, current, previous, formatter) {
+        if (!el) {
+          return;
+        }
+        if (previous === null || previous === undefined || !isFinite(previous)) {
+          el.textContent = '—';
+          el.className = 'hero-kpi-delta';
+          return;
+        }
+        var delta = current - previous;
+        if (Math.abs(delta) < 0.0001) {
+          el.textContent = '0';
+          el.className = 'hero-kpi-delta';
+          return;
+        }
+        el.textContent = (delta > 0 ? '↑ ' : '↓ ') + formatter(Math.abs(delta));
+        el.className = 'hero-kpi-delta ' + (delta > 0 ? 'up' : 'down');
+      }
+
+      function renderHeroSparkline(svgEl, points, color, maxValue) {
+        if (!svgEl) {
+          return;
+        }
+        var width = 220;
+        var chartHeight = 66;
+        var offsetY = 8;
+        svgEl.innerHTML = '';
+        if (!points || points.length < 2) {
+          return;
+        }
+        [12, 34, 56].forEach(function (y) {
+          var line = document.createElementNS(svgNS, 'line');
+          line.setAttribute('class', 'hero-spark-grid');
+          line.setAttribute('x1', '0');
+          line.setAttribute('x2', String(width));
+          line.setAttribute('y1', String(y));
+          line.setAttribute('y2', String(y));
+          svgEl.appendChild(line);
+        });
+        var area = document.createElementNS(svgNS, 'path');
+        area.setAttribute('class', 'hero-spark-area');
+        area.setAttribute('fill', color);
+        area.setAttribute('d', buildAreaPath(points, width, chartHeight, maxValue));
+        area.setAttribute('transform', 'translate(0 ' + offsetY + ')');
+        svgEl.appendChild(area);
+        var poly = document.createElementNS(svgNS, 'polyline');
+        poly.setAttribute('class', 'hero-spark-line');
+        poly.setAttribute('stroke', color);
+        poly.setAttribute('points', buildPolyline(points, width, chartHeight, maxValue));
+        poly.setAttribute('transform', 'translate(0 ' + offsetY + ')');
+        svgEl.appendChild(poly);
+      }
+
+      function renderHeroMultiSparkline(svgEl, seriesList, maxValue) {
+        if (!svgEl) {
+          return;
+        }
+        var width = 220;
+        var chartHeight = 66;
+        var offsetY = 8;
+        svgEl.innerHTML = '';
+        if (!seriesList || !seriesList.length) {
+          return;
+        }
+        [12, 34, 56].forEach(function (y) {
+          var line = document.createElementNS(svgNS, 'line');
+          line.setAttribute('class', 'hero-spark-grid');
+          line.setAttribute('x1', '0');
+          line.setAttribute('x2', String(width));
+          line.setAttribute('y1', String(y));
+          line.setAttribute('y2', String(y));
+          svgEl.appendChild(line);
+        });
+        seriesList.forEach(function (entry) {
+          var poly = document.createElementNS(svgNS, 'polyline');
+          poly.setAttribute('class', 'hero-spark-line ' + entry.cls);
+          poly.setAttribute('points', buildPolyline(entry.points, width, chartHeight, maxValue));
+          poly.setAttribute('transform', 'translate(0 ' + offsetY + ')');
+          svgEl.appendChild(poly);
+        });
+      }
+
+      function buildIntensitySeries(windowSeconds, bucketCount) {
+        if (!lastOperationalNodes || lastOperationalNodes.length === 0) {
+          return null;
+        }
+        var timestamps = lastOperationalNodes.map(eventTimestamp).filter(function (value) {
+          return value !== null;
+        });
+        if (timestamps.length === 0) {
+          return null;
+        }
+        var now = Math.max(Date.now() / 1000, Math.max.apply(null, timestamps));
+        var start = now - bucketCount * windowSeconds;
+        var series = { A: new Array(bucketCount).fill(0), B: new Array(bucketCount).fill(0), C: new Array(bucketCount).fill(0) };
+        lastOperationalNodes.forEach(function (node) {
+          if (!series.hasOwnProperty(node.cls)) {
+            return;
+          }
+          var ts = eventTimestamp(node);
+          if (ts === null || ts < start) {
+            return;
+          }
+          var bucket = Math.floor((ts - start) / windowSeconds);
+          if (bucket >= bucketCount) {
+            bucket = bucketCount - 1;
+          }
+          if (bucket >= 0) {
+            series[node.cls][bucket] += 1;
+          }
+        });
+        ['A', 'B', 'C'].forEach(function (cls) {
+          series[cls] = series[cls].map(function (count) {
+            return count / (windowSeconds / 60);
+          });
+        });
+        return series;
+      }
+
+      function drawModalChart(seriesList, yMax) {
+        if (!analyticsModalChartEl) {
+          return;
+        }
+        var width = 920;
+        var height = 320;
+        var padTop = 14;
+        var padBottom = 24;
+        var chartHeight = height - padTop - padBottom;
+        analyticsModalChartEl.innerHTML = '';
+        for (var g = 0; g < 5; g += 1) {
+          var line = document.createElementNS(svgNS, 'line');
+          var y = padTop + (chartHeight / 4) * g;
+          line.setAttribute('class', 'grid-line');
+          line.setAttribute('x1', '0');
+          line.setAttribute('x2', String(width));
+          line.setAttribute('y1', String(y));
+          line.setAttribute('y2', String(y));
+          analyticsModalChartEl.appendChild(line);
+        }
+        seriesList.forEach(function (entry) {
+          if (entry.area) {
+            var area = document.createElementNS(svgNS, 'path');
+            area.setAttribute('class', 'hero-spark-area');
+            area.setAttribute('fill', entry.color);
+            area.setAttribute('d', buildAreaPath(entry.points, width, chartHeight, yMax));
+            area.setAttribute('transform', 'translate(0 ' + padTop + ')');
+            analyticsModalChartEl.appendChild(area);
+          }
+          var poly = document.createElementNS(svgNS, 'polyline');
+          poly.setAttribute('class', 'trend-line ' + entry.cls);
+          poly.setAttribute('points', buildPolyline(entry.points, width, chartHeight, yMax));
+          poly.setAttribute('transform', 'translate(0 ' + padTop + ')');
+          analyticsModalChartEl.appendChild(poly);
+        });
+      }
+
+      function openAnalyticsModal(kind) {
+        if (!analyticsModalShellEl) {
+          return;
+        }
+        analyticsModalKind = kind;
+        renderAnalyticsModal(kind);
+        analyticsModalShellEl.classList.add('open');
+        document.body.classList.add('modal-open');
+      }
+
+      function closeAnalyticsModal() {
+        if (!analyticsModalShellEl) {
+          return;
+        }
+        analyticsModalShellEl.classList.remove('open');
+        document.body.classList.remove('modal-open');
+        analyticsModalKind = null;
+      }
+
+      function renderAnalyticsModal(kind) {
+        if (!analyticsModalChartEl || !analyticsModalLegendEl) {
+          return;
+        }
+        var history = metricHistory.slice(0);
+        analyticsModalLegendEl.innerHTML = '';
+        if (kind === 'intensity') {
+          var intensitySeries = buildIntensitySeries(5 * 60, 6);
+          if (!intensitySeries) {
+            analyticsModalChartEl.innerHTML = '';
+            if (analyticsModalTitleEl) { analyticsModalTitleEl.textContent = 'Интенсивность потока'; }
+            if (analyticsModalSubtitleEl) { analyticsModalSubtitleEl.textContent = 'Недостаточно событий для построения расширенного графика.'; }
+            if (analyticsModalYAxisEl) { analyticsModalYAxisEl.textContent = 'Ось Y: событий в минуту'; }
+            if (analyticsModalXAxisEl) { analyticsModalXAxisEl.textContent = 'Ось X: последовательные окна по 5 минут'; }
+            if (analyticsModalCaptionRightEl) { analyticsModalCaptionRightEl.textContent = 'Пока недостаточно данных.'; }
+            return;
+          }
+          if (analyticsModalTitleEl) { analyticsModalTitleEl.textContent = 'Интенсивность потока A/B/C'; }
+          if (analyticsModalSubtitleEl) { analyticsModalSubtitleEl.textContent = 'Все три класса событий показаны одновременно в одном временном окне.'; }
+          if (analyticsModalYAxisEl) { analyticsModalYAxisEl.textContent = 'Ось Y: событий в минуту'; }
+          if (analyticsModalXAxisEl) { analyticsModalXAxisEl.textContent = 'Ось X: последовательные окна по 5 минут'; }
+          analyticsModalLegendEl.innerHTML =
+            '<span class="trend-chip"><span class="trend-dot class-a"></span>Класс A</span>' +
+            '<span class="trend-chip"><span class="trend-dot class-b"></span>Класс B</span>' +
+            '<span class="trend-chip"><span class="trend-dot class-c"></span>Класс C</span>';
+          var maxRate = 1;
+          ['A', 'B', 'C'].forEach(function (cls) {
+            intensitySeries[cls].forEach(function (value) { if (value > maxRate) { maxRate = value; } });
+          });
+          drawModalChart([
+            { cls: 'class-a', points: intensitySeries.A, color: '#ff6d6d' },
+            { cls: 'class-b', points: intensitySeries.B, color: '#ffc971' },
+            { cls: 'class-c', points: intensitySeries.C, color: '#5aa5ff' }
+          ], maxRate);
+          if (analyticsModalCaptionRightEl) {
+            var lastIndex = intensitySeries.A.length - 1;
+            analyticsModalCaptionRightEl.textContent =
+              'Текущее окно: A ' + formatValue(intensitySeries.A[lastIndex], 1) + ' / мин · B ' + formatValue(intensitySeries.B[lastIndex], 1) + ' / мин · C ' + formatValue(intensitySeries.C[lastIndex], 1) + ' / мин';
+          }
+          return;
+        }
+
+        var map = {
+          mem: { title: 'Память журнала', subtitle: 'Использование памяти под распределённый журнал.', yAxis: 'Ось Y: процент использования', xAxis: 'Ось X: последовательность обновлений', cls: 'mem', color: '#4fd1a3', points: history.map(function (item) { return item.mem * 100; }), area: true },
+          net: { title: 'Сетевая нагрузка', subtitle: 'Текущий бюджет обмена между узлами.', yAxis: 'Ось Y: процент использования', xAxis: 'Ось X: последовательность обновлений', cls: 'net', color: '#6aa9ff', points: history.map(function (item) { return item.net * 100; }), area: true },
+          events: { title: 'Объём журнала', subtitle: 'Количество известных событий на текущем узле.', yAxis: 'Ось Y: количество событий', xAxis: 'Ось X: последовательность обновлений', cls: 'events', color: '#f4b363', points: history.map(function (item) { return item.events; }), area: true }
+        };
+        var config = map[kind];
+        if (!config) {
+          return;
+        }
+        if (analyticsModalTitleEl) { analyticsModalTitleEl.textContent = config.title; }
+        if (analyticsModalSubtitleEl) { analyticsModalSubtitleEl.textContent = config.subtitle; }
+        if (analyticsModalYAxisEl) { analyticsModalYAxisEl.textContent = config.yAxis; }
+        if (analyticsModalXAxisEl) { analyticsModalXAxisEl.textContent = config.xAxis; }
+        analyticsModalLegendEl.innerHTML = '<span class="trend-chip"><span class="trend-dot ' + config.cls + '"></span>' + config.title + '</span>';
+        var maxValue = 1;
+        config.points.forEach(function (value) { if (value > maxValue) { maxValue = value; } });
+        drawModalChart([{ cls: config.cls, points: config.points, color: config.color, area: config.area }], maxValue);
+        if (analyticsModalCaptionRightEl) {
+          var lastPoint = config.points.length ? config.points[config.points.length - 1] : 0;
+          analyticsModalCaptionRightEl.textContent = 'Текущее значение: ' + (kind === 'events' ? String(Math.round(lastPoint)) : formatValue(lastPoint, 1) + '%');
+        }
+      }
+
+      function buildAreaPath(points, width, height, maxValue) {
+        if (!points.length) {
+          return '';
+        }
+        var denominator = Math.max(points.length - 1, 1);
+        var commands = ['M0,' + height.toFixed(2)];
+        for (var i = 0; i < points.length; i += 1) {
+          var x = (i / denominator) * width;
+          var y = height - ((points[i] / Math.max(maxValue, 1)) * height);
+          commands.push('L' + x.toFixed(2) + ',' + y.toFixed(2));
+        }
+        commands.push('L' + width.toFixed(2) + ',' + height.toFixed(2));
+        commands.push('Z');
+        return commands.join(' ');
+      }
+
+      function setHeroDelta(el, current, previous, formatter) {
+        if (!el) {
+          return;
+        }
+        if (previous === null || previous === undefined || !isFinite(previous)) {
+          el.textContent = '—';
+          el.className = 'hero-kpi-delta';
+          return;
+        }
+        var delta = current - previous;
+        if (Math.abs(delta) < 0.0001) {
+          el.textContent = '0';
+          el.className = 'hero-kpi-delta';
+          return;
+        }
+        el.textContent = (delta > 0 ? '↑ ' : '↓ ') + formatter(Math.abs(delta));
+        el.className = 'hero-kpi-delta ' + (delta > 0 ? 'up' : 'down');
+      }
+
+      function renderHeroSparkline(svgEl, points, color, maxValue) {
+        if (!svgEl) {
+          return;
+        }
+        var width = 220;
+        var height = 82;
+        var chartHeight = 66;
+        var offsetY = 8;
+        svgEl.innerHTML = '';
+        if (!points || points.length < 2) {
+          return;
+        }
+        [12, 34, 56].forEach(function (y) {
+          var line = document.createElementNS(svgNS, 'line');
+          line.setAttribute('class', 'hero-spark-grid');
+          line.setAttribute('x1', '0');
+          line.setAttribute('x2', String(width));
+          line.setAttribute('y1', String(y));
+          line.setAttribute('y2', String(y));
+          svgEl.appendChild(line);
+        });
+        var area = document.createElementNS(svgNS, 'path');
+        area.setAttribute('class', 'hero-spark-area');
+        area.setAttribute('fill', color);
+        area.setAttribute('d', buildAreaPath(points, width, chartHeight, maxValue));
+        area.setAttribute('transform', 'translate(0 ' + offsetY + ')');
+        svgEl.appendChild(area);
+        var poly = document.createElementNS(svgNS, 'polyline');
+        poly.setAttribute('class', 'hero-spark-line');
+        poly.setAttribute('stroke', color);
+        poly.setAttribute('points', buildPolyline(points, width, chartHeight, maxValue));
+        poly.setAttribute('transform', 'translate(0 ' + offsetY + ')');
+        svgEl.appendChild(poly);
+      }
+
+      function buildIntensitySeries(windowSeconds, bucketCount) {
+        if (!lastOperationalNodes || lastOperationalNodes.length === 0) {
+          return null;
+        }
+        var timestamps = lastOperationalNodes.map(eventTimestamp).filter(function (value) {
+          return value !== null;
+        });
+        if (timestamps.length === 0) {
+          return null;
+        }
+        var now = Math.max(Date.now() / 1000, Math.max.apply(null, timestamps));
+        var start = now - bucketCount * windowSeconds;
+        var series = { A: new Array(bucketCount).fill(0), B: new Array(bucketCount).fill(0), C: new Array(bucketCount).fill(0) };
+        lastOperationalNodes.forEach(function (node) {
+          if (!series.hasOwnProperty(node.cls)) {
+            return;
+          }
+          var ts = eventTimestamp(node);
+          if (ts === null || ts < start) {
+            return;
+          }
+          var bucket = Math.floor((ts - start) / windowSeconds);
+          if (bucket >= bucketCount) {
+            bucket = bucketCount - 1;
+          }
+          if (bucket >= 0) {
+            series[node.cls][bucket] += 1;
+          }
+        });
+        ['A', 'B', 'C'].forEach(function (cls) {
+          series[cls] = series[cls].map(function (count) {
+            return count / (windowSeconds / 60);
+          });
+        });
+        return series;
       }
 
       function renderResourceTrendChart() {
@@ -3999,11 +4626,116 @@ VIZ_HTML = """
         renderResourceTrendChart();
       }
 
+      function updateHeroOverview() {
+        if (heroKpiMemValueEl && metricHistory.length) {
+          var lastMetric = metricHistory[metricHistory.length - 1];
+          var prevMetric = metricHistory.length > 1 ? metricHistory[metricHistory.length - 2] : null;
+          setText(heroKpiMemValueEl, formatValue(lastMetric.mem * 100, 1) + '%');
+          setText(heroKpiMemCaptionEl, 'Использование памяти под распределённый журнал.');
+          setHeroDelta(heroKpiMemDeltaEl, lastMetric.mem * 100, prevMetric ? prevMetric.mem * 100 : null, function (value) { return formatValue(value, 1) + ' п.п.'; });
+          renderHeroSparkline(heroKpiMemSparkEl, metricHistory.map(function (item) { return item.mem * 100; }), '#4fd1a3', 100);
+
+          setText(heroKpiNetValueEl, formatValue(lastMetric.net * 100, 1) + '%');
+          setText(heroKpiNetCaptionEl, 'Текущий сетевой бюджет на gossip и доставку.');
+          setHeroDelta(heroKpiNetDeltaEl, lastMetric.net * 100, prevMetric ? prevMetric.net * 100 : null, function (value) { return formatValue(value, 1) + ' п.п.'; });
+          renderHeroSparkline(heroKpiNetSparkEl, metricHistory.map(function (item) { return item.net * 100; }), '#6aa9ff', 100);
+
+          setText(heroKpiEventsValueEl, String(lastMetric.events));
+          setText(heroKpiEventsCaptionEl, 'Количество известных событий внутри локального журнала.');
+          setHeroDelta(heroKpiEventsDeltaEl, lastMetric.events, prevMetric ? prevMetric.events : null, function (value) { return String(Math.round(value)) + ' evt'; });
+          var maxEvents = 1;
+          metricHistory.forEach(function (item) { if (item.events > maxEvents) { maxEvents = item.events; } });
+          renderHeroSparkline(heroKpiEventsSparkEl, metricHistory.map(function (item) { return item.events; }), '#f4b363', maxEvents);
+        }
+
+        if (heroKpiIntensityValueEl) {
+          var intensitySeries = buildIntensitySeries(5 * 60, 6);
+          if (!intensitySeries) {
+            setText(heroKpiIntensityValueEl, '—');
+            setText(heroKpiIntensityCaptionEl, 'Нужны события с временными отметками.');
+            if (heroKpiIntensityDeltaEl) {
+              heroKpiIntensityDeltaEl.textContent = '—';
+              heroKpiIntensityDeltaEl.className = 'hero-kpi-delta';
+            }
+            if (heroKpiIntensitySparkEl) {
+              heroKpiIntensitySparkEl.innerHTML = '';
+            }
+          } else {
+            var combined = intensitySeries.A.map(function (value, index) { return value + intensitySeries.B[index] + intensitySeries.C[index]; });
+            var lastRate = combined[combined.length - 1];
+            var prevRate = combined.length > 1 ? combined[combined.length - 2] : null;
+            var maxRate = 1;
+            ['A', 'B', 'C'].forEach(function (cls) {
+              intensitySeries[cls].forEach(function (value) { if (value > maxRate) { maxRate = value; } });
+            });
+            setText(heroKpiIntensityValueEl, 'A ' + formatValue(intensitySeries.A[intensitySeries.A.length - 1], 1) + ' · B ' + formatValue(intensitySeries.B[intensitySeries.B.length - 1], 1) + ' · C ' + formatValue(intensitySeries.C[intensitySeries.C.length - 1], 1));
+            setText(heroKpiIntensityCaptionEl, 'Три класса A/B/C показаны вместе за окно 5 минут.');
+            setHeroDelta(heroKpiIntensityDeltaEl, lastRate, prevRate, function (value) { return formatValue(value, 1) + ' / мин'; });
+            renderHeroMultiSparkline(heroKpiIntensitySparkEl, [
+              { cls: 'class-a', points: intensitySeries.A },
+              { cls: 'class-b', points: intensitySeries.B },
+              { cls: 'class-c', points: intensitySeries.C }
+            ], maxRate);
+          }
+        }
+
+        if (heroSpotClassAEl) { setText(heroSpotClassAEl, String(lastClassSummary.A || 0)); }
+        if (heroSpotClassBEl) { setText(heroSpotClassBEl, String(lastClassSummary.B || 0)); }
+        if (heroSpotSourcesEl) { setText(heroSpotSourcesEl, String(lastSourceCount || 0)); }
+        if (heroSpotSyncEl) {
+          var peerKeys = Object.keys(consensusState);
+          var mismatched = 0;
+          var pendingCount = 0;
+          peerKeys.forEach(function (peer) {
+            var state = consensusState[peer];
+            if (!state) { return; }
+            if (state.pending) { pendingCount += 1; return; }
+            if (state.error || !state.match) { mismatched += 1; }
+          });
+          if (peerKeys.length === 0) {
+            heroSpotSyncEl.textContent = 'Синхронность: ожидание';
+            heroSpotSyncEl.className = 'hero-spot-pill';
+          } else if (mismatched > 0) {
+            heroSpotSyncEl.textContent = 'Синхронность: есть разрывы';
+            heroSpotSyncEl.className = 'hero-spot-pill alert';
+          } else if (pendingCount > 0) {
+            heroSpotSyncEl.textContent = 'Синхронность: обновляется';
+            heroSpotSyncEl.className = 'hero-spot-pill warn';
+          } else {
+            heroSpotSyncEl.textContent = 'Синхронность: стабильно';
+            heroSpotSyncEl.className = 'hero-spot-pill ok';
+          }
+        }
+        if (heroSpotThreatEl) {
+          var threat = lastStatusSnapshot && lastStatusSnapshot.profile ? valueOr(lastStatusSnapshot.profile.threat_level, '—') : '—';
+          heroSpotThreatEl.textContent = 'Угроза: ' + threat;
+          heroSpotThreatEl.className = 'hero-spot-pill' + (threat === 'high' ? ' alert' : threat === 'medium' ? ' warn' : threat === 'low' ? ' ok' : '');
+        }
+        if (heroSpotPressureEl) {
+          var mem = lastMetricsSnapshot ? Number(lastMetricsSnapshot.C_mem || 0) : 0;
+          var net = lastMetricsSnapshot ? Number(lastMetricsSnapshot.C_net || 0) : 0;
+          heroSpotPressureEl.textContent = 'Нагрузка: спокойно';
+          heroSpotPressureEl.className = 'hero-spot-pill ok';
+          if (mem >= 0.85 || net >= 0.8) {
+            heroSpotPressureEl.textContent = 'Нагрузка: высокая';
+            heroSpotPressureEl.className = 'hero-spot-pill alert';
+          } else if (mem >= 0.65 || net >= 0.55) {
+            heroSpotPressureEl.textContent = 'Нагрузка: растёт';
+            heroSpotPressureEl.className = 'hero-spot-pill warn';
+          }
+        }
+      }
+
       function renderClassDistribution(classCounts, total) {
-        if (!classBreakdownEl || !donutTotalEl) {
+        if (!classBreakdownEl && !heroClassBreakdownEl) {
           return;
         }
-        donutTotalEl.textContent = String(total);
+        if (donutTotalEl) {
+          donutTotalEl.textContent = String(total);
+        }
+        if (heroDonutTotalEl) {
+          heroDonutTotalEl.textContent = String(total);
+        }
         var a = classCounts.A || 0;
         var b = classCounts.B || 0;
         var c = classCounts.C || 0;
@@ -4019,7 +4751,20 @@ VIZ_HTML = """
             '#ffc971 ' + aDeg + 'deg ' + (aDeg + bDeg) + 'deg,' +
             '#5aa5ff ' + (aDeg + bDeg) + 'deg ' + (aDeg + bDeg + cDeg) + 'deg)';
         }
-        classBreakdownEl.innerHTML = '';
+        var heroDonut = document.getElementById('hero-class-donut');
+        if (heroDonut) {
+          heroDonut.style.background =
+            'conic-gradient(' +
+            '#ff6d6d 0deg ' + aDeg + 'deg,' +
+            '#ffc971 ' + aDeg + 'deg ' + (aDeg + bDeg) + 'deg,' +
+            '#5aa5ff ' + (aDeg + bDeg) + 'deg ' + (aDeg + bDeg + cDeg) + 'deg)';
+        }
+        if (classBreakdownEl) {
+          classBreakdownEl.innerHTML = '';
+        }
+        if (heroClassBreakdownEl) {
+          heroClassBreakdownEl.innerHTML = '';
+        }
         [
           { cls: 'a', label: 'Класс A', value: a },
           { cls: 'b', label: 'Класс B', value: b },
@@ -4032,7 +4777,12 @@ VIZ_HTML = """
             '<span class="class-row-badge ' + entry.cls + '"></span>' +
             '<div class="class-row-bar"><div class="class-row-fill ' + entry.cls + '" style="width:' + percentage + '%"></div></div>' +
             '<span>' + entry.label + ' · ' + entry.value + ' · ' + formatValue(percentage, 1) + '%</span>';
-          classBreakdownEl.appendChild(row);
+          if (classBreakdownEl) {
+            classBreakdownEl.appendChild(row);
+          }
+          if (heroClassBreakdownEl) {
+            heroClassBreakdownEl.appendChild(row.cloneNode(true));
+          }
         });
       }
 
