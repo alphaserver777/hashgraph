@@ -1,10 +1,12 @@
 # Архитектура
 
+> Архивный документ. Актуальное описание архитектуры ведётся в [`docs/architecture/architecture.md`](/home/admsys/hashgraph/docs/architecture/architecture.md). Этот файл сохранён только как исторический след.
+
 ## Назначение
-`hashgraph` реализует прототип узла MDRJ-DAG: минимально достаточный распределенный журнал событий безопасности. Узлы создают локально долговечные DAG-события, обмениваются envelope-пакетами через leaderless gossip и получают детерминированный итоговый порядок через virtual voting на основе медианы hop timestamp.
+`hashgraph` реализует прототип узла MDRJ-DAG: минимально достаточный распределенный журнал событий безопасности. Узлы создают локально долговечные DAG-события, обмениваются envelope-пакетами через leaderless gossip и получают детерминированный итоговый порядок через локально вычисляемый `consensus_ts`, который сейчас опирается на Lamport-подобный счётчик, deterministic source bias и наблюдаемые hop timestamp.
 
 ## Границы системы
-- Узел представляет собой отдельный Python-процесс, создаваемый из [`Node`](/home/admsys/work/hashgraph/mdrj/node.py).
+- Узел представляет собой отдельный Python-процесс, создаваемый из [`Node`](/home/admsys/hashgraph/mdrj/node.py).
 - Каждый узел владеет одним SQLite-файлом и одним HTTP listener.
 - Пиры либо задаются статически, либо регистрируются во время работы.
 - Проект включает локальный CLI, браузерную визуализацию и Docker/demo-скрипты, но не использует внешний координатор, брокер или отдельный consensus service.
@@ -12,7 +14,7 @@
 ## Основные компоненты
 
 ### Оркестрация узла
-- [`mdrj/node.py`](/home/admsys/work/hashgraph/mdrj/node.py) является центром рантайма.
+- [`mdrj/node.py`](/home/admsys/hashgraph/mdrj/node.py) является центром рантайма.
 - Ответственность:
   - bootstrap genesis anchors
   - поддержание реестра пиров и состояния узла
@@ -21,12 +23,14 @@
   - связывание хранения, консенсуса, приоритизации, метрик, gossip и HTTP API
 
 ### Модель события и envelope
-- [`mdrj/models.py`](/home/admsys/work/hashgraph/mdrj/models.py) определяет `Event`, `Envelope`, `PeerInfo`, `NodeProfile` и классы событий.
+- [`mdrj/models.py`](/home/admsys/hashgraph/mdrj/models.py) определяет `Event`, `Envelope`, `PeerInfo`, `NodeProfile` и классы событий.
+- [`docs/event-classification.md`](/home/admsys/hashgraph/docs/event-classification.md) является точкой правды для отнесения известных типов событий к классам `A`/`B`/`C`.
+- [`mdrj/event_catalog.py`](/home/admsys/hashgraph/mdrj/event_catalog.py) хранит исполняемое зеркало этой классификации для runtime и demo-сценариев.
 - `Event` является долговечной вершиной DAG.
 - `Envelope` является единицей репликации: событие плюс `path_meta` с историей прохождения по узлам, используемой при вычислении consensus timestamp.
 
 ### Хранение
-- [`mdrj/storage.py`](/home/admsys/work/hashgraph/mdrj/storage.py) хранит:
+- [`mdrj/storage.py`](/home/admsys/hashgraph/mdrj/storage.py) хранит:
   - `events`
   - `edges`
   - `envelopes`
@@ -35,41 +39,41 @@
 - Включен режим WAL; записи защищены re-entrant lock, потому что узел может обслуживать конкурентные запросы.
 
 ### Gossip-репликация
-- [`mdrj/gossip.py`](/home/admsys/work/hashgraph/mdrj/gossip.py) периодически забирает pending event id, материализует envelope, применяет приоритизацию и отправляет батчи выбранным пирам.
+- [`mdrj/gossip.py`](/home/admsys/hashgraph/mdrj/gossip.py) периодически забирает pending event id, материализует envelope, применяет приоритизацию и отправляет батчи выбранным пирам.
 - Fan-out и период задаются конфигурацией.
 - Состояние здоровья пиров обновляется по результатам HTTP-запросов.
 
 ### Приоритизация
-- [`mdrj/prioritization.py`](/home/admsys/work/hashgraph/mdrj/prioritization.py) решает, какие envelope помещаются в текущий батч и какие классы событий должны быть сохранены обязательно.
+- [`mdrj/prioritization.py`](/home/admsys/hashgraph/mdrj/prioritization.py) решает, какие envelope помещаются в текущий батч и какие классы событий должны быть сохранены обязательно.
 - Класс `A` должен gossip-реплицироваться всегда.
-- Класс `B` зависит от настроенного порога угрозы.
+- В текущей реализации класс `B` принудительно включается в relay-план, даже если профиль узла не проходит порог угрозы.
 - Класс `C` best-effort и часто нужен для замыкания DAG.
 
 ### Консенсус и упорядочивание
-- [`mdrj/consensus.py`](/home/admsys/work/hashgraph/mdrj/consensus.py) вычисляет consensus timestamp как медиану hop timestamp из envelope плюс локальное время получения.
+- [`mdrj/consensus.py`](/home/admsys/hashgraph/mdrj/consensus.py) вычисляет `consensus_ts` не по медиане, а из Lamport-подобного счётчика события с deterministic bias по source; если есть hop timestamp, значение поднимается как минимум до максимального наблюдаемого hop.
 - Итоговый порядок сортируется по `(consensus_ts, event.id)`.
 - При наличии одинакового набора событий и идентификаторов это поведение детерминировано между узлами.
 
 ### Время и причинность
-- [`mdrj/vectorclock.py`](/home/admsys/work/hashgraph/mdrj/vectorclock.py) управляет merge векторных часов и локальными инкрементами.
+- [`mdrj/vectorclock.py`](/home/admsys/hashgraph/mdrj/vectorclock.py) управляет merge векторных часов и локальными инкрементами.
 - Эмиссия события строится от clock frontier, затем увеличивает локальный счетчик узла.
-- Поля, связанные с Lamport, присутствуют в записи события, но текущий путь консенсуса в основном опирается на vector clock и медианные timestamp.
+- Поля, связанные с Lamport, присутствуют в записи события и участвуют в вычислении текущего `consensus_ts`; vector clock при этом сохраняет причинный контекст для эмиссии и анализа.
 
 ### HTTP API и визуализация
-- [`mdrj/api.py`](/home/admsys/work/hashgraph/mdrj/api.py) публикует emission, batch ingest, просмотр DAG, управление пирами, status, metrics и `/viz`.
+- [`mdrj/api.py`](/home/admsys/hashgraph/mdrj/api.py) публикует emission, batch ingest, просмотр DAG, управление пирами, status, metrics и `/viz`.
 - Визуализатор представляет собой встроенное SPA, обслуживаемое через `aiohttp`, с SSE-обновлениями от уведомлений узла.
 
 ### CLI и конфигурация
-- [`mdrj/cli.py`](/home/admsys/work/hashgraph/mdrj/cli.py) является основным операционным интерфейсом для запуска узлов и запроса API.
-- [`mdrj/config.py`](/home/admsys/work/hashgraph/mdrj/config.py) преобразует YAML-конфиг в dataclass-структуры.
+- [`mdrj/cli.py`](/home/admsys/hashgraph/mdrj/cli.py) является основным операционным интерфейсом для запуска узлов и запроса API.
+- [`mdrj/config.py`](/home/admsys/hashgraph/mdrj/config.py) преобразует YAML-конфиг в dataclass-структуры.
 
 ## Основной runtime flow
 1. Запуск узла.
-2. Bootstrap двух genesis anchors, если хранилище пусто.
+2. Bootstrap одного genesis anchor, если хранилище пусто.
 3. Запуск gossip loop и HTTP API.
 4. Локальная эмиссия события:
-   - чтение frontier
-   - обеспечение как минимум двух родителей через fallback на anchors
+   - выбор локального self-parent, одной недавней удалённой вершины при наличии и fallback на anchors
+   - ограничение списка родителей максимум двумя ссылками
    - merge векторных часов и инкремент локального clock
    - сохранение envelope
    - постановка event id в очередь gossip
@@ -82,8 +86,8 @@
 
 ## Варианты развертывания
 - Локальный один узел через `python -m mdrj.cli node --config ...`
-- Локальный много-процессный demo-режим через скрипты из [`scripts/`](/home/admsys/work/hashgraph/scripts)
-- Кластер Docker Compose через [`docker-compose.yaml`](/home/admsys/work/hashgraph/docker-compose.yaml)
+- Локальный много-процессный demo-режим через скрипты из [`scripts/`](/home/admsys/hashgraph/scripts)
+- Кластер Docker Compose через [`docker-compose.yaml`](/home/admsys/hashgraph/docker-compose.yaml)
 
 ## Сильные стороны текущей архитектуры
 - Небольшая поверхность кода и читаемые границы модулей.
@@ -97,6 +101,7 @@
 - Нет TLS, аутентификации и взаимной проверки доверия для HTTP-транспорта.
 - Garbage collection грубый и может удалить родительские связи, нужные для долгоживущих сценариев корректности.
 - Визуализатор встроен прямо в Python-исходники, что увеличивает стоимость поддержки.
+- Документацию нужно держать синхронной с фактической семантикой `consensus_ts` и relay-правил, иначе следующий участник быстро придёт к неверной модели системы.
 
 ## Рекомендуемые направления продолжения
 - Вынести protocol contracts и описание схемы хранения в отдельные docs/ADR.

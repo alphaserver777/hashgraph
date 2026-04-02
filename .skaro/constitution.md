@@ -1,15 +1,17 @@
 # Конституция
 
+> Архивный документ. Актуальная рабочая документация проекта ведётся в [`docs/`](/home/admsys/hashgraph/docs), прежде всего в [`docs/constitution.md`](/home/admsys/hashgraph/docs/constitution.md), [`docs/WORKFLOW.md`](/home/admsys/hashgraph/docs/WORKFLOW.md) и [`docs/architecture/architecture.md`](/home/admsys/hashgraph/docs/architecture/architecture.md).
+
 ## Стек
 - Язык: Python 3.11+ (`requires-python >=3.11,<3.13`).
-- Сборка и упаковка: `setuptools` через [`pyproject.toml`](/home/admsys/work/hashgraph/pyproject.toml).
+- Сборка и упаковка: `setuptools` через [`pyproject.toml`](/home/admsys/hashgraph/pyproject.toml).
 - Библиотеки рантайма: `aiohttp`, `typer`, `rich`, `shellingham`, `PyYAML`.
-- Хранение: отдельный SQLite-файл на узел через [`mdrj/storage.py`](/home/admsys/work/hashgraph/mdrj/storage.py).
-- Интерфейсы: HTTP JSON API через [`mdrj/api.py`](/home/admsys/work/hashgraph/mdrj/api.py), CLI через [`mdrj/cli.py`](/home/admsys/work/hashgraph/mdrj/cli.py), демонстрационный кластер через Docker Compose.
-- Тестирование: `pytest`, включая асинхронные интеграционные тесты в [`tests/`](/home/admsys/work/hashgraph/tests).
+- Хранение: отдельный SQLite-файл на узел через [`mdrj/storage.py`](/home/admsys/hashgraph/mdrj/storage.py).
+- Интерфейсы: HTTP JSON API через [`mdrj/api.py`](/home/admsys/hashgraph/mdrj/api.py), CLI через [`mdrj/cli.py`](/home/admsys/hashgraph/mdrj/cli.py), демонстрационный кластер через Docker Compose.
+- Тестирование: `pytest`, включая асинхронные интеграционные тесты в [`tests/`](/home/admsys/hashgraph/tests).
 
 ## Стандарты кодирования
-- Сохранять существующую однопакетную структуру внутри [`mdrj/`](/home/admsys/work/hashgraph/mdrj).
+- Сохранять существующую однопакетную структуру внутри [`mdrj/`](/home/admsys/hashgraph/mdrj).
 - Держать модули узко сфокусированными: API в `api.py`, хранение в `storage.py`, консенсус в `consensus.py`, сеть в `gossip.py`, оркестрация узла в `node.py`.
 - Предпочитать явные dataclass-структуры, типизированные сигнатуры и прямолинейный управляющий поток вместо метапрограммирования.
 - Рассматривать модель DAG-события и схему хранения как полноценные интерфейсы; любые изменения требуют синхронного обновления документации, тестов и заметок по миграции.
@@ -40,8 +42,8 @@
 - Демонстрационные конфиги и скрипты предназначены для локального и тестового использования, если не проведено отдельное усиление безопасности.
 
 ## Правила для LLM
-- Любое изменение кода должно сопровождаться обновлением соответствующих артефактов `.skaro/`, если меняются архитектура, инварианты, эксплуатационные правила или активный план.
+- Актуальные изменения документации теперь должны вноситься в `docs/`, а не в `.skaro/`.
 - Не оставлять `TODO` и `TBD` в закоммиченных Skaro-артефактах.
 - Не придумывать возможности, которых нет в коде. Предложения должны быть помечены как предложения, текущее поведение как текущее поведение.
-- При реализации задачи необходимо создавать или обновлять `AI_NOTES.md` для затронутого stage: что изменено, зачем, какие риски и как проверять.
+- `AI_NOTES.md` и stage-структура в `.skaro/` относятся к предыдущему процессу и больше не являются обязательной частью текущего рабочего порядка.
 - Предпочитать развитие существующей архитектуры вместо спекулятивных переписываний; намеренные архитектурные сдвиги фиксировать в ADR.
