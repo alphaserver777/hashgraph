@@ -108,6 +108,269 @@ VIZ_HTML = """
     @media (max-width: 640px) {
       #details-panel { width: calc(100vw - 1.5rem); padding: 1.3rem 1.1rem 1.1rem; }
     }
+    :root {
+      --bg-0: #071019;
+      --bg-1: #0d1823;
+      --line-soft: rgba(173, 201, 236, 0.14);
+      --text-0: #f4f7fb;
+      --text-1: rgba(228, 236, 246, 0.92);
+      --text-2: rgba(180, 197, 216, 0.82);
+      --shadow-soft: 0 28px 80px rgba(0, 0, 0, 0.28);
+    }
+    body {
+      margin: 0;
+      font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+      color: var(--text-0);
+      background:
+        radial-gradient(circle at top left, rgba(66, 116, 196, 0.18), transparent 28%),
+        radial-gradient(circle at top right, rgba(79, 209, 163, 0.14), transparent 24%),
+        linear-gradient(180deg, #08111a 0%, #0b1620 45%, #071018 100%);
+      min-height: 100vh;
+    }
+    .dashboard-shell {
+      width: min(1600px, calc(100vw - 2rem));
+      margin: 0 auto;
+      padding: 1.25rem 0 1.75rem;
+    }
+    header {
+      padding: 1.25rem 1.4rem;
+      border: 1px solid var(--line-soft);
+      border-radius: 28px;
+      background:
+        linear-gradient(135deg, rgba(20, 36, 54, 0.95), rgba(12, 24, 37, 0.92)),
+        radial-gradient(circle at top right, rgba(106, 169, 255, 0.18), transparent 35%);
+      box-shadow: var(--shadow-soft);
+      align-items: flex-start;
+      gap: 1rem;
+    }
+    h1 {
+      font-size: clamp(1.45rem, 2.8vw, 2.3rem);
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+      margin: 0;
+    }
+    .header-kicker {
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: rgba(180, 205, 227, 0.72);
+      margin-bottom: 0.55rem;
+    }
+    .header-subtitle {
+      max-width: 66ch;
+      margin-top: 0.75rem;
+      color: var(--text-2);
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+    .header-actions {
+      flex-direction: column;
+      align-items: stretch;
+      min-width: min(320px, 100%);
+    }
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+      justify-content: flex-end;
+    }
+    .hero-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.5rem 0.8rem;
+      border-radius: 999px;
+      background: rgba(27, 44, 63, 0.9);
+      border: 1px solid rgba(158, 191, 225, 0.18);
+      color: var(--text-1);
+      font-size: 0.8rem;
+      white-space: nowrap;
+    }
+    .hero-pill strong { color: #ffffff; font-weight: 600; }
+    .toolbar {
+      margin-top: 0.85rem;
+      padding: 0.8rem 0.95rem;
+      border-radius: 18px;
+      background: rgba(10, 19, 30, 0.84);
+      border: 1px solid rgba(255,255,255,0.06);
+      font-size: 0.82rem;
+      opacity: 1;
+      color: var(--text-2);
+    }
+    #overview-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .overview-card,
+    .panel-surface {
+      background: linear-gradient(180deg, rgba(16, 29, 43, 0.95), rgba(10, 20, 31, 0.94));
+      border: 1px solid var(--line-soft);
+      border-radius: 24px;
+      box-shadow: var(--shadow-soft);
+    }
+    .overview-card {
+      padding: 1rem 1.05rem 1.05rem;
+      min-height: 160px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+    .overview-card h2,
+    .controls-title,
+    .filters-title,
+    .timeline-title,
+    .panel-heading h3 {
+      margin: 0;
+      font-size: 0.88rem;
+      text-transform: uppercase;
+      letter-spacing: 0.11em;
+      color: rgba(186, 206, 226, 0.72);
+    }
+    .hero-value {
+      font-size: 1.65rem;
+      line-height: 1;
+      letter-spacing: -0.04em;
+      color: #ffffff;
+    }
+    .hero-meta, .metrics-strip {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.55rem;
+    }
+    .meta-chip, .metric-box, .peer-summary-item, .activity-item {
+      padding: 0.7rem 0.8rem;
+      border-radius: 16px;
+      background: rgba(9, 20, 31, 0.86);
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .meta-chip-label, .metric-box-label {
+      display: block;
+      font-size: 0.72rem;
+      color: rgba(181, 200, 219, 0.72);
+      margin-bottom: 0.25rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .meta-chip-value, .metric-box-value {
+      display: block;
+      font-size: 1rem;
+      color: #ffffff;
+      font-weight: 600;
+    }
+    #metrics {
+      margin-top: 0;
+      font-family: 'IBM Plex Mono', 'JetBrains Mono', monospace;
+      color: var(--text-2);
+      background: rgba(9, 18, 28, 0.72);
+      border-radius: 16px;
+      padding: 0.8rem 0.9rem;
+      border: 1px solid rgba(255,255,255,0.04);
+      min-height: 96px;
+    }
+    #consensus-status, #graph-status {
+      margin-top: 0;
+      padding: 0.75rem 0.85rem;
+      border-radius: 16px;
+      background: rgba(9, 19, 30, 0.8);
+      border: 1px solid rgba(255,255,255,0.05);
+      font-size: 0.86rem;
+    }
+    #consensus-peer-summary, #activity-feed {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .peer-summary-item strong, .activity-item strong { color: #ffffff; font-weight: 600; }
+    #workspace {
+      display: grid;
+      grid-template-columns: minmax(270px, 320px) minmax(0, 1fr) minmax(280px, 340px);
+      gap: 1rem;
+      margin-top: 1rem;
+      align-items: start;
+    }
+    .rail-stack { display: flex; flex-direction: column; gap: 1rem; }
+    .panel-surface { padding: 1rem; }
+    .panel-heading {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      align-items: baseline;
+      margin-bottom: 0.85rem;
+    }
+    .panel-hint { color: var(--text-2); font-size: 0.82rem; }
+    #controls, #filters, #timeline, #legend { padding: 0; background: transparent; border: none; }
+    #controls-status {
+      margin-top: 0.1rem;
+      padding: 0.7rem 0.8rem;
+      border-radius: 14px;
+      background: rgba(9, 19, 30, 0.82);
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .sim-button, .toggle-button, .timeline-item { border-radius: 14px; font-family: inherit; }
+    .sim-button { background: rgba(30, 49, 74, 0.92); }
+    .toggle-button { background: rgba(19, 34, 52, 0.86); }
+    #legend { display: flex; flex-direction: column; gap: 0.65rem; }
+    .legend-item {
+      padding: 0.72rem 0.8rem;
+      border-radius: 16px;
+      background: rgba(8, 18, 29, 0.78);
+      border: 1px solid rgba(255,255,255,0.05);
+      align-items: flex-start;
+    }
+    #graph-panel { overflow: hidden; padding: 0; }
+    .graph-panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem 1rem 0.9rem;
+    }
+    .graph-panel-head h2 { margin: 0; font-size: 1.05rem; letter-spacing: -0.02em; }
+    .graph-panel-head p { margin: 0.35rem 0 0; color: var(--text-2); font-size: 0.85rem; }
+    .graph-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.55rem 0.8rem;
+      border-radius: 999px;
+      background: rgba(11, 21, 33, 0.9);
+      border: 1px solid rgba(255,255,255,0.06);
+      font-size: 0.8rem;
+      color: var(--text-1);
+    }
+    #graph-wrapper {
+      width: 100%;
+      height: 72vh;
+      min-height: 640px;
+      border-top: 1px solid rgba(255,255,255,0.05);
+      background:
+        radial-gradient(circle at top, rgba(255,255,255,0.05), transparent 55%),
+        linear-gradient(180deg, rgba(7, 15, 24, 0.96), rgba(5, 11, 18, 0.98));
+    }
+    #graph { min-height: 640px; }
+    #timeline-items { max-height: 72vh; overflow: auto; padding-right: 0.25rem; }
+    .timeline-item { width: 100%; text-align: left; background: rgba(12, 23, 36, 0.84); }
+    .timeline-item.active { background: rgba(56, 86, 132, 0.95); }
+    @media (max-width: 1280px) {
+      #overview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      #workspace { grid-template-columns: 320px minmax(0, 1fr); }
+      #workspace > .rail-stack:last-child { grid-column: 1 / -1; flex-direction: row; align-items: stretch; }
+      #workspace > .rail-stack:last-child > .panel-surface { flex: 1 1 0; }
+    }
+    @media (max-width: 900px) {
+      .dashboard-shell { width: min(100vw - 1rem, 100%); padding: 0.6rem 0 1rem; }
+      header { flex-direction: column; }
+      .pill-row { justify-content: flex-start; }
+      #overview-grid, #workspace { grid-template-columns: 1fr; }
+      #workspace > .rail-stack:last-child { flex-direction: column; }
+      #graph-wrapper, #graph { min-height: 500px; height: 60vh; }
+      .hero-meta, .metrics-strip { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
@@ -224,6 +487,7 @@ VIZ_HTML = """
       var focusNodeId = null;
       var focusAncestors = {};
       var focusDescendants = {};
+      var headerEl = document.querySelector('header');
       var graphEl = document.getElementById('graph');
       var metricsEl = document.getElementById('metrics');
       var consensusStatusEl = document.getElementById('consensus-status');
@@ -257,6 +521,167 @@ VIZ_HTML = """
       var simulationActive = false;
       var consensusState = {};
       var lastActiveElement = null;
+
+      function buildDashboardLayout() {
+        if (!headerEl || !controlsRoot || !filterClassesRoot || !graphEl || !statusEl) {
+          return;
+        }
+        var body = document.body;
+        if (!body || body.querySelector('.dashboard-shell')) {
+          return;
+        }
+
+        var shell = document.createElement('div');
+        shell.className = 'dashboard-shell';
+        body.insertBefore(shell, headerEl);
+        shell.appendChild(headerEl);
+
+        var titleHost = headerEl.querySelector('h1');
+        if (titleHost && !headerEl.querySelector('.header-kicker')) {
+          var titleWrap = titleHost.parentElement;
+          var kicker = document.createElement('div');
+          kicker.className = 'header-kicker';
+          kicker.textContent = 'Распределённый мониторинг событий безопасности';
+          titleWrap.insertBefore(kicker, titleHost);
+
+          titleHost.textContent = 'MDRJ-DAG / Панель наблюдения за узлом и кластером';
+
+          var subtitle = document.createElement('div');
+          subtitle.className = 'header-subtitle';
+          subtitle.textContent = 'Экран показывает состояние текущего узла, сходимость распределённого журнала, поток событий и причинные связи внутри графа. Он рассчитан не только на демонстрацию графа, но и на быстрый операторский обзор.';
+          titleWrap.appendChild(subtitle);
+        }
+
+        var headerActions = headerEl.querySelector('.header-actions');
+        if (headerActions && !headerEl.querySelector('.pill-row')) {
+          var pillRow = document.createElement('div');
+          pillRow.className = 'pill-row';
+          pillRow.innerHTML =
+            '<div class="hero-pill">Узел <strong id="hero-node-id">—</strong></div>' +
+            '<div class="hero-pill">Режим <strong id="hero-node-state">—</strong></div>' +
+            '<div class="hero-pill">Роль <strong id="hero-node-role">—</strong></div>';
+          headerActions.insertBefore(pillRow, headerActions.firstChild);
+          var toolbar = headerActions.querySelector('.toolbar');
+          if (toolbar) {
+            toolbar.textContent = 'Поток событий: Server-Sent Events. Изменения на графе и статус согласованности подтягиваются без перезагрузки страницы.';
+          }
+        }
+
+        var overview = document.createElement('section');
+        overview.id = 'overview-grid';
+        overview.innerHTML =
+          '<article class="overview-card">' +
+            '<h2>Состояние узла</h2>' +
+            '<div class="hero-value" id="status-state-value">Ожидание данных</div>' +
+            '<div class="hero-meta">' +
+              '<div class="meta-chip"><span class="meta-chip-label">Узел</span><span class="meta-chip-value" id="status-node-id">—</span></div>' +
+              '<div class="meta-chip"><span class="meta-chip-label">Пиры</span><span class="meta-chip-value" id="status-peer-count">—</span></div>' +
+              '<div class="meta-chip"><span class="meta-chip-label">Роль</span><span class="meta-chip-value" id="status-role">—</span></div>' +
+              '<div class="meta-chip"><span class="meta-chip-label">Уровень угрозы</span><span class="meta-chip-value" id="status-threat-level">—</span></div>' +
+            '</div>' +
+          '</article>' +
+          '<article class="overview-card">' +
+            '<h2>Нагрузка и живучесть</h2>' +
+            '<div class="metrics-strip">' +
+              '<div class="metric-box"><span class="metric-box-label">Доступность</span><span class="metric-box-value" id="metric-a-est">—</span></div>' +
+              '<div class="metric-box"><span class="metric-box-label">Задержка gossip</span><span class="metric-box-value" id="metric-t-gossip">—</span></div>' +
+              '<div class="metric-box"><span class="metric-box-label">Полнота графа</span><span class="metric-box-value" id="metric-k-r">—</span></div>' +
+              '<div class="metric-box"><span class="metric-box-label">События</span><span class="metric-box-value" id="metric-event-count">—</span></div>' +
+            '</div>' +
+          '</article>' +
+          '<article class="overview-card">' +
+            '<h2>Согласованность</h2>' +
+            '<ul id="consensus-peer-summary"><li class="peer-summary-item">Пока нет данных о сравнении с соседними узлами.</li></ul>' +
+          '</article>' +
+          '<article class="overview-card">' +
+            '<h2>Оперативная активность</h2>' +
+            '<div class="hero-meta">' +
+              '<div class="meta-chip"><span class="meta-chip-label">Критичные A</span><span class="meta-chip-value" id="activity-class-a">0</span></div>' +
+              '<div class="meta-chip"><span class="meta-chip-label">Важные B</span><span class="meta-chip-value" id="activity-class-b">0</span></div>' +
+              '<div class="meta-chip"><span class="meta-chip-label">Служебные C</span><span class="meta-chip-value" id="activity-class-c">0</span></div>' +
+              '<div class="meta-chip"><span class="meta-chip-label">Источники</span><span class="meta-chip-value" id="activity-source-count">0</span></div>' +
+            '</div>' +
+            '<ul id="activity-feed"><li class="activity-item">События ещё не поступили.</li></ul>' +
+          '</article>';
+        shell.appendChild(overview);
+        var metricsCard = overview.children[1];
+        var consensusCard = overview.children[2];
+        if (metricsCard && metricsEl) {
+          metricsCard.appendChild(metricsEl);
+        }
+        if (consensusCard && consensusStatusEl && statusEl) {
+          consensusCard.insertBefore(consensusStatusEl, consensusCard.firstChild.nextSibling);
+          consensusCard.insertBefore(statusEl, consensusCard.querySelector('#consensus-peer-summary'));
+        }
+
+        var workspace = document.createElement('main');
+        workspace.id = 'workspace';
+        shell.appendChild(workspace);
+
+        var leftRail = document.createElement('aside');
+        leftRail.className = 'rail-stack';
+        workspace.appendChild(leftRail);
+
+        var graphPanel = document.createElement('section');
+        graphPanel.className = 'panel-surface';
+        graphPanel.id = 'graph-panel';
+        graphPanel.innerHTML =
+          '<div class="graph-panel-head">' +
+            '<div><h2>Граф событий и причинных связей</h2><p>Центральная область показывает, как события распространяются между источниками и в каком порядке они выстраиваются на текущем узле.</p></div>' +
+            '<div class="graph-badge">Нажмите на вершину, чтобы открыть полные детали события</div>' +
+          '</div>';
+        workspace.appendChild(graphPanel);
+
+        var rightRail = document.createElement('aside');
+        rightRail.className = 'rail-stack';
+        workspace.appendChild(rightRail);
+
+        function wrapPanel(content, title, hint) {
+          var panel = document.createElement('section');
+          panel.className = 'panel-surface';
+          if (title) {
+            var head = document.createElement('div');
+            head.className = 'panel-heading';
+            head.innerHTML = '<h3>' + title + '</h3>' + (hint ? '<div class="panel-hint">' + hint + '</div>' : '');
+            panel.appendChild(head);
+          }
+          panel.appendChild(content);
+          return panel;
+        }
+
+        leftRail.appendChild(wrapPanel(controlsRoot, null, null));
+        leftRail.appendChild(wrapPanel(filterClassesRoot.parentElement, null, null));
+        leftRail.appendChild(wrapPanel(document.getElementById('legend'), 'Легенда', 'Как читать граф и классы событий'));
+        var legendLabels = document.querySelectorAll('#legend .legend-item .label');
+        if (legendLabels.length >= 5) {
+          legendLabels[1].textContent = 'Класс B — важные события, сейчас проталкиваются вместе с критическими';
+          legendLabels[2].textContent = 'Класс C — служебные и якорные события для замыкания DAG';
+          legendLabels[3].textContent = 'Ребро показывает ссылку ребёнка на родителя и причинную связь';
+        }
+
+        rightRail.appendChild(wrapPanel(document.getElementById('timeline'), null, null));
+        graphPanel.appendChild(graphEl.parentElement);
+      }
+
+      buildDashboardLayout();
+      var heroNodeIdEl = document.getElementById('hero-node-id');
+      var heroNodeStateEl = document.getElementById('hero-node-state');
+      var heroNodeRoleEl = document.getElementById('hero-node-role');
+      var statusStateValueEl = document.getElementById('status-state-value');
+      var statusNodeIdEl = document.getElementById('status-node-id');
+      var statusPeerCountEl = document.getElementById('status-peer-count');
+      var statusRoleEl = document.getElementById('status-role');
+      var statusThreatLevelEl = document.getElementById('status-threat-level');
+      var metricAEstEl = document.getElementById('metric-a-est');
+      var metricTGossipEl = document.getElementById('metric-t-gossip');
+      var metricKREl = document.getElementById('metric-k-r');
+      var metricEventCountEl = document.getElementById('metric-event-count');
+      var activityClassAEl = document.getElementById('activity-class-a');
+      var activityClassBEl = document.getElementById('activity-class-b');
+      var activityClassCEl = document.getElementById('activity-class-c');
+      var activitySourceCountEl = document.getElementById('activity-source-count');
+      var activityFeedEl = document.getElementById('activity-feed');
+      var consensusPeerSummaryEl = document.getElementById('consensus-peer-summary');
 
       function openDetailsPanel() {
         if (!detailsPanel) {
@@ -352,6 +777,44 @@ VIZ_HTML = """
         buttons.forEach(function (button) {
           button.disabled = disabled;
         });
+      }
+
+      function setText(el, value) {
+        if (!el) {
+          return;
+        }
+        el.textContent = value;
+      }
+
+      function updateNodeStatus(status) {
+        if (!status) {
+          return;
+        }
+        var peerCount = Array.isArray(status.peers) ? status.peers.length : 0;
+        var profile = status.profile || {};
+        setText(heroNodeIdEl, valueOr(status.node_id, '—'));
+        setText(heroNodeStateEl, valueOr(status.state, '—'));
+        setText(heroNodeRoleEl, valueOr(profile.role, '—'));
+        setText(statusStateValueEl, valueOr(status.state, '—'));
+        setText(statusNodeIdEl, valueOr(status.node_id, '—'));
+        setText(statusPeerCountEl, String(peerCount));
+        setText(statusRoleEl, valueOr(profile.role, '—'));
+        setText(statusThreatLevelEl, valueOr(profile.threat_level, '—'));
+      }
+
+      function fetchNodeStatus() {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/status', true);
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState === 4 && xhr.status >= 200 && xhr.status < 300) {
+            try {
+              updateNodeStatus(JSON.parse(xhr.responseText));
+            } catch (err) {
+              console.log('status parse error', err);
+            }
+          }
+        };
+        xhr.send();
       }
 
       function activeClassCount() {
@@ -784,6 +1247,7 @@ VIZ_HTML = """
           consensusStatusEl.textContent = 'Консенсус: рассогласование (' + mismatched + '/' + peerKeys.length + ')';
           consensusStatusEl.classList.add('alert');
         }
+        renderConsensusPeerSummary();
       }
 
       function recordConsensusStatus(payload) {
@@ -799,6 +1263,48 @@ VIZ_HTML = """
           peerCount: payload.peer_state && typeof payload.peer_state.event_count === 'number' ? payload.peer_state.event_count : null
         };
         updateConsensusStatusDisplay();
+      }
+
+      function renderConsensusPeerSummary() {
+        if (!consensusPeerSummaryEl) {
+          return;
+        }
+        var peerKeys = Object.keys(consensusState);
+        consensusPeerSummaryEl.innerHTML = '';
+        if (peerKeys.length === 0) {
+          var emptyItem = document.createElement('li');
+          emptyItem.className = 'peer-summary-item';
+          emptyItem.textContent = 'Пока нет данных о сравнении с соседними узлами.';
+          consensusPeerSummaryEl.appendChild(emptyItem);
+          return;
+        }
+        peerKeys.sort();
+        for (var i = 0; i < peerKeys.length; i += 1) {
+          var peerKey = peerKeys[i];
+          var peerState = consensusState[peerKey];
+          if (!peerState) {
+            continue;
+          }
+          var item = document.createElement('li');
+          item.className = 'peer-summary-item';
+          var label = peerState.peerNode || peerKey;
+          var stateText;
+          if (peerState.error) {
+            stateText = 'недоступен';
+          } else if (peerState.pending) {
+            stateText = 'синхронизация';
+          } else if (peerState.match) {
+            stateText = 'совпадает';
+          } else {
+            stateText = 'рассогласован';
+          }
+          item.innerHTML =
+            '<strong>' + label + '</strong><br>' +
+            'Состояние: ' + stateText +
+            ' · локально ' + valueOr(peerState.localCount, '—') +
+            ' / у соседа ' + valueOr(peerState.peerCount, '—');
+          consensusPeerSummaryEl.appendChild(item);
+        }
       }
 
       function resetGraphState() {
@@ -818,6 +1324,62 @@ VIZ_HTML = """
         shouldOpenDetailsOnFocus = false;
         closeDetailsPanel();
         renderGraph();
+      }
+
+      function renderOperationalSummary() {
+        var realNodes = [];
+        var classCounts = { A: 0, B: 0, C: 0 };
+        var sourceMap = {};
+        Object.keys(nodes).forEach(function (nodeId) {
+          var node = nodes[nodeId];
+          if (!node || node.source === 'unknown') {
+            return;
+          }
+          realNodes.push(node);
+          if (classCounts.hasOwnProperty(node.cls)) {
+            classCounts[node.cls] += 1;
+          }
+          sourceMap[node.source] = true;
+        });
+
+        setText(activityClassAEl, String(classCounts.A || 0));
+        setText(activityClassBEl, String(classCounts.B || 0));
+        setText(activityClassCEl, String(classCounts.C || 0));
+        setText(activitySourceCountEl, String(Object.keys(sourceMap).length));
+
+        if (!activityFeedEl) {
+          return;
+        }
+        activityFeedEl.innerHTML = '';
+        if (realNodes.length === 0) {
+          var emptyItem = document.createElement('li');
+          emptyItem.className = 'activity-item';
+          emptyItem.textContent = 'События ещё не поступили.';
+          activityFeedEl.appendChild(emptyItem);
+          return;
+        }
+
+        realNodes.sort(function (a, b) {
+          var ta = valueOr(a.consensus_ts, valueOr(a.ts_local, 0));
+          var tb = valueOr(b.consensus_ts, valueOr(b.ts_local, 0));
+          if (ta === tb) {
+            return a.id < b.id ? 1 : -1;
+          }
+          return ta < tb ? 1 : -1;
+        });
+
+        var limit = Math.min(realNodes.length, 5);
+        for (var i = 0; i < limit; i += 1) {
+          var event = realNodes[i];
+          var item = document.createElement('li');
+          item.className = 'activity-item';
+          item.innerHTML =
+            '<strong>' + event.cls + ' · ' + event.source + '</strong><br>' +
+            'Порядок: #' + valueOr(event.sequence, '—') +
+            ' · Родителей: ' + (event.parents ? event.parents.length : 0) +
+            ' · ts: ' + formatValue(valueOr(event.consensus_ts, event.ts_local), 3);
+          activityFeedEl.appendChild(item);
+        }
       }
 
       function triggerSimulation(key) {
@@ -1706,6 +2268,7 @@ VIZ_HTML = """
         }
 
         renderTimeline();
+        renderOperationalSummary();
 
         if (focusNodeId && nodes[focusNodeId] && isNodeVisible(nodes[focusNodeId])) {
           updateDetailsPanel(nodes[focusNodeId], 'focus');
@@ -1772,6 +2335,10 @@ VIZ_HTML = """
         info.push('C_net : ' + formatValue(Number(metrics.C_net) * 100, 2) + ' %');
         info.push('events : ' + valueOr(metrics.event_count, '-'));
         metricsEl.textContent = info.join('\\n');
+        setText(metricAEstEl, formatValue(metrics.A_est, 3));
+        setText(metricTGossipEl, formatValue(metrics.T_gossip, 3) + ' c');
+        setText(metricKREl, formatValue(metrics.K_r, 3));
+        setText(metricEventCountEl, String(valueOr(metrics.event_count, '-')));
         markSyncPending('Обновление метрик...');
       }
 
@@ -1860,6 +2427,8 @@ VIZ_HTML = """
       }
 
       setupControls();
+      fetchNodeStatus();
+      setInterval(fetchNodeStatus, 5000);
       fetchSimulationStatus();
 
       loadGraph(function (err) {
