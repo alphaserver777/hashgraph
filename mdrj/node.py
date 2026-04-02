@@ -451,10 +451,22 @@ class Node:
             keys = list(SCENARIOS.keys())
             try:
                 while not self._simulation_stop.is_set():
-                    scenario_key = random.choice(keys)
-                    bundle = scenario_payload(scenario_key)
-                    await self.emit_event(bundle["class"], bundle["payload"])
-                    delay = max(0.4, random.uniform(interval - jitter, interval + jitter))
+                    burst_size = random.choices([1, 2, 3], weights=[0.62, 0.26, 0.12], k=1)[0]
+                    for burst_index in range(burst_size):
+                        if self._simulation_stop.is_set():
+                            break
+                        scenario_key = random.choice(keys)
+                        bundle = scenario_payload(scenario_key)
+                        await self.emit_event(bundle["class"], bundle["payload"])
+                        if burst_index < burst_size - 1:
+                            intra_burst_delay = random.uniform(0.08, 0.32)
+                            try:
+                                await asyncio.wait_for(self._simulation_stop.wait(), timeout=intra_burst_delay)
+                                break
+                            except asyncio.TimeoutError:
+                                pass
+                    base_delay = random.expovariate(1 / max(interval, 0.5))
+                    delay = max(0.25, min(interval * 3.0, base_delay + random.uniform(-jitter, jitter)))
                     try:
                         await asyncio.wait_for(self._simulation_stop.wait(), timeout=delay)
                         break

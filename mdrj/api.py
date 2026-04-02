@@ -128,9 +128,330 @@ VIZ_HTML = """
       min-height: 100vh;
     }
     .dashboard-shell {
-      width: min(1600px, calc(100vw - 2rem));
+      width: min(1860px, calc(100vw - 2rem));
       margin: 0 auto;
       padding: 1.25rem 0 1.75rem;
+      display: grid;
+      grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
+      gap: 1rem;
+      align-items: start;
+    }
+    .dashboard-main {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .dashboard-nav {
+      position: sticky;
+      top: 1rem;
+      min-height: calc(100vh - 2rem);
+      padding: 0.95rem 0.8rem 0.9rem;
+      border-radius: 28px;
+      background:
+        linear-gradient(180deg, rgba(8, 14, 22, 0.985), rgba(5, 10, 16, 0.985)),
+        radial-gradient(circle at top right, rgba(106, 169, 255, 0.08), transparent 35%);
+      border: 1px solid rgba(255,255,255,0.05);
+      box-shadow: var(--shadow-soft);
+      display: flex;
+      flex-direction: column;
+      gap: 0.9rem;
+      overflow: hidden;
+    }
+    .nav-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.6rem;
+      padding: 0 0.2rem 0.35rem;
+    }
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      min-width: 0;
+    }
+    .nav-brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: #ffffff;
+      background:
+        radial-gradient(circle at top, rgba(255, 121, 121, 0.24), transparent 58%),
+        linear-gradient(135deg, rgba(189, 95, 95, 0.92), rgba(80, 34, 43, 0.98));
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .nav-brand-copy {
+      min-width: 0;
+    }
+    .nav-brand-copy strong {
+      display: block;
+      color: #ffffff;
+      font-size: 0.95rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .nav-brand-copy span {
+      display: block;
+      margin-top: 0.14rem;
+      color: var(--text-2);
+      font-size: 0.76rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .nav-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      flex: 0 0 auto;
+    }
+    .nav-action,
+    .nav-toggle {
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border-radius: 9px;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: rgba(255,255,255,0.03);
+      color: rgba(224, 234, 244, 0.82);
+      font: inherit;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 180ms ease, border-color 180ms ease, color 180ms ease, transform 180ms ease;
+    }
+    .nav-action:hover,
+    .nav-toggle:hover {
+      background: rgba(21, 36, 54, 0.82);
+      border-color: rgba(106, 169, 255, 0.16);
+      color: #ffffff;
+      transform: translateY(-1px);
+    }
+    .nav-action:focus-visible,
+    .nav-toggle:focus-visible {
+      outline: 2px solid rgba(106, 169, 255, 0.5);
+      outline-offset: 2px;
+    }
+    .nav-toggle-icon {
+      font-size: 0.92rem;
+      line-height: 1;
+    }
+    .nav-node-meta {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0 0.25rem 0.55rem;
+      color: var(--text-2);
+      font-size: 0.74rem;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .nav-meta-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #4fd1a3;
+      box-shadow: 0 0 0 4px rgba(79, 209, 163, 0.12);
+      flex: 0 0 auto;
+    }
+    .nav-node-meta strong {
+      color: #ffffff;
+      font-weight: 500;
+    }
+    .nav-menu {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      min-height: 0;
+      padding-top: 0.1rem;
+    }
+    .nav-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.22rem;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 0.72rem;
+      min-width: 0;
+      padding: 0.68rem 0.72rem;
+      border-radius: 12px;
+      color: var(--text-1);
+      text-decoration: none;
+      background: transparent;
+      border: 1px solid transparent;
+      transition: background 180ms ease, border-color 180ms ease, color 180ms ease;
+    }
+    .nav-item:hover {
+      background: rgba(17, 29, 44, 0.76);
+      border-color: rgba(106, 169, 255, 0.1);
+      color: #ffffff;
+    }
+    .nav-item.active {
+      background: rgba(255,255,255,0.04);
+      border-color: rgba(255,255,255,0.03);
+      color: #ffffff;
+    }
+    .nav-item-group {
+      display: flex;
+      align-items: center;
+      gap: 0.72rem;
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+    .nav-icon {
+      width: 14px;
+      height: 14px;
+      display: grid;
+      place-items: center;
+      color: rgba(216, 227, 239, 0.72);
+      flex: 0 0 auto;
+      font-size: 0.82rem;
+    }
+    .nav-copy {
+      min-width: 0;
+      font-size: 0.9rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .nav-branch {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      margin: 0.05rem 0 0.18rem;
+    }
+    .nav-branch-label {
+      display: flex;
+      align-items: center;
+      gap: 0.72rem;
+      padding: 0.68rem 0.72rem;
+      color: rgba(220, 230, 240, 0.82);
+      font-size: 0.9rem;
+    }
+    .nav-tree {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      margin-left: 0.45rem;
+      padding-left: 1.15rem;
+    }
+    .nav-tree::before {
+      content: "";
+      position: absolute;
+      left: 0.32rem;
+      top: 0.2rem;
+      bottom: 0.35rem;
+      width: 1px;
+      background: rgba(255,255,255,0.08);
+    }
+    .nav-tree .nav-item {
+      position: relative;
+      padding-left: 0.9rem;
+    }
+    .nav-tree .nav-item::before {
+      content: "";
+      position: absolute;
+      left: -0.85rem;
+      top: 50%;
+      width: 0.7rem;
+      height: 1px;
+      background: rgba(255,255,255,0.08);
+    }
+    .nav-secondary {
+      margin-top: 0.45rem;
+      padding-top: 0.55rem;
+      border-top: 1px solid rgba(255,255,255,0.05);
+    }
+    .nav-support {
+      margin-top: auto;
+      padding: 1rem;
+      border-radius: 20px;
+      background:
+        linear-gradient(180deg, rgba(13, 23, 35, 0.96), rgba(8, 15, 24, 0.96)),
+        radial-gradient(circle at top right, rgba(244, 179, 99, 0.12), transparent 40%);
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .nav-support h3 {
+      margin: 0;
+      color: #ffffff;
+      font-size: 0.95rem;
+    }
+    .nav-support p {
+      margin: 0.45rem 0 0;
+      color: var(--text-2);
+      font-size: 0.8rem;
+      line-height: 1.45;
+    }
+    .nav-support-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      margin-top: 0.8rem;
+    }
+    .nav-support-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.35rem 0.6rem;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.05);
+      color: var(--text-1);
+      font-size: 0.72rem;
+    }
+    .dashboard-shell.nav-collapsed {
+      grid-template-columns: 74px minmax(0, 1fr);
+    }
+    .dashboard-shell.nav-collapsed .dashboard-nav {
+      padding: 0.8rem 0.45rem;
+      align-items: center;
+    }
+    .dashboard-shell.nav-collapsed .nav-brand-copy,
+    .dashboard-shell.nav-collapsed .nav-copy,
+    .dashboard-shell.nav-collapsed .nav-node-meta,
+    .dashboard-shell.nav-collapsed .nav-tree,
+    .dashboard-shell.nav-collapsed .nav-secondary,
+    .dashboard-shell.nav-collapsed .nav-support,
+    .dashboard-shell.nav-collapsed .nav-action {
+      display: none;
+    }
+    .dashboard-shell.nav-collapsed .nav-head {
+      width: 100%;
+      justify-content: center;
+      padding-bottom: 0.25rem;
+    }
+    .dashboard-shell.nav-collapsed .nav-brand {
+      justify-content: center;
+    }
+    .dashboard-shell.nav-collapsed .nav-head .nav-brand {
+      display: none;
+    }
+    .dashboard-shell.nav-collapsed .nav-menu,
+    .dashboard-shell.nav-collapsed .nav-list {
+      width: 100%;
+      align-items: center;
+    }
+    .dashboard-shell.nav-collapsed .nav-item {
+      width: 48px;
+      justify-content: center;
+      padding: 0.7rem 0;
+    }
+    .dashboard-shell.nav-collapsed .nav-item-group {
+      justify-content: center;
+      flex: 0 0 auto;
+    }
+    .dashboard-shell.nav-collapsed .nav-icon {
+      width: 18px;
+      height: 18px;
     }
     header {
       padding: 1.25rem 1.4rem;
@@ -286,6 +607,46 @@ VIZ_HTML = """
       list-style: none;
     }
     .peer-summary-item strong, .activity-item strong { color: #ffffff; font-weight: 600; }
+    .intensity-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+    }
+    .intensity-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 0.75rem;
+      align-items: center;
+      padding: 0.7rem 0.8rem;
+      border-radius: 16px;
+      background: rgba(9, 20, 31, 0.86);
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .intensity-title {
+      color: #ffffff;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+    .intensity-meta {
+      margin-top: 0.2rem;
+      color: var(--text-2);
+      font-size: 0.76rem;
+      line-height: 1.4;
+    }
+    .intensity-rate {
+      text-align: right;
+      color: #ffffff;
+      font-size: 1rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .intensity-rate small {
+      display: block;
+      margin-top: 0.2rem;
+      color: var(--text-2);
+      font-size: 0.72rem;
+      font-weight: 400;
+    }
     #workspace {
       display: grid;
       grid-template-columns: minmax(270px, 320px) minmax(0, 1fr) minmax(280px, 340px);
@@ -395,11 +756,46 @@ VIZ_HTML = """
       border: 1px solid rgba(255,255,255,0.05);
       padding: 0.9rem;
     }
+    .chart-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.8rem;
+      margin-bottom: 0.75rem;
+    }
+    .chart-tabs {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      flex-wrap: wrap;
+    }
+    .chart-tab {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.42rem 0.7rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.05);
+      background: rgba(14, 25, 38, 0.88);
+      color: var(--text-2);
+      font: inherit;
+      font-size: 0.76rem;
+      cursor: pointer;
+      transition: background 180ms ease, border-color 180ms ease, color 180ms ease;
+    }
+    .chart-tab:hover {
+      color: #ffffff;
+      border-color: rgba(106, 169, 255, 0.12);
+    }
+    .chart-tab.active {
+      background: rgba(36, 59, 89, 0.92);
+      border-color: rgba(106, 169, 255, 0.18);
+      color: #ffffff;
+    }
     .trend-legend {
       display: flex;
       flex-wrap: wrap;
       gap: 0.55rem;
-      margin-bottom: 0.75rem;
     }
     .trend-chip {
       display: inline-flex;
@@ -416,10 +812,21 @@ VIZ_HTML = """
     .trend-dot.mem { background: #4fd1a3; }
     .trend-dot.net { background: #6aa9ff; }
     .trend-dot.events { background: #f4b363; }
+    .trend-dot.class-a { background: #ff6d6d; }
+    .trend-dot.class-b { background: #ffc971; }
+    .trend-dot.class-c { background: #5aa5ff; }
     #trend-chart {
       width: 100%;
       height: 220px;
       display: block;
+    }
+    .chart-axis-notes {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 0.65rem;
+      color: rgba(181, 200, 219, 0.72);
+      font-size: 0.74rem;
     }
     .grid-line {
       stroke: rgba(185, 206, 224, 0.12);
@@ -435,6 +842,9 @@ VIZ_HTML = """
     .trend-line.mem { stroke: #4fd1a3; }
     .trend-line.net { stroke: #6aa9ff; }
     .trend-line.events { stroke: #f4b363; }
+    .trend-line.class-a { stroke: #ff6d6d; }
+    .trend-line.class-b { stroke: #ffc971; }
+    .trend-line.class-c { stroke: #5aa5ff; }
     .trend-caption {
       display: flex;
       justify-content: space-between;
@@ -834,6 +1244,13 @@ VIZ_HTML = """
       line-height: 1.45;
     }
     @media (max-width: 1280px) {
+      .dashboard-shell { grid-template-columns: 1fr; }
+      .dashboard-nav {
+        position: static;
+        min-height: auto;
+      }
+      .dashboard-shell.nav-collapsed { grid-template-columns: 1fr; }
+      .dashboard-shell.nav-collapsed .dashboard-nav { display: none; }
       #overview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       #workspace { grid-template-columns: 320px minmax(0, 1fr); }
       #workspace > .rail-stack:last-child { grid-column: 1 / -1; flex-direction: row; align-items: stretch; }
@@ -842,6 +1259,8 @@ VIZ_HTML = """
     }
     @media (max-width: 900px) {
       .dashboard-shell { width: min(100vw - 1rem, 100%); padding: 0.6rem 0 1rem; }
+      .dashboard-nav { padding: 0.85rem; }
+      .nav-status-strip { grid-template-columns: 1fr; }
       header { flex-direction: column; }
       .pill-row { justify-content: flex-start; }
       #overview-grid, #workspace { grid-template-columns: 1fr; }
@@ -1014,7 +1433,58 @@ VIZ_HTML = """
         var shell = document.createElement('div');
         shell.className = 'dashboard-shell';
         body.insertBefore(shell, headerEl);
-        shell.appendChild(headerEl);
+
+        var nav = document.createElement('aside');
+        nav.className = 'dashboard-nav';
+        nav.innerHTML =
+          '<div class="nav-head">' +
+            '<div class="nav-brand">' +
+              '<div class="nav-brand-mark">MD</div>' +
+              '<div class="nav-brand-copy"><strong>Журнал MDRJ</strong><span id="nav-node-caption">ID: —</span></div>' +
+            '</div>' +
+            '<div class="nav-actions">' +
+              '<button class="nav-action" type="button" aria-label="Поиск по панели" title="Поиск по панели">⌕</button>' +
+              '<button class="nav-toggle" id="nav-toggle" type="button" aria-label="Свернуть или развернуть панель" aria-expanded="true" title="Свернуть или развернуть панель"><span class="nav-toggle-icon">◧</span></button>' +
+            '</div>' +
+          '</div>' +
+          '<div class="nav-node-meta">' +
+            '<span class="nav-meta-dot"></span><span>Узел <strong id="nav-node-id">—</strong></span><span>Поток <strong id="nav-stream-state">онлайн</strong></span>' +
+          '</div>' +
+          '<nav class="nav-menu" aria-label="Основная навигация">' +
+            '<div class="nav-list">' +
+              '<a class="nav-item" href="#overview-grid"><span class="nav-item-group"><span class="nav-icon">⌂</span><span class="nav-copy">Главная</span></span></a>' +
+              '<div class="nav-branch">' +
+                '<div class="nav-branch-label"><span class="nav-icon">◫</span><span class="nav-copy">Панель мониторинга</span></div>' +
+                '<div class="nav-tree">' +
+                  '<a class="nav-item active" href="#analytics-grid"><span class="nav-item-group"><span class="nav-icon">•</span><span class="nav-copy">Аналитика ИБ</span></span></a>' +
+                  '<a class="nav-item" href="#overview-grid"><span class="nav-item-group"><span class="nav-icon">•</span><span class="nav-copy">Обзор узла</span></span></a>' +
+                  '<a class="nav-item" href="#graph-panel"><span class="nav-item-group"><span class="nav-icon">•</span><span class="nav-copy">Граф событий</span></span></a>' +
+                  '<a class="nav-item" href="#timeline"><span class="nav-item-group"><span class="nav-icon">•</span><span class="nav-copy">Лента журнала</span></span></a>' +
+                '</div>' +
+              '</div>' +
+              '<div class="nav-list nav-secondary">' +
+                '<a class="nav-item" href="#alert-window"><span class="nav-item-group"><span class="nav-icon">!</span><span class="nav-copy">Тревоги</span></span></a>' +
+                '<a class="nav-item" href="#source-summary"><span class="nav-item-group"><span class="nav-icon">◎</span><span class="nav-copy">Источники</span></span></a>' +
+                '<a class="nav-item" href="#controls"><span class="nav-item-group"><span class="nav-icon">▶</span><span class="nav-copy">Сценарии</span></span></a>' +
+                '<a class="nav-item" href="#filters"><span class="nav-item-group"><span class="nav-icon">≡</span><span class="nav-copy">Фильтры</span></span></a>' +
+              '</div>' +
+            '</div>' +
+          '</nav>' +
+          '<section class="nav-support">' +
+            '<h3>Операторский контекст</h3>' +
+            '<p>Панель показывает только данные текущего runtime. Если для нового блока нет данных в backend, интерфейс не должен рисовать выдуманную картину.</p>' +
+            '<div class="nav-support-meta">' +
+              '<span class="nav-support-pill">Без перезагрузки</span>' +
+              '<span class="nav-support-pill">Server-Sent Events</span>' +
+              '<span class="nav-support-pill">SQLite / Gossip</span>' +
+            '</div>' +
+          '</section>';
+        shell.appendChild(nav);
+
+        var main = document.createElement('div');
+        main.className = 'dashboard-main';
+        shell.appendChild(main);
+        main.appendChild(headerEl);
 
         var titleHost = headerEl.querySelector('h1');
         if (titleHost && !headerEl.querySelector('.header-kicker')) {
@@ -1061,12 +1531,12 @@ VIZ_HTML = """
             '</div>' +
           '</article>' +
           '<article class="overview-card">' +
-            '<h2>Нагрузка и живучесть</h2>' +
+            '<h2>Здоровье узла</h2>' +
             '<div class="metrics-strip">' +
-              '<div class="metric-box"><span class="metric-box-label">Доступность</span><span class="metric-box-value" id="metric-a-est">—</span></div>' +
-              '<div class="metric-box"><span class="metric-box-label">Задержка gossip</span><span class="metric-box-value" id="metric-t-gossip">—</span></div>' +
-              '<div class="metric-box"><span class="metric-box-label">Полнота графа</span><span class="metric-box-value" id="metric-k-r">—</span></div>' +
-              '<div class="metric-box"><span class="metric-box-label">События</span><span class="metric-box-value" id="metric-event-count">—</span></div>' +
+              '<div class="metric-box"><span class="metric-box-label">Готовность кворума</span><span class="metric-box-value" id="metric-a-est">—</span></div>' +
+              '<div class="metric-box"><span class="metric-box-label">Задержка обмена</span><span class="metric-box-value" id="metric-t-gossip">—</span></div>' +
+              '<div class="metric-box"><span class="metric-box-label">Целостность графа</span><span class="metric-box-value" id="metric-k-r">—</span></div>' +
+              '<div class="metric-box"><span class="metric-box-label">Объём журнала</span><span class="metric-box-value" id="metric-event-count">—</span></div>' +
             '</div>' +
           '</article>' +
           '<article class="overview-card">' +
@@ -1081,9 +1551,10 @@ VIZ_HTML = """
               '<div class="meta-chip"><span class="meta-chip-label">Служебные C</span><span class="meta-chip-value" id="activity-class-c">0</span></div>' +
               '<div class="meta-chip"><span class="meta-chip-label">Источники</span><span class="meta-chip-value" id="activity-source-count">0</span></div>' +
             '</div>' +
+            '<div id="activity-intensity" class="intensity-grid"><div class="intensity-row"><div><div class="intensity-title">Интенсивность ещё не рассчитана</div><div class="intensity-meta">Нужны события с временными отметками.</div></div><div class="intensity-rate">—</div></div></div>' +
             '<ul id="activity-feed"><li class="activity-item">События ещё не поступили.</li></ul>' +
           '</article>';
-        shell.appendChild(overview);
+        main.appendChild(overview);
         var metricsCard = overview.children[1];
         var consensusCard = overview.children[2];
         if (metricsCard && metricsEl) {
@@ -1096,7 +1567,7 @@ VIZ_HTML = """
 
         var workspace = document.createElement('main');
         workspace.id = 'workspace';
-        shell.appendChild(workspace);
+        main.appendChild(workspace);
 
         var leftRail = document.createElement('aside');
         leftRail.className = 'rail-stack';
@@ -1134,7 +1605,7 @@ VIZ_HTML = """
         leftRail.appendChild(wrapPanel(document.getElementById('legend'), 'Легенда', 'Как читать граф и классы событий'));
         var legendLabels = document.querySelectorAll('#legend .legend-item .label');
         if (legendLabels.length >= 5) {
-          legendLabels[1].textContent = 'Класс B — важные события, сейчас проталкиваются вместе с критическими';
+          legendLabels[1].textContent = 'Класс B — важные события, сейчас регистрируются вместе с критическими';
           legendLabels[2].textContent = 'Класс C — служебные и якорные события для замыкания DAG';
           legendLabels[3].textContent = 'Ребро показывает ссылку ребёнка на родителя и причинную связь';
         }
@@ -1151,10 +1622,20 @@ VIZ_HTML = """
                 '<div><h3>Динамика ресурсов и журнала</h3><div class="chart-subtitle">История строится по текущим обновлениям метрик узла: память, сеть и объём известных событий.</div></div>' +
               '</div>' +
               '<div class="chart-stage">' +
-                '<div class="trend-legend">' +
-                  '<span class="trend-chip"><span class="trend-dot mem"></span>Память журнала</span>' +
-                  '<span class="trend-chip"><span class="trend-dot net"></span>Сетевая нагрузка</span>' +
-                  '<span class="trend-chip"><span class="trend-dot events"></span>Количество событий</span>' +
+                '<div class="chart-toolbar">' +
+                  '<div class="chart-tabs">' +
+                    '<button class="chart-tab active" id="trend-tab-resources" type="button">Ресурсы</button>' +
+                    '<button class="chart-tab" id="trend-tab-intensity" type="button">Интенсивность</button>' +
+                  '</div>' +
+                  '<div class="trend-legend" id="trend-legend">' +
+                    '<span class="trend-chip"><span class="trend-dot mem"></span>Память журнала</span>' +
+                    '<span class="trend-chip"><span class="trend-dot net"></span>Сетевая нагрузка</span>' +
+                    '<span class="trend-chip"><span class="trend-dot events"></span>Количество событий</span>' +
+                  '</div>' +
+                '</div>' +
+                '<div class="chart-axis-notes">' +
+                  '<span id="trend-y-axis">Ось Y: относительная загрузка и объём журнала</span>' +
+                  '<span id="trend-x-axis">Ось X: последовательность наблюдений во времени</span>' +
                 '</div>' +
                 '<svg id="trend-chart" viewBox="0 0 820 220" preserveAspectRatio="none"></svg>' +
                 '<div class="trend-caption"><span>Левая часть показывает более ранние точки, правая часть — последние обновления.</span><span id="trend-caption-value">История ещё не накоплена.</span></div>' +
@@ -1184,10 +1665,16 @@ VIZ_HTML = """
               '<div id="alert-window"><div class="alert-item info"><div class="alert-meta"><span class="alert-level">НЕТ АКТИВНЫХ</span></div><div class="alert-title">Ожидание сигналов</div><div class="alert-text">Тревожные уведомления появятся здесь по мере поступления событий и изменения состояния кластера.</div></div></div>' +
             '</section>' +
           '</div>';
-        shell.appendChild(analytics);
+        main.appendChild(analytics);
       }
 
       buildDashboardLayout();
+      var dashboardShellEl = document.querySelector('.dashboard-shell');
+      var navToggleEl = document.getElementById('nav-toggle');
+      var navNodeCaptionEl = document.getElementById('nav-node-caption');
+      var navNodeIdEl = document.getElementById('nav-node-id');
+      var navStreamStateEl = document.getElementById('nav-stream-state');
+      var navItems = Array.prototype.slice.call(document.querySelectorAll('.dashboard-nav .nav-item'));
       var heroNodeIdEl = document.getElementById('hero-node-id');
       var heroNodeStateEl = document.getElementById('hero-node-state');
       var heroNodeRoleEl = document.getElementById('hero-node-role');
@@ -1204,16 +1691,86 @@ VIZ_HTML = """
       var activityClassBEl = document.getElementById('activity-class-b');
       var activityClassCEl = document.getElementById('activity-class-c');
       var activitySourceCountEl = document.getElementById('activity-source-count');
+      var activityIntensityEl = document.getElementById('activity-intensity');
       var activityFeedEl = document.getElementById('activity-feed');
       var consensusPeerSummaryEl = document.getElementById('consensus-peer-summary');
       var trendChartEl = document.getElementById('trend-chart');
+      var trendLegendEl = document.getElementById('trend-legend');
+      var trendYAxisEl = document.getElementById('trend-y-axis');
+      var trendXAxisEl = document.getElementById('trend-x-axis');
       var trendCaptionValueEl = document.getElementById('trend-caption-value');
+      var trendTabResourcesEl = document.getElementById('trend-tab-resources');
+      var trendTabIntensityEl = document.getElementById('trend-tab-intensity');
       var donutTotalEl = document.getElementById('donut-total');
       var classBreakdownEl = document.getElementById('class-breakdown');
       var sourceSummaryEl = document.getElementById('source-summary');
       var alertWindowEl = document.getElementById('alert-window');
       var metricHistory = [];
       var alertFeed = [];
+      var trendView = 'resources';
+      var lastOperationalNodes = [];
+      var navStateStorageKey = 'mdrj-dashboard-nav-collapsed';
+
+      function setNavCollapsed(collapsed) {
+        if (!dashboardShellEl || !navToggleEl) {
+          return;
+        }
+        dashboardShellEl.classList.toggle('nav-collapsed', !!collapsed);
+        navToggleEl.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        navToggleEl.setAttribute('title', collapsed ? 'Развернуть панель' : 'Свернуть панель');
+        navToggleEl.setAttribute('aria-label', collapsed ? 'Развернуть панель' : 'Свернуть панель');
+        try {
+          window.localStorage.setItem(navStateStorageKey, collapsed ? '1' : '0');
+        } catch (err) {
+          console.log('nav state storage unavailable', err);
+        }
+      }
+
+      if (navToggleEl) {
+        navToggleEl.addEventListener('click', function () {
+          var collapsed = dashboardShellEl && dashboardShellEl.classList.contains('nav-collapsed');
+          setNavCollapsed(!collapsed);
+        });
+      }
+
+      try {
+        if (window.localStorage.getItem(navStateStorageKey) === '1') {
+          setNavCollapsed(true);
+        }
+      } catch (err) {
+        console.log('nav state restore unavailable', err);
+      }
+
+      navItems.forEach(function (item) {
+        item.addEventListener('click', function () {
+          navItems.forEach(function (candidate) {
+            candidate.classList.remove('active');
+          });
+          item.classList.add('active');
+        });
+      });
+
+      function setTrendView(nextView) {
+        trendView = nextView === 'intensity' ? 'intensity' : 'resources';
+        if (trendTabResourcesEl) {
+          trendTabResourcesEl.classList.toggle('active', trendView === 'resources');
+        }
+        if (trendTabIntensityEl) {
+          trendTabIntensityEl.classList.toggle('active', trendView === 'intensity');
+        }
+        renderTrendChart();
+      }
+
+      if (trendTabResourcesEl) {
+        trendTabResourcesEl.addEventListener('click', function () {
+          setTrendView('resources');
+        });
+      }
+      if (trendTabIntensityEl) {
+        trendTabIntensityEl.addEventListener('click', function () {
+          setTrendView('intensity');
+        });
+      }
 
       function openDetailsPanel() {
         if (!detailsPanel) {
@@ -1318,12 +1875,124 @@ VIZ_HTML = """
         el.textContent = value;
       }
 
+      function describeQuorumHealth(value) {
+        var numeric = Number(value || 0);
+        if (numeric >= 0.95) {
+          return 'Норма';
+        }
+        if (numeric >= 0.75) {
+          return 'Наблюдать';
+        }
+        return 'Риск';
+      }
+
+      function describeGraphIntegrity(value) {
+        var numeric = Number(value || 0);
+        if (numeric >= 0.97) {
+          return 'Цельный';
+        }
+        if (numeric >= 0.85) {
+          return 'Есть разрывы';
+        }
+        return 'Требует проверки';
+      }
+
+      function describeDelta(current, previous) {
+        if (previous <= 0 && current <= 0) {
+          return 'без изменений';
+        }
+        if (previous <= 0 && current > 0) {
+          return 'рост с нуля';
+        }
+        var ratio = ((current - previous) / previous) * 100;
+        if (Math.abs(ratio) < 10) {
+          return 'без заметного сдвига';
+        }
+        return ratio > 0
+          ? 'рост на ' + formatValue(ratio, 0) + '%'
+          : 'снижение на ' + formatValue(Math.abs(ratio), 0) + '%';
+      }
+
+      function formatRatePerMinute(count, windowSeconds) {
+        var rate = Number(count || 0) / Math.max(windowSeconds / 60, 1);
+        return formatValue(rate, 1) + ' / мин';
+      }
+
+      function eventTimestamp(node) {
+        if (!node) {
+          return null;
+        }
+        var primary = Number(valueOr(node.consensus_ts, node.ts_local));
+        return isNaN(primary) ? null : primary;
+      }
+
+      function renderEventIntensity(realNodes) {
+        if (!activityIntensityEl) {
+          return;
+        }
+        activityIntensityEl.innerHTML = '';
+        if (!realNodes || realNodes.length === 0) {
+          activityIntensityEl.innerHTML = '<div class="intensity-row"><div><div class="intensity-title">Интенсивность ещё не рассчитана</div><div class="intensity-meta">Нужны события с временными отметками.</div></div><div class="intensity-rate">—</div></div>';
+          return;
+        }
+
+        var timestamps = realNodes.map(eventTimestamp).filter(function (value) {
+          return value !== null;
+        });
+        if (timestamps.length === 0) {
+          activityIntensityEl.innerHTML = '<div class="intensity-row"><div><div class="intensity-title">Нет корректных временных отметок</div><div class="intensity-meta">Скорость появления событий пока нельзя оценить.</div></div><div class="intensity-rate">—</div></div>';
+          return;
+        }
+
+        var now = Math.max(Date.now() / 1000, Math.max.apply(null, timestamps));
+        var windowSeconds = 5 * 60;
+        var currentStart = now - windowSeconds;
+        var previousStart = now - windowSeconds * 2;
+        var classes = {
+          A: { label: 'Класс A', current: 0, previous: 0, tone: '#ff6d6d' },
+          B: { label: 'Класс B', current: 0, previous: 0, tone: '#ffc971' },
+          C: { label: 'Класс C', current: 0, previous: 0, tone: '#5aa5ff' }
+        };
+
+        realNodes.forEach(function (node) {
+          if (!classes[node.cls]) {
+            return;
+          }
+          var ts = eventTimestamp(node);
+          if (ts === null) {
+            return;
+          }
+          if (ts >= currentStart) {
+            classes[node.cls].current += 1;
+          } else if (ts >= previousStart && ts < currentStart) {
+            classes[node.cls].previous += 1;
+          }
+        });
+
+        ['A', 'B', 'C'].forEach(function (cls) {
+          var stat = classes[cls];
+          var row = document.createElement('div');
+          row.className = 'intensity-row';
+          row.innerHTML =
+            '<div>' +
+              '<div class="intensity-title">' + stat.label + '</div>' +
+              '<div class="intensity-meta">Окно: последние 5 минут · ' + describeDelta(stat.current, stat.previous) + '</div>' +
+            '</div>' +
+            '<div class="intensity-rate" style="color:' + stat.tone + ';">' + formatRatePerMinute(stat.current, windowSeconds) +
+              '<small>предыдущее окно: ' + formatRatePerMinute(stat.previous, windowSeconds) + '</small>' +
+            '</div>';
+          activityIntensityEl.appendChild(row);
+        });
+      }
+
       function updateNodeStatus(status) {
         if (!status) {
           return;
         }
         var peerCount = Array.isArray(status.peers) ? status.peers.length : 0;
         var profile = status.profile || {};
+        setText(navNodeCaptionEl, 'ID: ' + valueOr(status.node_id, '—'));
+        setText(navNodeIdEl, valueOr(status.node_id, '—'));
         setText(heroNodeIdEl, valueOr(status.node_id, '—'));
         setText(heroNodeStateEl, valueOr(status.state, '—'));
         setText(heroNodeRoleEl, valueOr(profile.role, '—'));
@@ -1881,6 +2550,7 @@ VIZ_HTML = """
           }
           sourceStats[node.source].total += 1;
         });
+        lastOperationalNodes = realNodes.slice(0);
 
         setText(activityClassAEl, String(classCounts.A || 0));
         setText(activityClassBEl, String(classCounts.B || 0));
@@ -1888,6 +2558,7 @@ VIZ_HTML = """
         setText(activitySourceCountEl, String(Object.keys(sourceMap).length));
         renderClassDistribution(classCounts, realNodes.length);
         renderSourceSummary(sourceStats);
+        renderEventIntensity(realNodes);
 
         if (!activityFeedEl) {
           return;
@@ -1993,7 +2664,7 @@ VIZ_HTML = """
         return result.join(' ');
       }
 
-      function renderTrendChart() {
+      function renderResourceTrendChart() {
         if (!trendChartEl) {
           return;
         }
@@ -2047,6 +2718,135 @@ VIZ_HTML = """
         }
       }
 
+      function renderIntensityTrendChart() {
+        if (!trendChartEl) {
+          return;
+        }
+        var width = 820;
+        var height = 220;
+        var padTop = 12;
+        var padBottom = 20;
+        var chartHeight = height - padTop - padBottom;
+        trendChartEl.innerHTML = '';
+        if (!lastOperationalNodes || lastOperationalNodes.length === 0) {
+          if (trendCaptionValueEl) {
+            trendCaptionValueEl.textContent = 'Для графика интенсивности пока недостаточно событий.';
+          }
+          return;
+        }
+
+        var timestamps = lastOperationalNodes.map(eventTimestamp).filter(function (value) {
+          return value !== null;
+        });
+        if (timestamps.length === 0) {
+          if (trendCaptionValueEl) {
+            trendCaptionValueEl.textContent = 'У событий нет пригодных временных отметок для расчёта интенсивности.';
+          }
+          return;
+        }
+
+        var windowSeconds = 5 * 60;
+        var bucketCount = 6;
+        var now = Math.max(Date.now() / 1000, Math.max.apply(null, timestamps));
+        var start = now - bucketCount * windowSeconds;
+        var series = {
+          A: new Array(bucketCount).fill(0),
+          B: new Array(bucketCount).fill(0),
+          C: new Array(bucketCount).fill(0)
+        };
+
+        lastOperationalNodes.forEach(function (node) {
+          if (!series.hasOwnProperty(node.cls)) {
+            return;
+          }
+          var ts = eventTimestamp(node);
+          if (ts === null || ts < start) {
+            return;
+          }
+          var bucket = Math.floor((ts - start) / windowSeconds);
+          if (bucket < 0) {
+            return;
+          }
+          if (bucket >= bucketCount) {
+            bucket = bucketCount - 1;
+          }
+          series[node.cls][bucket] += 1;
+        });
+
+        for (var g = 0; g < 4; g += 1) {
+          var line = document.createElementNS(svgNS, 'line');
+          var y = padTop + (chartHeight / 3) * g;
+          line.setAttribute('class', 'grid-line');
+          line.setAttribute('x1', '0');
+          line.setAttribute('x2', String(width));
+          line.setAttribute('y1', String(y));
+          line.setAttribute('y2', String(y));
+          trendChartEl.appendChild(line);
+        }
+
+        var maxValue = 1;
+        ['A', 'B', 'C'].forEach(function (cls) {
+          series[cls].forEach(function (count) {
+            var rate = count / (windowSeconds / 60);
+            if (rate > maxValue) {
+              maxValue = rate;
+            }
+          });
+        });
+
+        [
+          { cls: 'class-a', points: series.A.map(function (count) { return count / (windowSeconds / 60); }) },
+          { cls: 'class-b', points: series.B.map(function (count) { return count / (windowSeconds / 60); }) },
+          { cls: 'class-c', points: series.C.map(function (count) { return count / (windowSeconds / 60); }) }
+        ].forEach(function (entry) {
+          var poly = document.createElementNS(svgNS, 'polyline');
+          poly.setAttribute('class', 'trend-line ' + entry.cls);
+          poly.setAttribute('points', buildPolyline(entry.points, width, chartHeight, maxValue));
+          poly.setAttribute('transform', 'translate(0 ' + padTop + ')');
+          trendChartEl.appendChild(poly);
+        });
+
+        if (trendCaptionValueEl) {
+          var lastIndex = bucketCount - 1;
+          var rateA = series.A[lastIndex] / (windowSeconds / 60);
+          var rateB = series.B[lastIndex] / (windowSeconds / 60);
+          var rateC = series.C[lastIndex] / (windowSeconds / 60);
+          trendCaptionValueEl.textContent =
+            'Текущее окно 5 минут: A ' + formatValue(rateA, 1) + ' / мин · B ' + formatValue(rateB, 1) + ' / мин · C ' + formatValue(rateC, 1) + ' / мин';
+        }
+      }
+
+      function renderTrendChart() {
+        if (trendLegendEl) {
+          if (trendView === 'intensity') {
+            trendLegendEl.innerHTML =
+              '<span class="trend-chip"><span class="trend-dot class-a"></span>Класс A</span>' +
+              '<span class="trend-chip"><span class="trend-dot class-b"></span>Класс B</span>' +
+              '<span class="trend-chip"><span class="trend-dot class-c"></span>Класс C</span>';
+          } else {
+            trendLegendEl.innerHTML =
+              '<span class="trend-chip"><span class="trend-dot mem"></span>Память журнала</span>' +
+              '<span class="trend-chip"><span class="trend-dot net"></span>Сетевая нагрузка</span>' +
+              '<span class="trend-chip"><span class="trend-dot events"></span>Количество событий</span>';
+          }
+        }
+        if (trendYAxisEl) {
+          trendYAxisEl.textContent = trendView === 'intensity'
+            ? 'Ось Y: событий в минуту'
+            : 'Ось Y: относительная загрузка и объём журнала';
+        }
+        if (trendXAxisEl) {
+          trendXAxisEl.textContent = trendView === 'intensity'
+            ? 'Ось X: последовательные окна по 5 минут'
+            : 'Ось X: последовательность наблюдений во времени';
+        }
+        if (trendView === 'intensity') {
+          renderIntensityTrendChart();
+          return;
+        }
+        renderResourceTrendChart();
+      }
+
       function renderClassDistribution(classCounts, total) {
         if (!classBreakdownEl || !donutTotalEl) {
           return;
@@ -2079,7 +2879,7 @@ VIZ_HTML = """
           row.innerHTML =
             '<span class="class-row-badge ' + entry.cls + '"></span>' +
             '<div class="class-row-bar"><div class="class-row-fill ' + entry.cls + '" style="width:' + percentage + '%"></div></div>' +
-            '<span>' + entry.label + ' · ' + entry.value + '</span>';
+            '<span>' + entry.label + ' · ' + entry.value + ' · ' + formatValue(percentage, 1) + '%</span>';
           classBreakdownEl.appendChild(row);
         });
       }
@@ -3059,16 +3859,16 @@ VIZ_HTML = """
           return;
         }
         var info = [];
-        info.push('A_est : ' + formatValue(metrics.A_est, 3));
-        info.push('T_gossip : ' + formatValue(metrics.T_gossip, 4));
-        info.push('K_r : ' + formatValue(metrics.K_r, 3));
-        info.push('C_mem : ' + formatValue(Number(metrics.C_mem) * 100, 2) + ' %');
-        info.push('C_net : ' + formatValue(Number(metrics.C_net) * 100, 2) + ' %');
-        info.push('events : ' + valueOr(metrics.event_count, '-'));
+        info.push('Готовность кворума: ' + describeQuorumHealth(metrics.A_est) + ' (' + formatValue(Number(metrics.A_est) * 100, 1) + ' %)');
+        info.push('Задержка обмена: ' + formatValue(metrics.T_gossip, 3) + ' с');
+        info.push('Целостность графа: ' + describeGraphIntegrity(metrics.K_r) + ' (' + formatValue(Number(metrics.K_r) * 100, 1) + ' %)');
+        info.push('Память журнала: ' + formatValue(Number(metrics.C_mem) * 100, 1) + ' %');
+        info.push('Сетевой бюджет: ' + formatValue(Number(metrics.C_net) * 100, 1) + ' %');
+        info.push('Известных событий: ' + valueOr(metrics.event_count, '-'));
         metricsEl.textContent = info.join('\\n');
-        setText(metricAEstEl, formatValue(metrics.A_est, 3));
-        setText(metricTGossipEl, formatValue(metrics.T_gossip, 3) + ' c');
-        setText(metricKREl, formatValue(metrics.K_r, 3));
+        setText(metricAEstEl, describeQuorumHealth(metrics.A_est));
+        setText(metricTGossipEl, formatValue(metrics.T_gossip, 3) + ' с');
+        setText(metricKREl, describeGraphIntegrity(metrics.K_r));
         setText(metricEventCountEl, String(valueOr(metrics.event_count, '-')));
         updateMetricHistory(metrics);
         if (Number(metrics.C_mem) >= 0.85) {
@@ -3122,6 +3922,9 @@ VIZ_HTML = """
       function connectStream() {
         try {
           var source = new EventSource('/viz/stream');
+          source.onopen = function () {
+            setText(navStreamStateEl, 'Онлайн');
+          };
           source.onmessage = function (event) {
             try {
               var data = JSON.parse(event.data);
@@ -3161,14 +3964,16 @@ VIZ_HTML = """
               console.log('SSE parse error', err);
             }
           };
-      source.onerror = function () {
-        console.log('SSE disconnected, retry in 3s');
-        source.close();
-        markError('Поток событий временно прерван, перезапуск...');
-        setTimeout(connectStream, 3000);
-      };
+          source.onerror = function () {
+            console.log('SSE disconnected, retry in 3s');
+            setText(navStreamStateEl, 'Повтор');
+            source.close();
+            markError('Поток событий временно прерван, перезапуск...');
+            setTimeout(connectStream, 3000);
+          };
         } catch (err) {
           console.log('EventSource unsupported', err);
+          setText(navStreamStateEl, 'Недоступно');
         }
       }
 
