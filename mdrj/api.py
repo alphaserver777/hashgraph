@@ -356,11 +356,489 @@ VIZ_HTML = """
     #timeline-items { max-height: 72vh; overflow: auto; padding-right: 0.25rem; }
     .timeline-item { width: 100%; text-align: left; background: rgba(12, 23, 36, 0.84); }
     .timeline-item.active { background: rgba(56, 86, 132, 0.95); }
+    #analytics-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.95fr);
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .analytics-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .chart-card {
+      min-height: 320px;
+    }
+    .chart-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 0.9rem;
+    }
+    .chart-head h3 {
+      margin: 0;
+      font-size: 1.02rem;
+      letter-spacing: -0.02em;
+    }
+    .chart-subtitle {
+      color: var(--text-2);
+      font-size: 0.82rem;
+      margin-top: 0.2rem;
+    }
+    .chart-stage {
+      border-radius: 18px;
+      background:
+        radial-gradient(circle at top, rgba(255,255,255,0.04), transparent 60%),
+        rgba(8, 16, 25, 0.82);
+      border: 1px solid rgba(255,255,255,0.05);
+      padding: 0.9rem;
+    }
+    .trend-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+      margin-bottom: 0.75rem;
+    }
+    .trend-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.42rem;
+      padding: 0.42rem 0.65rem;
+      border-radius: 999px;
+      background: rgba(14, 25, 38, 0.88);
+      border: 1px solid rgba(255,255,255,0.05);
+      font-size: 0.76rem;
+      color: var(--text-1);
+    }
+    .trend-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+    .trend-dot.mem { background: #4fd1a3; }
+    .trend-dot.net { background: #6aa9ff; }
+    .trend-dot.events { background: #f4b363; }
+    #trend-chart {
+      width: 100%;
+      height: 220px;
+      display: block;
+    }
+    .grid-line {
+      stroke: rgba(185, 206, 224, 0.12);
+      stroke-width: 1;
+      stroke-dasharray: 4 6;
+    }
+    .trend-line {
+      fill: none;
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .trend-line.mem { stroke: #4fd1a3; }
+    .trend-line.net { stroke: #6aa9ff; }
+    .trend-line.events { stroke: #f4b363; }
+    .trend-caption {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-top: 0.75rem;
+      color: var(--text-2);
+      font-size: 0.78rem;
+    }
+    #class-donut {
+      width: 230px;
+      height: 230px;
+      border-radius: 50%;
+      margin: 0 auto;
+      position: relative;
+      background: conic-gradient(#223344 0deg, #223344 360deg);
+      box-shadow: inset 0 0 0 18px rgba(8, 16, 25, 0.85);
+    }
+    #class-donut::after {
+      content: "";
+      position: absolute;
+      inset: 26px;
+      border-radius: 50%;
+      background: rgba(8, 16, 25, 0.96);
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .donut-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1;
+      text-align: center;
+      pointer-events: none;
+    }
+    .donut-total {
+      font-size: 2rem;
+      line-height: 1;
+      letter-spacing: -0.04em;
+      color: #ffffff;
+    }
+    .donut-label { margin-top: 0.35rem; font-size: 0.85rem; color: var(--text-2); }
+    .donut-layout {
+      display: grid;
+      grid-template-columns: 240px minmax(0, 1fr);
+      gap: 1rem;
+      align-items: center;
+    }
+    #class-breakdown, #source-summary, #alert-window {
+      display: flex;
+      flex-direction: column;
+      gap: 0.7rem;
+    }
+    .class-row {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 0.75rem;
+      align-items: center;
+      font-size: 0.84rem;
+      color: var(--text-1);
+    }
+    .class-row-bar {
+      height: 10px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.06);
+    }
+    .class-row-fill { height: 100%; border-radius: inherit; }
+    .class-row-fill.a { background: #ff6d6d; }
+    .class-row-fill.b { background: #ffc971; }
+    .class-row-fill.c { background: #5aa5ff; }
+    .class-row-badge { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+    .class-row-badge.a { background: #ff6d6d; }
+    .class-row-badge.b { background: #ffc971; }
+    .class-row-badge.c { background: #5aa5ff; }
+    .source-row {
+      padding: 0.8rem 0.85rem;
+      border-radius: 16px;
+      background: rgba(9, 18, 29, 0.78);
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .source-row-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      align-items: baseline;
+      margin-bottom: 0.45rem;
+      color: #ffffff;
+      font-size: 0.86rem;
+    }
+    .source-row-bars {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.5rem;
+    }
+    .source-mini {
+      padding: 0.55rem 0.6rem;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.03);
+      font-size: 0.76rem;
+      color: var(--text-2);
+    }
+    .source-mini strong {
+      display: block;
+      color: #ffffff;
+      font-size: 1rem;
+      margin-top: 0.15rem;
+    }
+    #alert-window {
+      max-height: 500px;
+      overflow: auto;
+      padding-right: 0.15rem;
+    }
+    .alert-item {
+      padding: 0.85rem 0.9rem;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.05);
+      background: rgba(10, 19, 29, 0.82);
+    }
+    .alert-item.high { border-color: rgba(255, 109, 109, 0.28); }
+    .alert-item.medium { border-color: rgba(255, 201, 113, 0.2); }
+    .alert-item.info { border-color: rgba(106, 169, 255, 0.18); }
+    .alert-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      align-items: center;
+      margin-bottom: 0.45rem;
+    }
+    .alert-level {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.28rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      background: rgba(255,255,255,0.05);
+    }
+    .alert-title { color: #ffffff; font-size: 0.9rem; font-weight: 600; }
+    .alert-text { color: var(--text-2); font-size: 0.82rem; line-height: 1.45; }
+    #analytics-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.95fr);
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .analytics-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .chart-card {
+      min-height: 320px;
+    }
+    .chart-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 0.9rem;
+    }
+    .chart-head h3 {
+      margin: 0;
+      font-size: 1.02rem;
+      letter-spacing: -0.02em;
+    }
+    .chart-subtitle {
+      color: var(--text-2);
+      font-size: 0.82rem;
+      margin-top: 0.2rem;
+    }
+    .chart-stage {
+      border-radius: 18px;
+      background:
+        radial-gradient(circle at top, rgba(255,255,255,0.04), transparent 60%),
+        rgba(8, 16, 25, 0.82);
+      border: 1px solid rgba(255,255,255,0.05);
+      padding: 0.9rem;
+    }
+    .trend-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+      margin-bottom: 0.75rem;
+    }
+    .trend-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.42rem;
+      padding: 0.42rem 0.65rem;
+      border-radius: 999px;
+      background: rgba(14, 25, 38, 0.88);
+      border: 1px solid rgba(255,255,255,0.05);
+      font-size: 0.76rem;
+      color: var(--text-1);
+    }
+    .trend-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .trend-dot.mem { background: #4fd1a3; }
+    .trend-dot.net { background: #6aa9ff; }
+    .trend-dot.events { background: #f4b363; }
+    #trend-chart {
+      width: 100%;
+      height: 220px;
+      display: block;
+    }
+    .grid-line {
+      stroke: rgba(185, 206, 224, 0.12);
+      stroke-width: 1;
+      stroke-dasharray: 4 6;
+    }
+    .trend-line {
+      fill: none;
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .trend-line.mem { stroke: #4fd1a3; }
+    .trend-line.net { stroke: #6aa9ff; }
+    .trend-line.events { stroke: #f4b363; }
+    .trend-caption {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-top: 0.75rem;
+      color: var(--text-2);
+      font-size: 0.78rem;
+    }
+    #class-donut {
+      width: 230px;
+      height: 230px;
+      border-radius: 50%;
+      margin: 0 auto;
+      position: relative;
+      background: conic-gradient(#223344 0deg, #223344 360deg);
+      box-shadow: inset 0 0 0 18px rgba(8, 16, 25, 0.85);
+    }
+    #class-donut::after {
+      content: "";
+      position: absolute;
+      inset: 26px;
+      border-radius: 50%;
+      background: rgba(8, 16, 25, 0.96);
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .donut-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1;
+      text-align: center;
+      pointer-events: none;
+    }
+    .donut-total {
+      font-size: 2rem;
+      line-height: 1;
+      letter-spacing: -0.04em;
+      color: #ffffff;
+    }
+    .donut-label {
+      margin-top: 0.35rem;
+      font-size: 0.85rem;
+      color: var(--text-2);
+    }
+    .donut-layout {
+      display: grid;
+      grid-template-columns: 240px minmax(0, 1fr);
+      gap: 1rem;
+      align-items: center;
+    }
+    #class-breakdown {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+    .class-row {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 0.75rem;
+      align-items: center;
+      font-size: 0.84rem;
+      color: var(--text-1);
+    }
+    .class-row-bar {
+      height: 10px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.06);
+    }
+    .class-row-fill {
+      height: 100%;
+      border-radius: inherit;
+    }
+    .class-row-fill.a { background: #ff6d6d; }
+    .class-row-fill.b { background: #ffc971; }
+    .class-row-fill.c { background: #5aa5ff; }
+    .class-row-badge {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .class-row-badge.a { background: #ff6d6d; }
+    .class-row-badge.b { background: #ffc971; }
+    .class-row-badge.c { background: #5aa5ff; }
+    #source-summary {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .source-row {
+      padding: 0.8rem 0.85rem;
+      border-radius: 16px;
+      background: rgba(9, 18, 29, 0.78);
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .source-row-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      align-items: baseline;
+      margin-bottom: 0.45rem;
+      color: #ffffff;
+      font-size: 0.86rem;
+    }
+    .source-row-bars {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.5rem;
+    }
+    .source-mini {
+      padding: 0.55rem 0.6rem;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.03);
+      font-size: 0.76rem;
+      color: var(--text-2);
+    }
+    .source-mini strong {
+      display: block;
+      color: #ffffff;
+      font-size: 1rem;
+      margin-top: 0.15rem;
+    }
+    #alert-window {
+      display: flex;
+      flex-direction: column;
+      gap: 0.7rem;
+      max-height: 500px;
+      overflow: auto;
+      padding-right: 0.15rem;
+    }
+    .alert-item {
+      padding: 0.85rem 0.9rem;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.05);
+      background: rgba(10, 19, 29, 0.82);
+    }
+    .alert-item.high { border-color: rgba(255, 109, 109, 0.28); }
+    .alert-item.medium { border-color: rgba(255, 201, 113, 0.2); }
+    .alert-item.info { border-color: rgba(106, 169, 255, 0.18); }
+    .alert-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      align-items: center;
+      margin-bottom: 0.45rem;
+    }
+    .alert-level {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.28rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      background: rgba(255,255,255,0.05);
+    }
+    .alert-title {
+      color: #ffffff;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+    .alert-text {
+      color: var(--text-2);
+      font-size: 0.82rem;
+      line-height: 1.45;
+    }
     @media (max-width: 1280px) {
       #overview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       #workspace { grid-template-columns: 320px minmax(0, 1fr); }
       #workspace > .rail-stack:last-child { grid-column: 1 / -1; flex-direction: row; align-items: stretch; }
       #workspace > .rail-stack:last-child > .panel-surface { flex: 1 1 0; }
+      #analytics-grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 900px) {
       .dashboard-shell { width: min(100vw - 1rem, 100%); padding: 0.6rem 0 1rem; }
@@ -370,6 +848,8 @@ VIZ_HTML = """
       #workspace > .rail-stack:last-child { flex-direction: column; }
       #graph-wrapper, #graph { min-height: 500px; height: 60vh; }
       .hero-meta, .metrics-strip { grid-template-columns: 1fr; }
+      .donut-layout { grid-template-columns: 1fr; }
+      #class-donut { width: 200px; height: 200px; }
     }
   </style>
 </head>
@@ -661,6 +1141,50 @@ VIZ_HTML = """
 
         rightRail.appendChild(wrapPanel(document.getElementById('timeline'), null, null));
         graphPanel.appendChild(graphEl.parentElement);
+
+        var analytics = document.createElement('section');
+        analytics.id = 'analytics-grid';
+        analytics.innerHTML =
+          '<div class="analytics-stack">' +
+            '<section class="panel-surface chart-card">' +
+              '<div class="chart-head">' +
+                '<div><h3>Динамика ресурсов и журнала</h3><div class="chart-subtitle">История строится по текущим обновлениям метрик узла: память, сеть и объём известных событий.</div></div>' +
+              '</div>' +
+              '<div class="chart-stage">' +
+                '<div class="trend-legend">' +
+                  '<span class="trend-chip"><span class="trend-dot mem"></span>Память журнала</span>' +
+                  '<span class="trend-chip"><span class="trend-dot net"></span>Сетевая нагрузка</span>' +
+                  '<span class="trend-chip"><span class="trend-dot events"></span>Количество событий</span>' +
+                '</div>' +
+                '<svg id="trend-chart" viewBox="0 0 820 220" preserveAspectRatio="none"></svg>' +
+                '<div class="trend-caption"><span>Левая часть показывает более ранние точки, правая часть — последние обновления.</span><span id="trend-caption-value">История ещё не накоплена.</span></div>' +
+              '</div>' +
+            '</section>' +
+            '<section class="panel-surface chart-card">' +
+              '<div class="chart-head">' +
+                '<div><h3>Распределение событий по классам</h3><div class="chart-subtitle">Сводка по классам A, B и C внутри текущего графа на этом узле.</div></div>' +
+              '</div>' +
+              '<div class="chart-stage donut-layout">' +
+                '<div id="class-donut"><div class="donut-center"><div class="donut-total" id="donut-total">0</div><div class="donut-label">Всего событий</div></div></div>' +
+                '<div id="class-breakdown"></div>' +
+              '</div>' +
+            '</section>' +
+          '</div>' +
+          '<div class="analytics-stack">' +
+            '<section class="panel-surface chart-card">' +
+              '<div class="chart-head">' +
+                '<div><h3>Источники и устройства</h3><div class="chart-subtitle">Где фиксируются события разных классов и какие устройства дают наибольшую нагрузку.</div></div>' +
+              '</div>' +
+              '<div id="source-summary"></div>' +
+            '</section>' +
+            '<section class="panel-surface chart-card">' +
+              '<div class="chart-head">' +
+                '<div><h3>Окно тревог</h3><div class="chart-subtitle">Критичные события, рассогласование между узлами и признаки давления на ресурсы.</div></div>' +
+              '</div>' +
+              '<div id="alert-window"><div class="alert-item info"><div class="alert-meta"><span class="alert-level">НЕТ АКТИВНЫХ</span></div><div class="alert-title">Ожидание сигналов</div><div class="alert-text">Тревожные уведомления появятся здесь по мере поступления событий и изменения состояния кластера.</div></div></div>' +
+            '</section>' +
+          '</div>';
+        shell.appendChild(analytics);
       }
 
       buildDashboardLayout();
@@ -682,6 +1206,14 @@ VIZ_HTML = """
       var activitySourceCountEl = document.getElementById('activity-source-count');
       var activityFeedEl = document.getElementById('activity-feed');
       var consensusPeerSummaryEl = document.getElementById('consensus-peer-summary');
+      var trendChartEl = document.getElementById('trend-chart');
+      var trendCaptionValueEl = document.getElementById('trend-caption-value');
+      var donutTotalEl = document.getElementById('donut-total');
+      var classBreakdownEl = document.getElementById('class-breakdown');
+      var sourceSummaryEl = document.getElementById('source-summary');
+      var alertWindowEl = document.getElementById('alert-window');
+      var metricHistory = [];
+      var alertFeed = [];
 
       function openDetailsPanel() {
         if (!detailsPanel) {
@@ -1330,6 +1862,7 @@ VIZ_HTML = """
         var realNodes = [];
         var classCounts = { A: 0, B: 0, C: 0 };
         var sourceMap = {};
+        var sourceStats = {};
         Object.keys(nodes).forEach(function (nodeId) {
           var node = nodes[nodeId];
           if (!node || node.source === 'unknown') {
@@ -1340,12 +1873,21 @@ VIZ_HTML = """
             classCounts[node.cls] += 1;
           }
           sourceMap[node.source] = true;
+          if (!sourceStats[node.source]) {
+            sourceStats[node.source] = { A: 0, B: 0, C: 0, total: 0 };
+          }
+          if (sourceStats[node.source].hasOwnProperty(node.cls)) {
+            sourceStats[node.source][node.cls] += 1;
+          }
+          sourceStats[node.source].total += 1;
         });
 
         setText(activityClassAEl, String(classCounts.A || 0));
         setText(activityClassBEl, String(classCounts.B || 0));
         setText(activityClassCEl, String(classCounts.C || 0));
         setText(activitySourceCountEl, String(Object.keys(sourceMap).length));
+        renderClassDistribution(classCounts, realNodes.length);
+        renderSourceSummary(sourceStats);
 
         if (!activityFeedEl) {
           return;
@@ -1379,6 +1921,195 @@ VIZ_HTML = """
             ' · Родителей: ' + (event.parents ? event.parents.length : 0) +
             ' · ts: ' + formatValue(valueOr(event.consensus_ts, event.ts_local), 3);
           activityFeedEl.appendChild(item);
+        }
+      }
+
+      function pushAlert(level, title, text, dedupeKey) {
+        var key = dedupeKey || (level + '|' + title + '|' + text);
+        var last = alertFeed.length > 0 ? alertFeed[0] : null;
+        if (last && last.key === key && last.text === text) {
+          return;
+        }
+        alertFeed.unshift({
+          key: key,
+          level: level,
+          title: title,
+          text: text,
+          timestamp: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        });
+        if (alertFeed.length > 10) {
+          alertFeed = alertFeed.slice(0, 10);
+        }
+        renderAlertWindow();
+      }
+
+      function renderAlertWindow() {
+        if (!alertWindowEl) {
+          return;
+        }
+        alertWindowEl.innerHTML = '';
+        if (alertFeed.length === 0) {
+          alertWindowEl.innerHTML = '<div class="alert-item info"><div class="alert-meta"><span class="alert-level">НЕТ АКТИВНЫХ</span></div><div class="alert-title">Ожидание сигналов</div><div class="alert-text">Тревожные уведомления появятся здесь по мере поступления событий и изменения состояния кластера.</div></div>';
+          return;
+        }
+        for (var i = 0; i < alertFeed.length; i += 1) {
+          var alertItem = alertFeed[i];
+          var item = document.createElement('div');
+          item.className = 'alert-item ' + alertItem.level;
+          item.innerHTML =
+            '<div class="alert-meta"><span class="alert-level">' + alertItem.level + '</span><span>' + alertItem.timestamp + '</span></div>' +
+            '<div class="alert-title">' + alertItem.title + '</div>' +
+            '<div class="alert-text">' + alertItem.text + '</div>';
+          alertWindowEl.appendChild(item);
+        }
+      }
+
+      function updateMetricHistory(metrics) {
+        if (!metrics) {
+          return;
+        }
+        metricHistory.push({
+          mem: Number(metrics.C_mem || 0),
+          net: Number(metrics.C_net || 0),
+          events: Number(metrics.event_count || 0)
+        });
+        if (metricHistory.length > 24) {
+          metricHistory = metricHistory.slice(metricHistory.length - 24);
+        }
+        renderTrendChart();
+      }
+
+      function buildPolyline(points, width, height, maxValue) {
+        if (!points.length) {
+          return '';
+        }
+        var result = [];
+        var denominator = Math.max(points.length - 1, 1);
+        for (var i = 0; i < points.length; i += 1) {
+          var x = (i / denominator) * width;
+          var y = height - ((points[i] / Math.max(maxValue, 1)) * height);
+          result.push(x.toFixed(2) + ',' + y.toFixed(2));
+        }
+        return result.join(' ');
+      }
+
+      function renderTrendChart() {
+        if (!trendChartEl) {
+          return;
+        }
+        var width = 820;
+        var height = 220;
+        var padTop = 12;
+        var padBottom = 20;
+        var chartHeight = height - padTop - padBottom;
+        trendChartEl.innerHTML = '';
+        if (metricHistory.length < 2) {
+          if (trendCaptionValueEl) {
+            trendCaptionValueEl.textContent = 'Нужно больше точек для построения графика.';
+          }
+          return;
+        }
+        for (var g = 0; g < 4; g += 1) {
+          var line = document.createElementNS(svgNS, 'line');
+          var y = padTop + (chartHeight / 3) * g;
+          line.setAttribute('class', 'grid-line');
+          line.setAttribute('x1', '0');
+          line.setAttribute('x2', String(width));
+          line.setAttribute('y1', String(y));
+          line.setAttribute('y2', String(y));
+          trendChartEl.appendChild(line);
+        }
+        var maxEventValue = 1;
+        for (var i = 0; i < metricHistory.length; i += 1) {
+          if (metricHistory[i].events > maxEventValue) {
+            maxEventValue = metricHistory[i].events;
+          }
+        }
+        var memPoints = metricHistory.map(function (item) { return item.mem; });
+        var netPoints = metricHistory.map(function (item) { return item.net; });
+        var eventPoints = metricHistory.map(function (item) { return item.events; });
+        var polylines = [
+          { cls: 'mem', points: memPoints, max: 1 },
+          { cls: 'net', points: netPoints, max: 1 },
+          { cls: 'events', points: eventPoints, max: maxEventValue }
+        ];
+        for (var p = 0; p < polylines.length; p += 1) {
+          var poly = document.createElementNS(svgNS, 'polyline');
+          poly.setAttribute('class', 'trend-line ' + polylines[p].cls);
+          poly.setAttribute('points', buildPolyline(polylines[p].points, width, chartHeight, polylines[p].max));
+          poly.setAttribute('transform', 'translate(0 ' + padTop + ')');
+          trendChartEl.appendChild(poly);
+        }
+        if (trendCaptionValueEl) {
+          var last = metricHistory[metricHistory.length - 1];
+          trendCaptionValueEl.textContent =
+            'Сейчас: память ' + formatValue(last.mem * 100, 1) + '% · сеть ' + formatValue(last.net * 100, 1) + '% · событий ' + last.events;
+        }
+      }
+
+      function renderClassDistribution(classCounts, total) {
+        if (!classBreakdownEl || !donutTotalEl) {
+          return;
+        }
+        donutTotalEl.textContent = String(total);
+        var a = classCounts.A || 0;
+        var b = classCounts.B || 0;
+        var c = classCounts.C || 0;
+        var totalSafe = Math.max(total, 1);
+        var aDeg = (a / totalSafe) * 360;
+        var bDeg = (b / totalSafe) * 360;
+        var cDeg = 360 - aDeg - bDeg;
+        var donut = document.getElementById('class-donut');
+        if (donut) {
+          donut.style.background =
+            'conic-gradient(' +
+            '#ff6d6d 0deg ' + aDeg + 'deg,' +
+            '#ffc971 ' + aDeg + 'deg ' + (aDeg + bDeg) + 'deg,' +
+            '#5aa5ff ' + (aDeg + bDeg) + 'deg ' + (aDeg + bDeg + cDeg) + 'deg)';
+        }
+        classBreakdownEl.innerHTML = '';
+        [
+          { cls: 'a', label: 'Класс A', value: a },
+          { cls: 'b', label: 'Класс B', value: b },
+          { cls: 'c', label: 'Класс C', value: c }
+        ].forEach(function (entry) {
+          var row = document.createElement('div');
+          row.className = 'class-row';
+          var percentage = total > 0 ? (entry.value / total) * 100 : 0;
+          row.innerHTML =
+            '<span class="class-row-badge ' + entry.cls + '"></span>' +
+            '<div class="class-row-bar"><div class="class-row-fill ' + entry.cls + '" style="width:' + percentage + '%"></div></div>' +
+            '<span>' + entry.label + ' · ' + entry.value + '</span>';
+          classBreakdownEl.appendChild(row);
+        });
+      }
+
+      function renderSourceSummary(sourceStats) {
+        if (!sourceSummaryEl) {
+          return;
+        }
+        sourceSummaryEl.innerHTML = '';
+        var keys = Object.keys(sourceStats || {});
+        if (keys.length === 0) {
+          sourceSummaryEl.innerHTML = '<div class="source-row"><div class="source-row-head"><span>Нет источников</span><span>—</span></div><div class="source-mini">Статистика появится после поступления событий.</div></div>';
+          return;
+        }
+        keys.sort(function (a, b) {
+          return sourceStats[b].total - sourceStats[a].total;
+        });
+        for (var i = 0; i < Math.min(keys.length, 6); i += 1) {
+          var key = keys[i];
+          var stat = sourceStats[key];
+          var row = document.createElement('div');
+          row.className = 'source-row';
+          row.innerHTML =
+            '<div class="source-row-head"><span>' + key + '</span><span>Всего: ' + stat.total + '</span></div>' +
+            '<div class="source-row-bars">' +
+              '<div class="source-mini">A<strong>' + stat.A + '</strong></div>' +
+              '<div class="source-mini">B<strong>' + stat.B + '</strong></div>' +
+              '<div class="source-mini">C<strong>' + stat.C + '</strong></div>' +
+            '</div>';
+          sourceSummaryEl.appendChild(row);
         }
       }
 
@@ -2339,6 +3070,15 @@ VIZ_HTML = """
         setText(metricTGossipEl, formatValue(metrics.T_gossip, 3) + ' c');
         setText(metricKREl, formatValue(metrics.K_r, 3));
         setText(metricEventCountEl, String(valueOr(metrics.event_count, '-')));
+        updateMetricHistory(metrics);
+        if (Number(metrics.C_mem) >= 0.85) {
+          pushAlert('high', 'Память журнала близка к пределу', 'Распределённый реестр занял ' + formatValue(Number(metrics.C_mem) * 100, 1) + '% доступного лимита памяти на узле.', 'mem-high');
+        } else if (Number(metrics.C_mem) >= 0.65) {
+          pushAlert('medium', 'Растёт использование памяти', 'Текущее заполнение памяти под журнал составляет ' + formatValue(Number(metrics.C_mem) * 100, 1) + '%.', 'mem-medium');
+        }
+        if (Number(metrics.C_net) >= 0.8) {
+          pushAlert('medium', 'Высокая сетевая нагрузка gossip', 'Текущее использование сетевого бюджета достигло ' + formatValue(Number(metrics.C_net) * 100, 1) + '%.', 'net-high');
+        }
         markSyncPending('Обновление метрик...');
       }
 
@@ -2399,12 +3139,18 @@ VIZ_HTML = """
                 if (data && (!data.match || data.error) && !data.pending) {
                   var peerLabel = data.peer_node || data.peer || 'пир';
                   setControlsStatus('Внимание: рассогласование с ' + peerLabel, true);
+                  pushAlert('high', 'Рассогласование между узлами', 'Узел обнаружил проблему согласованности с ' + peerLabel + '.', 'consensus:' + peerLabel);
                 }
                 return;
               }
               if (data && data.event) {
                 addEvent(data.event);
                 renderGraph();
+                if (data.event.cls === 'A') {
+                  pushAlert('high', 'Зафиксировано критичное событие класса A', 'Источник: ' + valueOr(data.event.source, 'неизвестно') + '. Событие добавлено в распределённый журнал.', 'event:' + data.event.id);
+                } else if (data.event.cls === 'B') {
+                  pushAlert('medium', 'Поступило важное событие класса B', 'Источник: ' + valueOr(data.event.source, 'неизвестно') + '. Проверьте контекст и соседние записи.', 'event:' + data.event.id);
+                }
                 markSyncPending('Получено новое событие...');
               }
               if (data && data.metrics) {
@@ -2427,6 +3173,7 @@ VIZ_HTML = """
       }
 
       setupControls();
+      renderAlertWindow();
       fetchNodeStatus();
       setInterval(fetchNodeStatus, 5000);
       fetchSimulationStatus();
