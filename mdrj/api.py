@@ -1243,6 +1243,202 @@ VIZ_HTML = """
       font-size: 0.82rem;
       line-height: 1.45;
     }
+    #incident-workbench {
+      margin-top: 1rem;
+    }
+    .incident-shell {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .incident-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.9rem;
+    }
+    .incident-badges, .incident-view-switch, .incident-label-cluster, .incident-card-meta, .incident-filter-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      align-items: center;
+    }
+    .incident-badge, .incident-status-pill, .incident-priority-pill, .incident-label-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.3rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      background: rgba(255,255,255,0.05);
+      color: var(--text-1);
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .incident-badge.primary { background: rgba(255, 121, 121, 0.12); color: #ffaaaa; }
+    .incident-priority-pill.high { background: rgba(255, 109, 109, 0.14); color: #ff9d9d; }
+    .incident-priority-pill.medium { background: rgba(255, 201, 113, 0.14); color: #ffd78c; }
+    .incident-priority-pill.low { background: rgba(106, 169, 255, 0.12); color: #8ec0ff; }
+    .incident-event-class {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      color: #ffffff;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .incident-event-class::before {
+      content: '';
+      width: 0.68rem;
+      height: 0.68rem;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.08);
+      flex: 0 0 auto;
+    }
+    .incident-event-class.a::before { background: #ff6d6d; }
+    .incident-event-class.b::before { background: #ffc971; }
+    .incident-event-class.c::before { background: #5aa5ff; }
+    .incident-view-btn, .incident-action-btn, .incident-save-btn, .incident-cancel-btn, .incident-add-btn, .incident-check-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.55rem 0.85rem;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.07);
+      background: rgba(16, 29, 43, 0.9);
+      color: #ffffff;
+      font: inherit;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: background 180ms ease, border-color 180ms ease, transform 180ms ease;
+    }
+    .incident-view-btn.active, .incident-save-btn { background: rgba(36, 59, 89, 0.92); border-color: rgba(106, 169, 255, 0.18); }
+    .incident-view-btn:hover, .incident-action-btn:hover, .incident-save-btn:hover, .incident-cancel-btn:hover, .incident-add-btn:hover, .incident-check-btn:hover { background: rgba(26, 43, 63, 0.94); border-color: rgba(106, 169, 255, 0.16); transform: translateY(-1px); }
+    .incident-filter-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 2.5rem;
+      padding: 0.45rem 0.72rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.07);
+      background: rgba(16, 29, 43, 0.62);
+      color: var(--text-2);
+      font: inherit;
+      font-size: 0.76rem;
+      cursor: pointer;
+      transition: background 180ms ease, border-color 180ms ease, color 180ms ease;
+    }
+    .incident-filter-btn.active {
+      background: rgba(36, 59, 89, 0.92);
+      border-color: rgba(106, 169, 255, 0.18);
+      color: #ffffff;
+    }
+    .incident-filter-input, .incident-group-select {
+      padding: 0.55rem 0.8rem;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.07);
+      background: rgba(16, 29, 43, 0.9);
+      color: #ffffff;
+      font: inherit;
+      font-size: 0.8rem;
+      box-sizing: border-box;
+    }
+    .incident-filter-input { min-width: 280px; }
+    .incident-group-select { min-width: 220px; }
+    .incident-table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      overflow-y: hidden;
+      border-radius: 18px;
+      background: rgba(8, 16, 25, 0.5);
+      border: 1px solid rgba(255,255,255,0.04);
+    }
+    .incident-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    .incident-table { min-width: 1460px; }
+    .incident-table th, .incident-table td { padding: 0.9rem 0.8rem; border-bottom: 1px solid rgba(255,255,255,0.06); text-align: left; vertical-align: top; }
+    .incident-table th { color: rgba(186, 206, 226, 0.72); font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 500; }
+    .incident-table td { color: var(--text-1); }
+    .incident-group-row td {
+      padding: 0.72rem 0.8rem;
+      background: rgba(18, 32, 48, 0.92);
+      color: #ffffff;
+      font-size: 0.76rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .incident-row-title, .incident-card-title { color: #ffffff; font-weight: 600; }
+    .incident-mini, .incident-card-desc { display: block; margin-top: 0.18rem; color: var(--text-2); font-size: 0.74rem; line-height: 1.45; }
+    .incident-table-note { color: var(--text-2); max-width: 220px; line-height: 1.45; }
+    .incident-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+    .incident-column { display: flex; flex-direction: column; gap: 0.75rem; padding: 0.9rem; border-radius: 18px; background: rgba(8, 16, 25, 0.76); border: 1px solid rgba(255,255,255,0.05); min-height: 220px; }
+    .incident-column.drag-over { border-color: rgba(106, 169, 255, 0.22); background: rgba(14, 25, 38, 0.92); }
+    .incident-column-head { display: flex; justify-content: space-between; gap: 0.6rem; align-items: center; }
+    .incident-column-head h4 { margin: 0; color: #ffffff; font-size: 0.9rem; }
+    .incident-column-count { color: var(--text-2); font-size: 0.74rem; }
+    .incident-card { padding: 0.85rem 0.9rem; border-radius: 16px; background: rgba(17, 29, 44, 0.86); border: 1px solid rgba(255,255,255,0.05); cursor: grab; display: flex; flex-direction: column; gap: 0.55rem; }
+    .incident-card:active { cursor: grabbing; }
+    .incident-empty { padding: 1rem; border-radius: 16px; border: 1px dashed rgba(255,255,255,0.08); color: var(--text-2); font-size: 0.78rem; text-align: center; }
+    .incident-modal-shell { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; padding: 1.5rem; z-index: 280; }
+    .incident-modal-shell.open { display: flex; }
+    .incident-modal-backdrop { position: absolute; inset: 0; background: rgba(5, 10, 18, 0.72); backdrop-filter: blur(3px); }
+    .incident-modal { position: relative; width: min(980px, calc(100vw - 2rem)); max-height: calc(100vh - 2rem); overflow: auto; padding: 1.2rem; border-radius: 24px; background: linear-gradient(180deg, rgba(16, 29, 43, 0.98), rgba(10, 20, 31, 0.97)); border: 1px solid rgba(255,255,255,0.07); box-shadow: 0 28px 80px rgba(0, 0, 0, 0.35); z-index: 1; }
+    .incident-modal-head { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; margin-bottom: 1rem; }
+    .incident-modal-head h3, .incident-form-card h4 { margin: 0; color: #ffffff; }
+    .incident-modal-actions { display: flex; align-items: center; gap: 0.5rem; }
+    .incident-modal-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr); gap: 1rem; }
+    .incident-form-card { padding: 1rem; border-radius: 18px; background: rgba(8, 16, 25, 0.78); border: 1px solid rgba(255,255,255,0.05); }
+    .incident-form-card h4 { margin-bottom: 0.8rem; font-size: 0.92rem; }
+    .incident-field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+    .incident-field { display: flex; flex-direction: column; gap: 0.35rem; }
+    .incident-field.full { grid-column: 1 / -1; }
+    .incident-field label { color: rgba(186, 206, 226, 0.72); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; }
+    .incident-field input, .incident-field select, .incident-field textarea { width: 100%; padding: 0.75rem 0.8rem; border-radius: 14px; border: 1px solid rgba(255,255,255,0.07); background: rgba(12, 23, 36, 0.9); color: #ffffff; font: inherit; box-sizing: border-box; }
+    .incident-field textarea { min-height: 140px; resize: vertical; }
+    .incident-event-body {
+      margin-top: 0.65rem;
+      padding: 0.9rem 0.95rem;
+      border-radius: 16px;
+      background: rgba(5, 13, 22, 0.82);
+      border: 1px solid rgba(255,255,255,0.05);
+      color: #f0f5ff;
+      white-space: pre-wrap;
+      line-height: 1.55;
+      font-size: 0.84rem;
+    }
+    .incident-event-meta {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.65rem;
+      margin-top: 0.8rem;
+    }
+    .incident-event-meta-item {
+      padding: 0.72rem 0.78rem;
+      border-radius: 14px;
+      background: rgba(12, 23, 36, 0.84);
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .incident-event-meta-item span {
+      display: block;
+      color: rgba(186, 206, 226, 0.72);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.28rem;
+    }
+    .incident-event-meta-item strong {
+      color: #ffffff;
+      font-size: 0.88rem;
+      font-weight: 600;
+      word-break: break-word;
+    }
+    .incident-checklist, .incident-event-list { display: flex; flex-direction: column; gap: 0.55rem; }
+    .incident-check-item { display: flex; align-items: center; gap: 0.55rem; }
+    .incident-check-item input[type="text"] { flex: 1 1 auto; }
+    .incident-event-item { padding: 0.7rem 0.8rem; border-radius: 14px; background: rgba(12, 23, 36, 0.84); border: 1px solid rgba(255,255,255,0.05); color: var(--text-1); font-size: 0.78rem; line-height: 1.45; }
+    .incident-footer-actions { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 1rem; }
     @media (max-width: 1280px) {
       .dashboard-shell { grid-template-columns: 1fr; }
       .dashboard-nav {
@@ -1256,6 +1452,7 @@ VIZ_HTML = """
       #workspace > .rail-stack:last-child { grid-column: 1 / -1; flex-direction: row; align-items: stretch; }
       #workspace > .rail-stack:last-child > .panel-surface { flex: 1 1 0; }
       #analytics-grid { grid-template-columns: 1fr; }
+      .incident-board, .incident-modal-grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 900px) {
       .dashboard-shell { width: min(100vw - 1rem, 100%); padding: 0.6rem 0 1rem; }
@@ -1269,6 +1466,8 @@ VIZ_HTML = """
       .hero-meta, .metrics-strip { grid-template-columns: 1fr; }
       .donut-layout { grid-template-columns: 1fr; }
       #class-donut { width: 200px; height: 200px; }
+      .incident-field-grid { grid-template-columns: 1fr; }
+      .incident-modal-shell { padding: 0.75rem; }
     }
   </style>
 </head>
@@ -1357,6 +1556,40 @@ VIZ_HTML = """
   </div>
   <script>
     (function () {
+      function reportVizBootstrapError(stage, error) {
+        if (typeof document === 'undefined' || !document.body) {
+          return;
+        }
+        var existing = document.getElementById('viz-bootstrap-error');
+        var text = '[viz bootstrap][' + stage + '] ' + (error && (error.message || error.stack || error) ? String(error.message || error.stack || error) : 'unknown error');
+        if (existing) {
+          existing.textContent = text;
+          return;
+        }
+        var banner = document.createElement('div');
+        banner.id = 'viz-bootstrap-error';
+        banner.style.position = 'fixed';
+        banner.style.left = '16px';
+        banner.style.right = '16px';
+        banner.style.bottom = '16px';
+        banner.style.zIndex = '9999';
+        banner.style.padding = '12px 14px';
+        banner.style.borderRadius = '14px';
+        banner.style.background = 'rgba(109, 20, 20, 0.96)';
+        banner.style.border = '1px solid rgba(255, 143, 143, 0.35)';
+        banner.style.color = '#ffe4e4';
+        banner.style.fontFamily = \"'IBM Plex Mono', 'JetBrains Mono', monospace\";
+        banner.style.fontSize = '12px';
+        banner.style.whiteSpace = 'pre-wrap';
+        banner.style.boxShadow = '0 18px 50px rgba(0, 0, 0, 0.35)';
+        banner.textContent = text;
+        document.body.appendChild(banner);
+      }
+      if (typeof window !== 'undefined' && window.addEventListener) {
+        window.addEventListener('error', function (event) {
+          reportVizBootstrapError('runtime', event && (event.error || event.message));
+        });
+      }
       var colorByClass = { A: '#ff6d6d', B: '#ffc971', C: '#5aa5ff', default: '#99a9ff' };
       var nodes = {};
       var nodeOrder = [];
@@ -1467,6 +1700,7 @@ VIZ_HTML = """
                 '<a class="nav-item" href="#source-summary"><span class="nav-item-group"><span class="nav-icon">◎</span><span class="nav-copy">Источники</span></span></a>' +
                 '<a class="nav-item" href="#controls"><span class="nav-item-group"><span class="nav-icon">▶</span><span class="nav-copy">Сценарии</span></span></a>' +
                 '<a class="nav-item" href="#filters"><span class="nav-item-group"><span class="nav-icon">≡</span><span class="nav-copy">Фильтры</span></span></a>' +
+                '<a class="nav-item" id="incident-nav-item" href="#incident-workbench" style="display:none;"><span class="nav-item-group"><span class="nav-icon">▣</span><span class="nav-copy">Инциденты</span></span></a>' +
               '</div>' +
             '</div>' +
           '</nav>' +
@@ -1491,14 +1725,14 @@ VIZ_HTML = """
           var titleWrap = titleHost.parentElement;
           var kicker = document.createElement('div');
           kicker.className = 'header-kicker';
-          kicker.textContent = 'Распределённый мониторинг событий безопасности';
+          kicker.textContent = 'Панель наблюдения за узлом и кластером. Автор: Моисеенко Вадим Олегович';
           titleWrap.insertBefore(kicker, titleHost);
 
-          titleHost.textContent = 'MDRJ-DAG / Панель наблюдения за узлом и кластером';
+          titleHost.textContent = 'РУСИБ - распределённое управление событиями информационной безопасности';
 
           var subtitle = document.createElement('div');
           subtitle.className = 'header-subtitle';
-          subtitle.textContent = 'Экран показывает состояние текущего узла, сходимость распределённого журнала, поток событий и причинные связи внутри графа. Он рассчитан не только на демонстрацию графа, но и на быстрый операторский обзор.';
+          subtitle.textContent = 'Экран показывает состояние текущего узла, сходимость распределённого журнала, поток событий и причинные связи внутри графа.';
           titleWrap.appendChild(subtitle);
         }
 
@@ -1666,15 +1900,118 @@ VIZ_HTML = """
             '</section>' +
           '</div>';
         main.appendChild(analytics);
+
+        var incidentWorkbench = document.createElement('section');
+        incidentWorkbench.id = 'incident-workbench';
+        incidentWorkbench.className = 'panel-surface';
+        incidentWorkbench.style.display = 'none';
+        incidentWorkbench.innerHTML =
+          '<div class="incident-shell">' +
+            '<div class="incident-toolbar">' +
+              '<div>' +
+                '<h2 style="margin:0;font-size:1.08rem;">Обработка инцидентов</h2>' +
+                '<div class="panel-hint">Операторский demo-layer для работы с инцидентами на выбранном узле.</div>' +
+              '</div>' +
+              '<div class="incident-badges">' +
+                '<span class="incident-badge primary">Только операторский узел</span>' +
+                '<span class="incident-badge">Без распределённой синхронизации</span>' +
+              '</div>' +
+            '</div>' +
+            '<div class="incident-toolbar">' +
+              '<div class="incident-view-switch">' +
+                '<button class="incident-view-btn active" id="incident-view-table" type="button">Таблица</button>' +
+                '<button class="incident-view-btn" id="incident-view-board" type="button">Kanban</button>' +
+              '</div>' +
+              '<div class="incident-filter-row">' +
+                '<button class="incident-filter-btn active" id="incident-filter-all" type="button">Все</button>' +
+                '<button class="incident-filter-btn active" data-incident-filter-class="A" type="button">A</button>' +
+                '<button class="incident-filter-btn active" data-incident-filter-class="B" type="button">B</button>' +
+                '<button class="incident-filter-btn active" data-incident-filter-class="C" type="button">C</button>' +
+              '</div>' +
+              '<input class="incident-filter-input" id="incident-filter-input" type="text" placeholder="Фильтр по событию, статусу, источнику, ответственному..." />' +
+              '<select class="incident-group-select" id="incident-group-select">' +
+                '<option value="">Без группировки</option>' +
+                '<option value="eventClass">Группировать по классу события</option>' +
+                '<option value="eventId">Группировать по ID события</option>' +
+                '<option value="eventType">Группировать по типу события</option>' +
+                '<option value="eventOccurredAt">Группировать по дате/времени</option>' +
+                '<option value="incident">Группировать по инциденту</option>' +
+                '<option value="status">Группировать по статусу</option>' +
+                '<option value="priority">Группировать по приоритету</option>' +
+                '<option value="source">Группировать по источнику</option>' +
+                '<option value="owner">Группировать по ответственному</option>' +
+                '<option value="labels">Группировать по меткам</option>' +
+              '</select>' +
+              '<button class="incident-action-btn" id="incident-create-btn" type="button">Новая карточка</button>' +
+            '</div>' +
+            '<div id="incident-table-view"></div>' +
+            '<div id="incident-board-view" style="display:none;"></div>' +
+          '</div>';
+        main.appendChild(incidentWorkbench);
+
+        var incidentModal = document.createElement('div');
+        incidentModal.id = 'incident-modal-shell';
+        incidentModal.className = 'incident-modal-shell';
+        incidentModal.innerHTML =
+          '<div class="incident-modal-backdrop" id="incident-modal-backdrop"></div>' +
+          '<div class="incident-modal">' +
+            '<div class="incident-modal-head">' +
+              '<div><h3 id="incident-modal-title">Карточка инцидента</h3><div class="panel-hint">Первая версия работает как локальный операторский слой.</div></div>' +
+              '<div class="incident-modal-actions"><button class="incident-cancel-btn" id="incident-close-btn" type="button">Закрыть</button></div>' +
+            '</div>' +
+            '<div class="incident-modal-grid">' +
+              '<div class="incident-form-card">' +
+                '<h4>Поля карточки</h4>' +
+                '<div class="incident-field-grid">' +
+                  '<div class="incident-field full"><label for="incident-title-input">Название</label><input id="incident-title-input" type="text" /></div>' +
+                  '<div class="incident-field"><label for="incident-status-input">Статус</label><select id="incident-status-input"></select></div>' +
+                  '<div class="incident-field"><label for="incident-priority-input">Приоритет</label><select id="incident-priority-input"><option value="high">Высокий</option><option value="medium">Средний</option><option value="low">Низкий</option></select></div>' +
+                  '<div class="incident-field"><label for="incident-owner-input">Ответственный</label><input id="incident-owner-input" type="text" placeholder="Имя или группа" /></div>' +
+                  '<div class="incident-field"><label for="incident-source-input">Источник</label><input id="incident-source-input" type="text" /></div>' +
+                  '<div class="incident-field full"><label for="incident-labels-input">Метки</label><input id="incident-labels-input" type="text" placeholder="Через запятую" /></div>' +
+                  '<div class="incident-field"><label for="incident-detected-input">Обнаружен</label><input id="incident-detected-input" type="datetime-local" /></div>' +
+                  '<div class="incident-field"><label for="incident-due-input">Срок реакции</label><input id="incident-due-input" type="datetime-local" /></div>' +
+                  '<div class="incident-field full"><label for="incident-note-input">Примечание</label><textarea id="incident-note-input" placeholder="Короткая операторская заметка"></textarea></div>' +
+                  '<div class="incident-field full"><label for="incident-description-input">Описание</label><textarea id="incident-description-input"></textarea></div>' +
+                '</div>' +
+              '</div>' +
+              '<div style="display:flex;flex-direction:column;gap:1rem;">' +
+                '<div class="incident-form-card">' +
+                  '<h4>Подробности события</h4>' +
+                  '<div id="incident-event-meta" class="incident-event-meta"></div>' +
+                  '<div id="incident-event-body" class="incident-event-body">Подробности появятся после выбора карточки, созданной из события.</div>' +
+                '</div>' +
+                '<div class="incident-form-card">' +
+                  '<h4>Чек-лист</h4>' +
+                  '<div id="incident-checklist" class="incident-checklist"></div>' +
+                  '<button class="incident-add-btn" id="incident-add-check-btn" type="button">Добавить пункт</button>' +
+                '</div>' +
+                '<div class="incident-form-card">' +
+                  '<h4>Связанные события</h4>' +
+                  '<div id="incident-events" class="incident-event-list"></div>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="incident-footer-actions">' +
+              '<button class="incident-cancel-btn" id="incident-cancel-btn" type="button">Отмена</button>' +
+              '<button class="incident-save-btn" id="incident-save-btn" type="button">Сохранить</button>' +
+            '</div>' +
+          '</div>';
+        body.appendChild(incidentModal);
       }
 
-      buildDashboardLayout();
+      try {
+        buildDashboardLayout();
+      } catch (err) {
+        reportVizBootstrapError('layout', err);
+      }
       var dashboardShellEl = document.querySelector('.dashboard-shell');
       var navToggleEl = document.getElementById('nav-toggle');
       var navNodeCaptionEl = document.getElementById('nav-node-caption');
       var navNodeIdEl = document.getElementById('nav-node-id');
       var navStreamStateEl = document.getElementById('nav-stream-state');
       var navItems = Array.prototype.slice.call(document.querySelectorAll('.dashboard-nav .nav-item'));
+      var incidentNavItemEl = document.getElementById('incident-nav-item');
       var heroNodeIdEl = document.getElementById('hero-node-id');
       var heroNodeStateEl = document.getElementById('hero-node-state');
       var heroNodeRoleEl = document.getElementById('hero-node-role');
@@ -1705,10 +2042,51 @@ VIZ_HTML = """
       var classBreakdownEl = document.getElementById('class-breakdown');
       var sourceSummaryEl = document.getElementById('source-summary');
       var alertWindowEl = document.getElementById('alert-window');
+      var incidentWorkbenchEl = document.getElementById('incident-workbench');
+      var incidentTableViewEl = document.getElementById('incident-table-view');
+      var incidentBoardViewEl = document.getElementById('incident-board-view');
+      var incidentViewTableEl = document.getElementById('incident-view-table');
+      var incidentViewBoardEl = document.getElementById('incident-view-board');
+      var incidentFilterAllEl = document.getElementById('incident-filter-all');
+      var incidentFilterButtons = Array.prototype.slice.call(document.querySelectorAll('[data-incident-filter-class]'));
+      var incidentFilterInputEl = document.getElementById('incident-filter-input');
+      var incidentGroupSelectEl = document.getElementById('incident-group-select');
+      var incidentCreateBtnEl = document.getElementById('incident-create-btn');
+      var incidentModalShellEl = document.getElementById('incident-modal-shell');
+      var incidentModalBackdropEl = document.getElementById('incident-modal-backdrop');
+      var incidentModalTitleEl = document.getElementById('incident-modal-title');
+      var incidentCloseBtnEl = document.getElementById('incident-close-btn');
+      var incidentCancelBtnEl = document.getElementById('incident-cancel-btn');
+      var incidentSaveBtnEl = document.getElementById('incident-save-btn');
+      var incidentTitleInputEl = document.getElementById('incident-title-input');
+      var incidentStatusInputEl = document.getElementById('incident-status-input');
+      var incidentPriorityInputEl = document.getElementById('incident-priority-input');
+      var incidentOwnerInputEl = document.getElementById('incident-owner-input');
+      var incidentSourceInputEl = document.getElementById('incident-source-input');
+      var incidentLabelsInputEl = document.getElementById('incident-labels-input');
+      var incidentDetectedInputEl = document.getElementById('incident-detected-input');
+      var incidentDueInputEl = document.getElementById('incident-due-input');
+      var incidentNoteInputEl = document.getElementById('incident-note-input');
+      var incidentDescriptionInputEl = document.getElementById('incident-description-input');
+      var incidentEventMetaEl = document.getElementById('incident-event-meta');
+      var incidentEventBodyEl = document.getElementById('incident-event-body');
+      var incidentChecklistEl = document.getElementById('incident-checklist');
+      var incidentAddCheckBtnEl = document.getElementById('incident-add-check-btn');
+      var incidentEventsEl = document.getElementById('incident-events');
       var metricHistory = [];
       var alertFeed = [];
       var trendView = 'resources';
       var lastOperationalNodes = [];
+      var incidentView = 'table';
+      var incidentOperatorNodeId = 'node-1';
+      var incidentEnabled = false;
+      var incidentStorageKey = null;
+      var incidentDraftId = null;
+      var incidents = [];
+      var incidentStatuses = ['Новые сигналы', 'Проверка', 'Подтверждённый инцидент', 'Сдерживание', 'Восстановление', 'Закрыто'];
+      var incidentClassFilterState = { A: true, B: true, C: true };
+      var incidentSearchQuery = '';
+      var incidentGroupBy = '';
       var navStateStorageKey = 'mdrj-dashboard-nav-collapsed';
 
       function setNavCollapsed(collapsed) {
@@ -1770,6 +2148,766 @@ VIZ_HTML = """
         trendTabIntensityEl.addEventListener('click', function () {
           setTrendView('intensity');
         });
+      }
+
+      function incidentPriorityLabel(priority) {
+        if (priority === 'high') {
+          return 'Высокий';
+        }
+        if (priority === 'low') {
+          return 'Низкий';
+        }
+        return 'Средний';
+      }
+
+      function incidentClassKey(value) {
+        var cls = String(value || 'C').toUpperCase();
+        if (cls !== 'A' && cls !== 'B' && cls !== 'C') {
+          return 'C';
+        }
+        return cls;
+      }
+
+      function incidentClassCss(value) {
+        return incidentClassKey(value).toLowerCase();
+      }
+
+      function eventTypeLabelFromPayload(payload) {
+        var scenario = payload && payload.scenario ? String(payload.scenario) : '';
+        var category = payload && payload.category ? String(payload.category) : '';
+        var mapping = {
+          virus: 'Вредоносное ПО',
+          admin_login: 'Удалённый вход',
+          mac_spoof: 'Подмена сетевого адреса',
+          portscan: 'Портовое сканирование',
+          heartbeat: 'Диагностическое сообщение',
+          malware: 'Вредоносное ПО',
+          authentication: 'Аутентификация',
+          network: 'Сетевой сигнал',
+          diagnostic: 'Диагностика'
+        };
+        if (scenario && mapping[scenario]) {
+          return mapping[scenario];
+        }
+        if (category && mapping[category]) {
+          return mapping[category];
+        }
+        return 'Прочее событие';
+      }
+
+      function eventTitleFromPayload(payload, fallbackClass) {
+        var scenario = payload && payload.scenario ? String(payload.scenario) : '';
+        var titles = {
+          virus: 'Обнаружен вирус',
+          admin_login: 'Удалённый вход администратора',
+          mac_spoof: 'Попытка подмены сетевого адреса',
+          portscan: 'Аномальный порт-скан',
+          heartbeat: 'Служебный heartbeat'
+        };
+        if (scenario && titles[scenario]) {
+          return titles[scenario];
+        }
+        if (payload && payload.description) {
+          return String(payload.description);
+        }
+        return incidentClassKey(fallbackClass) === 'A' ? 'Критичный сигнал' : 'Сигнал безопасности';
+      }
+
+      function eventBodyFromPayload(payload, title) {
+        var parts = [];
+        if (title) {
+          parts.push(String(title));
+        }
+        if (payload && payload.description) {
+          parts.push(String(payload.description));
+        }
+        if (payload && payload.source_ip) {
+          parts.push('Источник сети: ' + String(payload.source_ip));
+        }
+        if (payload && payload.confidence !== undefined && payload.confidence !== null) {
+          parts.push('Уверенность: ' + String(payload.confidence));
+        }
+        if (payload && payload.generated_at) {
+          parts.push('Сформировано: ' + String(payload.generated_at));
+        }
+        return parts.join('\\n');
+      }
+
+      function buildIncidentEventSnapshot(event) {
+        var payload = cloneData(event && event.payload);
+        if (payload === undefined || payload === null || typeof payload !== 'object') {
+          payload = {};
+        }
+        var eventClass = incidentClassKey(event && event.cls);
+        var eventTitle = eventTitleFromPayload(payload, eventClass);
+        var rawTs = Number(valueOr(event && event.consensus_ts, event && event.ts_local));
+        return {
+          eventClass: eventClass,
+          eventId: valueOr(event && event.id, ''),
+          eventSequence: Number(valueOr(event && event.sequence, 0)) || null,
+          eventType: eventTypeLabelFromPayload(payload),
+          eventTitle: eventTitle,
+          eventBody: eventBodyFromPayload(payload, eventTitle),
+          eventOccurredAt: isNaN(rawTs) ? '' : new Date(rawTs * 1000).toISOString(),
+          payload: payload
+        };
+      }
+
+      function compactEventId(eventId, eventSequence) {
+        var sequence = Number(valueOr(eventSequence, 0));
+        if (!isNaN(sequence) && sequence > 0) {
+          return '#' + sequence;
+        }
+        var raw = String(valueOr(eventId, ''));
+        if (!raw) {
+          return '—';
+        }
+        return raw.slice(0, 8);
+      }
+
+      function incidentSummaryLabel(incident) {
+        if (!valueOr(incident && incident.eventId, '')) {
+          return valueOr(incident && incident.title, 'Инцидент');
+        }
+        return valueOr(incident.eventTitle, incident.title);
+      }
+
+      function renderIncidentEventDetails(incident) {
+        if (!incidentEventMetaEl || !incidentEventBodyEl) {
+          return;
+        }
+        var eventClass = incidentClassKey(incident && incident.eventClass);
+        incidentEventMetaEl.innerHTML =
+          '<div class="incident-event-meta-item"><span>Класс события</span><strong><span class="incident-event-class ' + incidentClassCss(eventClass) + '">Класс ' + escapeHtml(eventClass) + '</span></strong></div>' +
+          '<div class="incident-event-meta-item"><span>ID события</span><strong title="' + escapeHtml(valueOr(incident && incident.eventId, '—')) + '">' + escapeHtml(compactEventId(incident && incident.eventId, incident && incident.eventSequence)) + '</strong></div>' +
+          '<div class="incident-event-meta-item"><span>Тип события</span><strong>' + escapeHtml(valueOr(incident && incident.eventType, '—')) + '</strong></div>' +
+          '<div class="incident-event-meta-item"><span>Дата и время</span><strong>' + escapeHtml(formatIncidentDate(incident && incident.eventOccurredAt)) + '</strong></div>';
+        incidentEventBodyEl.textContent = valueOr(incident && incident.eventBody, '') || 'Подробности исходного события отсутствуют.';
+      }
+
+      function renderIncidentViewSwitch() {
+        if (incidentViewTableEl) {
+          incidentViewTableEl.classList.toggle('active', incidentView === 'table');
+        }
+        if (incidentViewBoardEl) {
+          incidentViewBoardEl.classList.toggle('active', incidentView === 'board');
+        }
+        if (incidentTableViewEl) {
+          incidentTableViewEl.style.display = incidentView === 'table' ? '' : 'none';
+        }
+        if (incidentBoardViewEl) {
+          incidentBoardViewEl.style.display = incidentView === 'board' ? '' : 'none';
+        }
+      }
+
+      function incidentLocalStorageAvailable() {
+        try {
+          return !!window.localStorage;
+        } catch (err) {
+          return false;
+        }
+      }
+
+      function persistIncidents() {
+        if (!incidentEnabled || !incidentStorageKey || !incidentLocalStorageAvailable()) {
+          return;
+        }
+        window.localStorage.setItem(incidentStorageKey, JSON.stringify(incidents));
+      }
+
+      function loadIncidents() {
+        incidents = [];
+        if (!incidentStorageKey || !incidentLocalStorageAvailable()) {
+          return;
+        }
+        try {
+          var raw = window.localStorage.getItem(incidentStorageKey);
+          if (!raw) {
+            return;
+          }
+          var parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            incidents = parsed;
+          }
+        } catch (err) {
+          console.log('incident storage parse error', err);
+        }
+      }
+
+      function formatIncidentDate(value) {
+        if (!value) {
+          return '—';
+        }
+        var date = new Date(value);
+        if (isNaN(date.getTime())) {
+          return value;
+        }
+        return date.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      }
+
+      function toDateTimeLocalValue(value) {
+        if (!value) {
+          return '';
+        }
+        var date = new Date(value);
+        if (isNaN(date.getTime())) {
+          return '';
+        }
+        var offset = date.getTimezoneOffset();
+        var local = new Date(date.getTime() - offset * 60000);
+        return local.toISOString().slice(0, 16);
+      }
+
+      function fromDateTimeLocalValue(value) {
+        if (!value) {
+          return '';
+        }
+        var date = new Date(value);
+        if (isNaN(date.getTime())) {
+          return '';
+        }
+        return date.toISOString();
+      }
+
+      function fillIncidentStatusOptions() {
+        if (!incidentStatusInputEl || incidentStatusInputEl.options.length) {
+          return;
+        }
+        incidentStatuses.forEach(function (status) {
+          var option = document.createElement('option');
+          option.value = status;
+          option.textContent = status;
+          incidentStatusInputEl.appendChild(option);
+        });
+      }
+
+      function findIncident(id) {
+        for (var i = 0; i < incidents.length; i += 1) {
+          if (incidents[i].id === id) {
+            return incidents[i];
+          }
+        }
+        return null;
+      }
+
+      function defaultChecklist() {
+        return [
+          { id: 'triage', text: 'Проверить исходные события', done: false },
+          { id: 'scope', text: 'Оценить затронутые узлы и источник', done: false }
+        ];
+      }
+
+      function renderIncidentChecklistEditor(items) {
+        if (!incidentChecklistEl) {
+          return;
+        }
+        incidentChecklistEl.innerHTML = '';
+        (items || []).forEach(function (item, index) {
+          var row = document.createElement('div');
+          row.className = 'incident-check-item';
+          row.innerHTML =
+            '<input type="checkbox" data-check-index="' + index + '"' + (item.done ? ' checked' : '') + ' />' +
+            '<input type="text" data-check-text-index="' + index + '" value="' + escapeHtml(valueOr(item.text, '')) + '" />';
+          incidentChecklistEl.appendChild(row);
+        });
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function setIncidentWorkbenchEnabled(enabled) {
+        incidentEnabled = !!enabled;
+        if (incidentWorkbenchEl) {
+          incidentWorkbenchEl.style.display = incidentEnabled ? '' : 'none';
+        }
+        if (incidentNavItemEl) {
+          incidentNavItemEl.style.display = incidentEnabled ? '' : 'none';
+        }
+        if (incidentEnabled) {
+          renderIncidentWorkbench();
+        }
+        if (!incidentEnabled) {
+          closeIncidentModal();
+        }
+      }
+
+      function updateIncidentFilterButtons() {
+        var allActive = incidentClassFilterState.A && incidentClassFilterState.B && incidentClassFilterState.C;
+        if (incidentFilterAllEl) {
+          incidentFilterAllEl.classList.toggle('active', allActive);
+        }
+        incidentFilterButtons.forEach(function (button) {
+          var cls = button.getAttribute('data-incident-filter-class');
+          if (!cls) {
+            return;
+          }
+          button.classList.toggle('active', !!incidentClassFilterState[cls]);
+        });
+      }
+
+      function incidentVisibleByClass(incident) {
+        var cls = incidentClassKey(incident && incident.eventClass);
+        return !!incidentClassFilterState[cls];
+      }
+
+      function incidentFieldValue(incident, key) {
+        if (!incident) {
+          return '—';
+        }
+        if (key === 'eventClass') {
+          return 'Класс ' + incidentClassKey(incident.eventClass);
+        }
+        if (key === 'eventId') {
+          return compactEventId(valueOr(incident.eventId, incident.id), incident.eventSequence);
+        }
+        if (key === 'eventType') {
+          return valueOr(incident.eventType, '—');
+        }
+        if (key === 'eventOccurredAt') {
+          return formatIncidentDate(valueOr(incident.eventOccurredAt, incident.detectedAt));
+        }
+        if (key === 'incident') {
+          return incidentSummaryLabel(incident);
+        }
+        if (key === 'status') {
+          return valueOr(incident.status, '—');
+        }
+        if (key === 'priority') {
+          return incidentPriorityLabel(valueOr(incident.priority, 'medium'));
+        }
+        if (key === 'source') {
+          return valueOr(incident.source, '—');
+        }
+        if (key === 'owner') {
+          return valueOr(incident.owner, '—');
+        }
+        if (key === 'labels') {
+          return (incident.labels || []).join(', ') || '—';
+        }
+        return valueOr(incident[key], '—');
+      }
+
+      function incidentMatchesQuery(incident) {
+        var query = String(incidentSearchQuery || '').trim().toLowerCase();
+        if (!query) {
+          return true;
+        }
+        var values = [
+          incidentFieldValue(incident, 'eventClass'),
+          valueOr(incident.eventId, incident.id),
+          incidentFieldValue(incident, 'eventType'),
+          incidentFieldValue(incident, 'eventOccurredAt'),
+          incidentFieldValue(incident, 'incident'),
+          valueOr(incident.title, ''),
+          incidentFieldValue(incident, 'status'),
+          incidentFieldValue(incident, 'priority'),
+          incidentFieldValue(incident, 'source'),
+          incidentFieldValue(incident, 'owner'),
+          incidentFieldValue(incident, 'labels'),
+          valueOr(incident.description, ''),
+          valueOr(incident.eventBody, '')
+        ];
+        return values.some(function (value) {
+          return String(value || '').toLowerCase().indexOf(query) !== -1;
+        });
+      }
+
+      function setAllIncidentClassFilters(value) {
+        incidentClassFilterState.A = !!value;
+        incidentClassFilterState.B = !!value;
+        incidentClassFilterState.C = !!value;
+        updateIncidentFilterButtons();
+        renderIncidentWorkbench();
+      }
+
+      function toggleIncidentClassFilter(cls) {
+        if (!incidentClassFilterState.hasOwnProperty(cls)) {
+          return;
+        }
+        if (incidentClassFilterState[cls] && Object.keys(incidentClassFilterState).filter(function (key) {
+          return incidentClassFilterState[key];
+        }).length <= 1) {
+          return;
+        }
+        incidentClassFilterState[cls] = !incidentClassFilterState[cls];
+        updateIncidentFilterButtons();
+        renderIncidentWorkbench();
+      }
+
+      function renderIncidentTable() {
+        if (!incidentTableViewEl) {
+          return;
+        }
+        if (!incidentEnabled) {
+          incidentTableViewEl.innerHTML = '';
+          return;
+        }
+        var visibleIncidents = incidents.filter(function (incident) {
+          return incidentVisibleByClass(incident) && incidentMatchesQuery(incident);
+        });
+        if (visibleIncidents.length === 0) {
+          incidentTableViewEl.innerHTML = '<div class="incident-empty">Карточки появятся после критичных или важных событий, либо после ручного создания инцидента.</div>';
+          return;
+        }
+        var rows = [];
+        var lastGroupValue = null;
+        visibleIncidents.forEach(function (incident) {
+          var labels = (incident.labels || []).map(function (label) {
+            return '<span class="incident-label-chip">' + escapeHtml(label) + '</span>';
+          }).join('');
+          var eventClass = incidentClassKey(incident.eventClass);
+          var note = valueOr(incident.note, '');
+          if (incidentGroupBy) {
+            var groupValue = incidentFieldValue(incident, incidentGroupBy);
+            if (groupValue !== lastGroupValue) {
+              rows.push('<tr class="incident-group-row"><td colspan="11">' + escapeHtml(groupValue) + '</td></tr>');
+              lastGroupValue = groupValue;
+            }
+          }
+          rows.push('<tr data-incident-open="' + incident.id + '">' +
+            '<td><span class="incident-event-class ' + incidentClassCss(eventClass) + '">Класс ' + escapeHtml(eventClass) + '</span></td>' +
+            '<td><span class="incident-row-title" title="' + escapeHtml(valueOr(incident.eventId, incident.id)) + '">' + escapeHtml(compactEventId(valueOr(incident.eventId, incident.id), incident.eventSequence)) + '</span></td>' +
+            '<td>' + escapeHtml(valueOr(incident.eventType, '—')) + '</td>' +
+            '<td>' + escapeHtml(formatIncidentDate(valueOr(incident.eventOccurredAt, incident.detectedAt))) + '</td>' +
+            '<td><span class="incident-row-title">' + escapeHtml(incidentSummaryLabel(incident)) + '</span><span class="incident-mini">' + escapeHtml(valueOr(incident.title, '—')) + '</span></td>' +
+            '<td><span class="incident-status-pill">' + escapeHtml(incident.status) + '</span></td>' +
+            '<td><span class="incident-priority-pill ' + escapeHtml(incident.priority) + '">' + incidentPriorityLabel(incident.priority) + '</span></td>' +
+            '<td>' + escapeHtml(valueOr(incident.source, '—')) + '</td>' +
+            '<td>' + escapeHtml(valueOr(incident.owner, '—')) + '</td>' +
+            '<td><div class="incident-label-cluster">' + labels + '</div></td>' +
+            '<td><div class="incident-table-note">' + escapeHtml(note || '—') + '</div></td>' +
+          '</tr>');
+        });
+        incidentTableViewEl.innerHTML =
+          '<div class="incident-table-wrap">' +
+            '<table class="incident-table">' +
+              '<thead><tr><th>Класс события</th><th>ID события</th><th>Тип события</th><th>Дата/Время</th><th>Инцидент</th><th>Статус</th><th>Приоритет</th><th>Источник</th><th>Ответственный</th><th>Метки</th><th>Примечание</th></tr></thead>' +
+              '<tbody>' + rows.join('') + '</tbody>' +
+            '</table>' +
+          '</div>';
+        Array.prototype.slice.call(incidentTableViewEl.querySelectorAll('[data-incident-open]')).forEach(function (row) {
+          row.addEventListener('click', function () {
+            openIncidentModal(row.getAttribute('data-incident-open'));
+          });
+        });
+      }
+
+      function renderIncidentBoard() {
+        if (!incidentBoardViewEl) {
+          return;
+        }
+        if (!incidentEnabled) {
+          incidentBoardViewEl.innerHTML = '';
+          return;
+        }
+        var visibleIncidents = incidents.filter(function (incident) {
+          return incidentVisibleByClass(incident) && incidentMatchesQuery(incident);
+        });
+        if (visibleIncidents.length === 0) {
+          incidentBoardViewEl.innerHTML = '<div class="incident-empty">Доска заполнится карточками после появления сигналов или ручного создания инцидента.</div>';
+          return;
+        }
+        var columns = incidentStatuses.map(function (status) {
+          var cards = visibleIncidents.filter(function (incident) { return incident.status === status; });
+          var cardHtml = cards.map(function (incident) {
+            return '<article class="incident-card" draggable="true" data-incident-id="' + incident.id + '">' +
+              '<div class="incident-card-title">' + escapeHtml(incident.title) + '</div>' +
+              '<div class="incident-card-meta">' +
+                '<span class="incident-priority-pill ' + escapeHtml(incident.priority) + '">' + incidentPriorityLabel(incident.priority) + '</span>' +
+                '<span class="incident-status-pill">' + escapeHtml(valueOr(incident.owner, 'Без ответственного')) + '</span>' +
+              '</div>' +
+              '<div class="incident-card-desc">' + escapeHtml(valueOr(incident.description, 'Описание ещё не заполнено.')) + '</div>' +
+              '<div class="incident-card-meta"><span>' + escapeHtml(valueOr(incident.source, '—')) + '</span><span>Событий: ' + escapeHtml(String((incident.relatedEvents || []).length)) + '</span></div>' +
+            '</article>';
+          }).join('');
+          return '<section class="incident-column" data-status-column="' + escapeHtml(status) + '">' +
+            '<div class="incident-column-head"><h4>' + escapeHtml(status) + '</h4><span class="incident-column-count">' + cards.length + '</span></div>' +
+            (cardHtml || '<div class="incident-empty">Пусто</div>') +
+          '</section>';
+        }).join('');
+        incidentBoardViewEl.innerHTML = '<div class="incident-board">' + columns + '</div>';
+        Array.prototype.slice.call(incidentBoardViewEl.querySelectorAll('.incident-card')).forEach(function (card) {
+          card.addEventListener('click', function () {
+            openIncidentModal(card.getAttribute('data-incident-id'));
+          });
+          card.addEventListener('dragstart', function (event) {
+            event.dataTransfer.setData('text/plain', card.getAttribute('data-incident-id'));
+          });
+        });
+        Array.prototype.slice.call(incidentBoardViewEl.querySelectorAll('.incident-column')).forEach(function (column) {
+          column.addEventListener('dragover', function (event) {
+            event.preventDefault();
+            column.classList.add('drag-over');
+          });
+          column.addEventListener('dragleave', function () {
+            column.classList.remove('drag-over');
+          });
+          column.addEventListener('drop', function (event) {
+            event.preventDefault();
+            column.classList.remove('drag-over');
+            var incidentId = event.dataTransfer.getData('text/plain');
+            var incident = findIncident(incidentId);
+            if (!incident) {
+              return;
+            }
+            incident.status = column.getAttribute('data-status-column');
+            incident.updatedAt = new Date().toISOString();
+            persistIncidents();
+            renderIncidentWorkbench();
+          });
+        });
+      }
+
+      function renderIncidentRelatedEvents(incident) {
+        if (!incidentEventsEl) {
+          return;
+        }
+        incidentEventsEl.innerHTML = '';
+        var related = (incident && incident.relatedEvents) ? incident.relatedEvents : [];
+        if (!related.length) {
+          incidentEventsEl.innerHTML = '<div class="incident-empty">Связанные события появятся здесь, если карточка создана из сигналов панели.</div>';
+          return;
+        }
+        related.forEach(function (entry) {
+          var item = document.createElement('div');
+          item.className = 'incident-event-item';
+          item.innerHTML = '<strong>' + escapeHtml(valueOr(entry.cls, '—')) + '</strong> · ' + escapeHtml(valueOr(entry.source, '—')) + '<br>' +
+            '<span class="incident-mini" title="' + escapeHtml(valueOr(entry.id, '—')) + '">Событие ' + escapeHtml(compactEventId(entry.id, entry.sequence)) + ' · ' + escapeHtml(formatIncidentDate(entry.ts)) + '</span>';
+          incidentEventsEl.appendChild(item);
+        });
+      }
+
+      function closeIncidentModal() {
+        incidentDraftId = null;
+        if (incidentModalShellEl) {
+          incidentModalShellEl.classList.remove('open');
+        }
+      }
+
+      function openIncidentModal(id) {
+        if (!incidentEnabled || !incidentModalShellEl) {
+          return;
+        }
+        fillIncidentStatusOptions();
+        var incident = findIncident(id);
+        if (!incident) {
+          return;
+        }
+        incidentDraftId = id;
+        if (incidentModalTitleEl) {
+          incidentModalTitleEl.textContent = incident.title;
+        }
+        if (incidentTitleInputEl) { incidentTitleInputEl.value = valueOr(incident.title, ''); }
+        if (incidentStatusInputEl) { incidentStatusInputEl.value = valueOr(incident.status, incidentStatuses[0]); }
+        if (incidentPriorityInputEl) { incidentPriorityInputEl.value = valueOr(incident.priority, 'medium'); }
+        if (incidentOwnerInputEl) { incidentOwnerInputEl.value = valueOr(incident.owner, ''); }
+        if (incidentSourceInputEl) { incidentSourceInputEl.value = valueOr(incident.source, ''); }
+        if (incidentLabelsInputEl) { incidentLabelsInputEl.value = (incident.labels || []).join(', '); }
+        if (incidentDetectedInputEl) { incidentDetectedInputEl.value = toDateTimeLocalValue(incident.detectedAt); }
+        if (incidentDueInputEl) { incidentDueInputEl.value = toDateTimeLocalValue(incident.dueAt); }
+        if (incidentNoteInputEl) { incidentNoteInputEl.value = valueOr(incident.note, ''); }
+        if (incidentDescriptionInputEl) { incidentDescriptionInputEl.value = valueOr(incident.description, ''); }
+        renderIncidentEventDetails(incident);
+        renderIncidentChecklistEditor(incident.checklist || []);
+        renderIncidentRelatedEvents(incident);
+        incidentModalShellEl.classList.add('open');
+      }
+
+      function createManualIncident() {
+        var id = 'incident-' + Date.now();
+        incidents.unshift({
+          id: id,
+          title: 'Новый инцидент',
+          status: incidentStatuses[0],
+          priority: 'medium',
+          eventClass: 'C',
+          eventId: '',
+          eventSequence: null,
+          eventType: 'Ручной инцидент',
+          eventTitle: 'Ручная карточка',
+          eventBody: '',
+          eventOccurredAt: new Date().toISOString(),
+          source: valueOr(navNodeIdEl ? navNodeIdEl.textContent : '', ''),
+          owner: '',
+          labels: ['ручной'],
+          note: '',
+          description: '',
+          detectedAt: new Date().toISOString(),
+          dueAt: '',
+          checklist: defaultChecklist(),
+          relatedEvents: [],
+          updatedAt: new Date().toISOString()
+        });
+        persistIncidents();
+        renderIncidentWorkbench();
+        openIncidentModal(id);
+      }
+
+      function saveIncidentModal() {
+        var incident = findIncident(incidentDraftId);
+        if (!incident) {
+          return;
+        }
+        incident.title = valueOr(incidentTitleInputEl && incidentTitleInputEl.value, incident.title);
+        incident.status = valueOr(incidentStatusInputEl && incidentStatusInputEl.value, incident.status);
+        incident.priority = valueOr(incidentPriorityInputEl && incidentPriorityInputEl.value, incident.priority);
+        incident.owner = valueOr(incidentOwnerInputEl && incidentOwnerInputEl.value, '');
+        incident.source = valueOr(incidentSourceInputEl && incidentSourceInputEl.value, incident.source);
+        incident.labels = valueOr(incidentLabelsInputEl && incidentLabelsInputEl.value, '').split(',').map(function (label) {
+          return label.trim();
+        }).filter(Boolean);
+        incident.detectedAt = fromDateTimeLocalValue(incidentDetectedInputEl && incidentDetectedInputEl.value) || incident.detectedAt;
+        incident.dueAt = fromDateTimeLocalValue(incidentDueInputEl && incidentDueInputEl.value);
+        incident.note = valueOr(incidentNoteInputEl && incidentNoteInputEl.value, '');
+        incident.description = valueOr(incidentDescriptionInputEl && incidentDescriptionInputEl.value, '');
+        if (incidentChecklistEl) {
+          var rows = Array.prototype.slice.call(incidentChecklistEl.querySelectorAll('.incident-check-item'));
+          incident.checklist = rows.map(function (row, index) {
+            var checkbox = row.querySelector('input[type="checkbox"]');
+            var textInput = row.querySelector('input[type="text"]');
+            return { id: 'check-' + index, text: valueOr(textInput && textInput.value, ''), done: !!(checkbox && checkbox.checked) };
+          }).filter(function (item) { return item.text; });
+        }
+        incident.updatedAt = new Date().toISOString();
+        persistIncidents();
+        renderIncidentWorkbench();
+        closeIncidentModal();
+      }
+
+      function addIncidentChecklistItem() {
+        var incident = findIncident(incidentDraftId);
+        if (!incident) {
+          return;
+        }
+        incident.checklist = incident.checklist || [];
+        incident.checklist.push({ id: 'check-' + Date.now(), text: '', done: false });
+        renderIncidentChecklistEditor(incident.checklist);
+      }
+
+      function ensureIncidentFromEvent(event) {
+        if (!incidentEnabled || !event || (event.cls !== 'A' && event.cls !== 'B')) {
+          return;
+        }
+        var incidentId = 'event-' + event.id;
+        var existing = findIncident(incidentId);
+        var snapshot = buildIncidentEventSnapshot(event);
+        var relatedEvent = {
+          id: valueOr(event.id, ''),
+          sequence: Number(valueOr(event.sequence, 0)) || null,
+          cls: valueOr(event.cls, ''),
+          source: valueOr(event.source, ''),
+          ts: valueOr(event.consensus_ts, event.ts_local)
+        };
+        if (existing) {
+          var alreadyLinked = (existing.relatedEvents || []).some(function (item) { return item.id === relatedEvent.id; });
+          if (!alreadyLinked) {
+            existing.relatedEvents.push(relatedEvent);
+            existing.updatedAt = new Date().toISOString();
+            existing.eventClass = existing.eventClass || snapshot.eventClass;
+            existing.eventId = existing.eventId || snapshot.eventId;
+            existing.eventSequence = existing.eventSequence || snapshot.eventSequence;
+            existing.eventType = existing.eventType || snapshot.eventType;
+            existing.eventTitle = existing.eventTitle || snapshot.eventTitle;
+            existing.eventBody = existing.eventBody || snapshot.eventBody;
+            existing.eventOccurredAt = existing.eventOccurredAt || snapshot.eventOccurredAt;
+            persistIncidents();
+          }
+          return;
+        }
+        incidents.unshift({
+          id: incidentId,
+          title: snapshot.eventTitle,
+          status: incidentStatuses[0],
+          priority: event.cls === 'A' ? 'high' : 'medium',
+          eventClass: snapshot.eventClass,
+          eventId: snapshot.eventId,
+          eventSequence: snapshot.eventSequence,
+          eventType: snapshot.eventType,
+          eventTitle: snapshot.eventTitle,
+          eventBody: snapshot.eventBody,
+          eventOccurredAt: snapshot.eventOccurredAt,
+          source: valueOr(event.source, ''),
+          owner: '',
+          labels: [event.cls, valueOr(event.source, 'узел')],
+          note: '',
+          description: valueOr(snapshot.payload && snapshot.payload.description, 'Карточка автоматически создана из события распределённого журнала.'),
+          detectedAt: new Date(valueOr(event.consensus_ts, event.ts_local) * 1000).toISOString(),
+          dueAt: '',
+          checklist: defaultChecklist(),
+          relatedEvents: [relatedEvent],
+          updatedAt: new Date().toISOString()
+        });
+        persistIncidents();
+      }
+
+      function renderIncidentWorkbench() {
+        renderIncidentViewSwitch();
+        renderIncidentTable();
+        renderIncidentBoard();
+      }
+
+      if (incidentViewTableEl) {
+        incidentViewTableEl.addEventListener('click', function () {
+          incidentView = 'table';
+          renderIncidentWorkbench();
+        });
+      }
+      if (incidentViewBoardEl) {
+        incidentViewBoardEl.addEventListener('click', function () {
+          incidentView = 'board';
+          renderIncidentWorkbench();
+        });
+      }
+      if (incidentFilterAllEl) {
+        incidentFilterAllEl.addEventListener('click', function () {
+          setAllIncidentClassFilters(true);
+        });
+      }
+      incidentFilterButtons.forEach(function (button) {
+        var cls = button.getAttribute('data-incident-filter-class');
+        if (!cls) {
+          return;
+        }
+        button.addEventListener('click', function () {
+          toggleIncidentClassFilter(cls);
+        });
+      });
+      if (incidentFilterInputEl) {
+        incidentFilterInputEl.addEventListener('input', function () {
+          incidentSearchQuery = incidentFilterInputEl.value || '';
+          renderIncidentWorkbench();
+        });
+      }
+      if (incidentGroupSelectEl) {
+        incidentGroupSelectEl.addEventListener('change', function () {
+          incidentGroupBy = incidentGroupSelectEl.value || '';
+          renderIncidentWorkbench();
+        });
+      }
+      updateIncidentFilterButtons();
+      if (incidentCreateBtnEl) {
+        incidentCreateBtnEl.addEventListener('click', createManualIncident);
+      }
+      if (incidentCloseBtnEl) {
+        incidentCloseBtnEl.addEventListener('click', closeIncidentModal);
+      }
+      if (incidentCancelBtnEl) {
+        incidentCancelBtnEl.addEventListener('click', closeIncidentModal);
+      }
+      if (incidentModalBackdropEl) {
+        incidentModalBackdropEl.addEventListener('click', closeIncidentModal);
+      }
+      if (incidentSaveBtnEl) {
+        incidentSaveBtnEl.addEventListener('click', saveIncidentModal);
+      }
+      if (incidentAddCheckBtnEl) {
+        incidentAddCheckBtnEl.addEventListener('click', addIncidentChecklistItem);
       }
 
       function openDetailsPanel() {
@@ -1845,6 +2983,7 @@ VIZ_HTML = """
       if (typeof document !== 'undefined' && document.addEventListener) {
         document.addEventListener('keydown', function (event) {
           if (event.key === 'Escape') {
+            closeIncidentModal();
             closeDetailsPanel();
           }
         });
@@ -1991,6 +3130,7 @@ VIZ_HTML = """
         }
         var peerCount = Array.isArray(status.peers) ? status.peers.length : 0;
         var profile = status.profile || {};
+        var nextNodeId = valueOr(status.node_id, '');
         setText(navNodeCaptionEl, 'ID: ' + valueOr(status.node_id, '—'));
         setText(navNodeIdEl, valueOr(status.node_id, '—'));
         setText(heroNodeIdEl, valueOr(status.node_id, '—'));
@@ -2001,6 +3141,13 @@ VIZ_HTML = """
         setText(statusPeerCountEl, String(peerCount));
         setText(statusRoleEl, valueOr(profile.role, '—'));
         setText(statusThreatLevelEl, valueOr(profile.threat_level, '—'));
+        var shouldEnableIncidents = nextNodeId === incidentOperatorNodeId;
+        if (shouldEnableIncidents && incidentStorageKey !== ('mdrj-incidents-' + nextNodeId)) {
+          incidentStorageKey = 'mdrj-incidents-' + nextNodeId;
+          loadIncidents();
+          renderIncidentWorkbench();
+        }
+        setIncidentWorkbenchEnabled(shouldEnableIncidents);
       }
 
       function fetchNodeStatus() {
@@ -2551,6 +3698,11 @@ VIZ_HTML = """
           sourceStats[node.source].total += 1;
         });
         lastOperationalNodes = realNodes.slice(0);
+        if (incidentEnabled) {
+          realNodes.forEach(function (node) {
+            ensureIncidentFromEvent(node);
+          });
+        }
 
         setText(activityClassAEl, String(classCounts.A || 0));
         setText(activityClassBEl, String(classCounts.B || 0));
@@ -3948,6 +5100,7 @@ VIZ_HTML = """
               }
               if (data && data.event) {
                 addEvent(data.event);
+                ensureIncidentFromEvent(data.event);
                 renderGraph();
                 if (data.event.cls === 'A') {
                   pushAlert('high', 'Зафиксировано критичное событие класса A', 'Источник: ' + valueOr(data.event.source, 'неизвестно') + '. Событие добавлено в распределённый журнал.', 'event:' + data.event.id);
