@@ -6,47 +6,12 @@ import secrets
 from datetime import datetime
 from typing import Dict
 
-from .models import EventClass
+from .event_catalog import EVENT_CATALOG
 
 
 SCENARIOS: Dict[str, Dict[str, object]] = {
-    "virus": {
-        "class": EventClass.A,
-        "payload": {
-            "category": "malware",
-            "description": "Обнаружен подозрительный исполняемый файл",
-            "severity": "high",
-        },
-    },
-    "admin_login": {
-        "class": EventClass.B,
-        "payload": {
-            "category": "authentication",
-            "description": "Удалённый вход администратора",
-            "source_ip": "192.0.2.15",
-        },
-    },
-    "mac_spoof": {
-        "class": EventClass.A,
-        "payload": {
-            "category": "network",
-            "description": "Попытка подмены MAC-адреса",
-        },
-    },
-    "portscan": {
-        "class": EventClass.B,
-        "payload": {
-            "category": "network",
-            "description": "Аномальный порт-скан внешним узлом",
-        },
-    },
-    "heartbeat": {
-        "class": EventClass.C,
-        "payload": {
-            "category": "diagnostic",
-            "description": "Плановый heartbeat от панели мониторинга",
-        },
-    },
+    key: {"class": entry["class"], "payload": dict(entry["payload"])}
+    for key, entry in EVENT_CATALOG.items()
 }
 
 
