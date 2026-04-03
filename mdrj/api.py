@@ -857,17 +857,23 @@ VIZ_HTML = """
     #legend {
       display: flex;
       flex-direction: column;
-      gap: 0.65rem;
+      gap: 0.5rem;
       flex: 1 1 auto;
       min-height: 0;
-      justify-content: space-between;
+      justify-content: flex-start;
+      overflow: auto;
+      padding-right: 0.2rem;
     }
     .legend-item {
-      padding: 0.72rem 0.8rem;
-      border-radius: 16px;
+      padding: 0.58rem 0.7rem;
+      border-radius: 14px;
       background: rgba(8, 18, 29, 0.78);
       border: 1px solid rgba(255,255,255,0.05);
       align-items: flex-start;
+    }
+    .legend-item .label {
+      font-size: 0.74rem;
+      line-height: 1.32;
     }
     #graph-panel {
       overflow: hidden;
@@ -904,16 +910,18 @@ VIZ_HTML = """
       flex: 1 1 auto;
       min-height: 560px;
       max-height: 100%;
-      overflow: hidden;
+      overflow: auto;
       border-top: 1px solid rgba(255,255,255,0.05);
       background:
         radial-gradient(circle at top, rgba(255,255,255,0.05), transparent 55%),
         linear-gradient(180deg, rgba(7, 15, 24, 0.96), rgba(5, 11, 18, 0.98));
     }
     #graph {
-      height: 100%;
-      min-height: 0;
-      overflow: hidden;
+      width: max-content;
+      height: max-content;
+      min-width: 100%;
+      min-height: 100%;
+      overflow: visible;
     }
     #timeline-items { max-height: 72vh; overflow: auto; padding-right: 0.25rem; }
     .timeline-item { width: 100%; text-align: left; background: rgba(12, 23, 36, 0.84); }
@@ -1459,6 +1467,9 @@ VIZ_HTML = """
       flex-direction: column;
       gap: 1rem;
     }
+    #incident-table-view {
+      min-height: 0;
+    }
     .incident-toolbar {
       display: flex;
       justify-content: space-between;
@@ -1557,14 +1568,22 @@ VIZ_HTML = """
     .incident-group-select { min-width: 220px; }
     .incident-table-wrap {
       width: 100%;
+      max-height: clamp(460px, 58vh, 760px);
       overflow-x: auto;
-      overflow-y: hidden;
+      overflow-y: auto;
       border-radius: 18px;
       background: rgba(8, 16, 25, 0.5);
       border: 1px solid rgba(255,255,255,0.04);
     }
     .incident-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
     .incident-table { min-width: 1460px; }
+    .incident-table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: rgba(13, 24, 36, 0.98);
+      backdrop-filter: blur(8px);
+    }
     .incident-table th, .incident-table td { padding: 0.9rem 0.8rem; border-bottom: 1px solid rgba(255,255,255,0.06); text-align: left; vertical-align: top; }
     .incident-table th { color: rgba(186, 206, 226, 0.72); font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 500; }
     .incident-table td { color: var(--text-1); }
@@ -2329,9 +2348,10 @@ VIZ_HTML = """
       var incidentView = 'table';
       var incidentOperatorNodeId = 'node-1';
       var incidentEnabled = false;
-      var incidentStorageKey = null;
       var incidentDraftId = null;
       var incidents = [];
+      var incidentsLoaded = false;
+      var incidentsSyncInFlight = false;
       var incidentStatuses = ['Новые сигналы', 'Проверка', 'Подтверждённый инцидент', 'Сдерживание', 'Восстановление', 'Закрыто'];
       var incidentClassFilterState = { A: true, B: true, C: true };
       var incidentSearchQuery = '';
@@ -2549,38 +2569,73 @@ VIZ_HTML = """
         }
       }
 
-      function incidentLocalStorageAvailable() {
-        try {
-          return !!window.localStorage;
-        } catch (err) {
-          return false;
-        }
-      }
-
       function persistIncidents() {
-        if (!incidentEnabled || !incidentStorageKey || !incidentLocalStorageAvailable()) {
+        if (!incidentEnabled || incidentsSyncInFlight) {
           return;
         }
-        window.localStorage.setItem(incidentStorageKey, JSON.stringify(incidents));
+        incidentsSyncInFlight = true;
+        var xhr = new XMLHttpRequest();
+        xhr.open('PUT', '/incidents', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState !== 4) {
+            return;
+          }
+          incidentsSyncInFlight = false;
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              var payload = JSON.parse(xhr.responseText);
+              if (payload && Array.isArray(payload.items)) {
+                incidents = payload.items;
+              }
+            } catch (err) {
+              console.log('incident persist parse error', err);
+            }
+            renderIncidentWorkbench();
+            return;
+          }
+          console.log('incident persist failed', xhr.status, xhr.responseText);
+        };
+        xhr.onerror = function () {
+          incidentsSyncInFlight = false;
+          console.log('incident persist network error');
+        };
+        xhr.send(JSON.stringify({ items: incidents }));
       }
 
       function loadIncidents() {
-        incidents = [];
-        if (!incidentStorageKey || !incidentLocalStorageAvailable()) {
+        if (!incidentEnabled) {
+          incidents = [];
+          incidentsLoaded = false;
+          renderIncidentWorkbench();
           return;
         }
-        try {
-          var raw = window.localStorage.getItem(incidentStorageKey);
-          if (!raw) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/incidents', true);
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState !== 4) {
             return;
           }
-          var parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) {
-            incidents = parsed;
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              var payload = JSON.parse(xhr.responseText);
+              incidents = payload && Array.isArray(payload.items) ? payload.items : [];
+              incidentsLoaded = true;
+              lastOperationalNodes.forEach(function (node) {
+                ensureIncidentFromEvent(node);
+              });
+              renderIncidentWorkbench();
+            } catch (err) {
+              console.log('incident load parse error', err);
+            }
+            return;
           }
-        } catch (err) {
-          console.log('incident storage parse error', err);
-        }
+          console.log('incident load failed', xhr.status, xhr.responseText);
+        };
+        xhr.onerror = function () {
+          console.log('incident load network error');
+        };
+        xhr.send();
       }
 
       function formatIncidentDate(value) {
@@ -2679,9 +2734,13 @@ VIZ_HTML = """
           incidentNavItemEl.style.display = incidentEnabled ? '' : 'none';
         }
         if (incidentEnabled) {
+          if (!incidentsLoaded) {
+            loadIncidents();
+          }
           renderIncidentWorkbench();
         }
         if (!incidentEnabled) {
+          incidentsLoaded = false;
           closeIncidentModal();
         }
       }
@@ -2797,6 +2856,10 @@ VIZ_HTML = """
           incidentTableViewEl.innerHTML = '';
           return;
         }
+        if (!incidentsLoaded) {
+          incidentTableViewEl.innerHTML = '<div class="incident-empty">Загружаем инциденты из сервера…</div>';
+          return;
+        }
         var visibleIncidents = incidents.filter(function (incident) {
           return incidentVisibleByClass(incident) && incidentMatchesQuery(incident);
         });
@@ -2853,6 +2916,10 @@ VIZ_HTML = """
         }
         if (!incidentEnabled) {
           incidentBoardViewEl.innerHTML = '';
+          return;
+        }
+        if (!incidentsLoaded) {
+          incidentBoardViewEl.innerHTML = '<div class="incident-empty">Загружаем инциденты из сервера…</div>';
           return;
         }
         var visibleIncidents = incidents.filter(function (incident) {
@@ -3040,7 +3107,7 @@ VIZ_HTML = """
       }
 
       function ensureIncidentFromEvent(event) {
-        if (!incidentEnabled || !event || (event.cls !== 'A' && event.cls !== 'B')) {
+        if (!incidentEnabled || !incidentsLoaded || !event || (event.cls !== 'A' && event.cls !== 'B')) {
           return;
         }
         var incidentId = 'event-' + event.id;
@@ -3399,11 +3466,6 @@ VIZ_HTML = """
         setText(statusRoleEl, valueOr(profile.role, '—'));
         setText(statusThreatLevelEl, valueOr(profile.threat_level, '—'));
         var shouldEnableIncidents = nextNodeId === incidentOperatorNodeId;
-        if (shouldEnableIncidents && incidentStorageKey !== ('mdrj-incidents-' + nextNodeId)) {
-          incidentStorageKey = 'mdrj-incidents-' + nextNodeId;
-          loadIncidents();
-          renderIncidentWorkbench();
-        }
         setIncidentWorkbenchEnabled(shouldEnableIncidents);
         updateHeroOverview();
       }
@@ -4938,6 +5000,8 @@ VIZ_HTML = """
                 }
               }
               resetGraphState();
+              incidents = [];
+              incidentsLoaded = false;
               if (payload && payload.metrics) {
                 updateMetrics(payload.metrics);
               }
@@ -4948,6 +5012,9 @@ VIZ_HTML = """
                   setControlsStatus('Ошибка повторной загрузки данных: ' + err.message, true);
                   markError('Ошибка при повторной загрузке графа.');
                 } else {
+                  if (incidentEnabled) {
+                    loadIncidents();
+                  }
                   renderGraph();
                 }
               });
@@ -5552,8 +5619,11 @@ VIZ_HTML = """
           contentHeight += (positionedIds.length - 1) * rowSpacing;
         }
 
-        var width = Math.max(contentWidth, graphEl.clientWidth || 800);
-        var height = Math.max(contentHeight, graphEl.clientHeight || 600);
+        var graphWrapperEl = graphEl ? graphEl.parentElement : null;
+        var viewportWidth = (graphWrapperEl && graphWrapperEl.clientWidth) || graphEl.clientWidth || 800;
+        var viewportHeight = (graphWrapperEl && graphWrapperEl.clientHeight) || graphEl.clientHeight || 600;
+        var width = Math.max(contentWidth, viewportWidth);
+        var height = Math.max(contentHeight, viewportHeight);
 
         layoutDimensions = {
           width: width,
@@ -5570,8 +5640,10 @@ VIZ_HTML = """
         };
 
         updateViewBoxBase(width, height);
-        svg.style.width = '100%';
-        svg.style.height = '100%';
+        graphEl.style.width = width + 'px';
+        graphEl.style.height = height + 'px';
+        svg.style.width = width + 'px';
+        svg.style.height = height + 'px';
         layoutOrder = positionedIds;
         return { lanes: activeSources, positions: localLanePositions };
       }
@@ -5832,11 +5904,16 @@ VIZ_HTML = """
               var data = JSON.parse(event.data);
               if (data && data.type === 'reset') {
                 resetGraphState();
+                incidents = [];
+                incidentsLoaded = false;
                 if (data.metrics) {
                   updateMetrics(data.metrics);
                 }
                 setControlsStatus('Граф на узле был очищен.', false);
                 markSyncPending('Ожидаем якорные события...');
+                if (incidentEnabled) {
+                  loadIncidents();
+                }
                 return;
               }
               if (data && data.type === 'consensus_status') {
@@ -5986,6 +6063,22 @@ async def handle_viz_clear(request: web.Request) -> web.Response:
     return web.json_response({"status": "cleared", "metrics": metrics, "token": token})
 
 
+async def handle_incidents(request: web.Request) -> web.Response:
+    node = request.app["node"]
+    if request.method == "GET":
+        items = await asyncio.to_thread(node.list_incidents)
+        return web.json_response({"items": items})
+    try:
+        payload = await request.json()
+    except json.JSONDecodeError:
+        payload = {}
+    items = payload.get("items")
+    if not isinstance(items, list):
+        raise web.HTTPBadRequest(text="missing items")
+    saved = await asyncio.to_thread(node.replace_incidents, items)
+    return web.json_response({"status": "ok", "items": saved})
+
+
 async def handle_frontier(request: web.Request) -> web.Response:
     node = request.app["node"]
     frontier = await asyncio.to_thread(node.storage.get_frontier)
@@ -6094,6 +6187,8 @@ def build_app(node) -> web.Application:
             web.post("/viz/simulate", handle_viz_simulate),
             web.post("/viz/simulation/control", handle_viz_simulation_control),
             web.post("/viz/clear", handle_viz_clear),
+            web.get("/incidents", handle_incidents),
+            web.put("/incidents", handle_incidents),
             web.get("/consensus/digest", handle_consensus_digest),
         ]
     )
