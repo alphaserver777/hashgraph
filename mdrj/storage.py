@@ -5,6 +5,7 @@ import json
 import sqlite3
 import threading
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
@@ -57,11 +58,18 @@ class DAGStorage:
                     last_seen REAL,
                     healthy INTEGER DEFAULT 1
                 );
+                CREATE TABLE IF NOT EXISTS incidents (
+                    id TEXT PRIMARY KEY,
+                    payload TEXT NOT NULL,
+                    created_at REAL NOT NULL,
+                    updated_at REAL NOT NULL
+                );
                 CREATE INDEX IF NOT EXISTS idx_events_consensus ON events(consensus_ts);
                 CREATE INDEX IF NOT EXISTS idx_events_cls ON events(cls);
                 CREATE INDEX IF NOT EXISTS idx_events_created ON events(created_at);
                 CREATE INDEX IF NOT EXISTS idx_edges_parent ON edges(parent_id);
                 CREATE INDEX IF NOT EXISTS idx_edges_child ON edges(child_id);
+                CREATE INDEX IF NOT EXISTS idx_incidents_updated ON incidents(updated_at);
                 """
             )
 
@@ -71,6 +79,54 @@ class DAGStorage:
             self._conn.execute("DELETE FROM events")
             self._conn.execute("DELETE FROM envelopes")
             self._conn.execute("DELETE FROM edges")
+            self._conn.execute("DELETE FROM incidents")
+
+    def list_incidents(self) -> List[Dict]:
+        rows = self._conn.execute(
+            "SELECT payload FROM incidents ORDER BY updated_at DESC, created_at DESC"
+        ).fetchall()
+        items: List[Dict] = []
+        for row in rows:
+            try:
+                payload = json.loads(row["payload"])
+            except Exception:
+                continue
+            if isinstance(payload, dict):
+                items.append(payload)
+        return items
+
+    def replace_incidents(self, incidents: Sequence[Dict]) -> None:
+        now = time.time()
+
+        def _parse_iso(value: object, fallback: float) -> float:
+            if not value:
+                return fallback
+            text = str(value).strip()
+            if not text:
+                return fallback
+            try:
+                return datetime.fromisoformat(text.replace("Z", "+00:00")).timestamp()
+            except ValueError:
+                return fallback
+
+        with self._lock, self._conn:
+            self._conn.execute("DELETE FROM incidents")
+            for index, incident in enumerate(incidents):
+                if not isinstance(incident, dict):
+                    continue
+                incident_id = str(incident.get("id") or "").strip()
+                if not incident_id:
+                    continue
+                created_at = incident.get("createdAt")
+                updated_at = incident.get("updatedAt")
+                created_ts = now + index * 0.0001
+                updated_ts = created_ts
+                created_ts = _parse_iso(created_at, created_ts)
+                updated_ts = _parse_iso(updated_at, created_ts)
+                self._conn.execute(
+                    "INSERT INTO incidents(id, payload, created_at, updated_at) VALUES (?, ?, ?, ?)",
+                    (incident_id, canonical_json(incident), created_ts, updated_ts),
+                )
 
     def _merge_path_meta(self, event_id: str, new_path: Sequence[Dict]) -> None:
         existing = self._conn.execute(

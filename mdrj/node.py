@@ -282,6 +282,13 @@ class Node:
             await self._propagate_clear(token)
         return reset_metrics
 
+    def list_incidents(self) -> List[Dict[str, object]]:
+        return self.storage.list_incidents()
+
+    def replace_incidents(self, incidents: List[Dict[str, object]]) -> List[Dict[str, object]]:
+        self.storage.replace_incidents(incidents)
+        return self.storage.list_incidents()
+
     def _sign_payload(self, payload: Mapping[str, object]) -> str:
         if not self.config.security.hmac_key:
             return ""
