@@ -565,6 +565,9 @@ class Node:
     def simulation_running(self) -> bool:
         return self._simulation_task is not None and not self._simulation_task.done()
 
+    def demo_controls_enabled(self) -> bool:
+        return not self.config.linux_ingest.enabled
+
     async def _consensus_monitor_loop(self) -> None:
         interval = max(1.5, self.config.gossip.period_sec * 1.5)
         while not self._consensus_stop.is_set():
@@ -773,6 +776,7 @@ class Node:
                 "threat_level": self.config.profile.threat_level,
             },
             "linux_ingest": self._linux_ingest_status.to_dict(),
+            "demo_controls_enabled": self.demo_controls_enabled(),
         }
 
     def metrics_snapshot(self) -> Dict[str, object]:

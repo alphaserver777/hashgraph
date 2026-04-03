@@ -1901,6 +1901,7 @@ VIZ_HTML = """
       var isDetailsOpen = false;
       var shouldOpenDetailsOnFocus = false;
       var simulationActive = false;
+      var demoControlsEnabled = true;
       var consensusState = {};
       var lastActiveElement = null;
 
@@ -3487,6 +3488,10 @@ VIZ_HTML = """
         setText(statusPeerCountEl, String(peerCount));
         setText(statusRoleEl, valueOr(profile.role, '—'));
         setText(statusThreatLevelEl, valueOr(profile.threat_level, '—'));
+        demoControlsEnabled = status.demo_controls_enabled !== false;
+        if (controlsRoot) {
+          controlsRoot.style.display = demoControlsEnabled ? '' : 'none';
+        }
         var shouldEnableIncidents = nextNodeId === incidentOperatorNodeId;
         setIncidentWorkbenchEnabled(shouldEnableIncidents);
         updateHeroOverview();
@@ -4900,6 +4905,9 @@ VIZ_HTML = """
       }
 
       function triggerSimulation(key) {
+        if (!demoControlsEnabled) {
+          return;
+        }
         if (!key) {
           return;
         }
@@ -4934,6 +4942,9 @@ VIZ_HTML = """
       }
 
       function toggleSimulation() {
+        if (!demoControlsEnabled) {
+          return;
+        }
         if (!simulationButton) {
           return;
         }
@@ -4975,6 +4986,9 @@ VIZ_HTML = """
       }
 
       function fetchSimulationStatus() {
+        if (!demoControlsEnabled) {
+          return;
+        }
         if (!simulationButton) {
           return;
         }
@@ -6030,6 +6044,8 @@ async def handle_emit_local(request: web.Request) -> web.Response:
 
 async def handle_viz_simulate(request: web.Request) -> web.Response:
     node = request.app["node"]
+    if not node.demo_controls_enabled():
+        raise web.HTTPForbidden(text="simulation disabled for linux ingest mode")
     try:
         data = await request.json()
     except json.JSONDecodeError as exc:
@@ -6044,6 +6060,8 @@ async def handle_viz_simulate(request: web.Request) -> web.Response:
 
 async def handle_viz_simulation_control(request: web.Request) -> web.Response:
     node = request.app["node"]
+    if not node.demo_controls_enabled():
+        raise web.HTTPForbidden(text="simulation disabled for linux ingest mode")
     try:
         data = await request.json()
     except json.JSONDecodeError:
