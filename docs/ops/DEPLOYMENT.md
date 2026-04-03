@@ -41,6 +41,24 @@
 - Healthcheck:
   - `GET /status` внутри контейнера
 
+### Docker Compose Linux Bootstrap
+- Файлы:
+  - `docker-compose.yaml`
+  - `docker/configs/linux-node1.yaml`
+  - `docker/linux-fixtures/auth.log`
+- Профиль:
+  - `linux-node`
+- Команда запуска:
+  - `docker compose --profile linux-node up --build -d linux-node1`
+- Порты:
+  - `localhost:9111 -> linux-node1:9011`
+- Данные:
+  - отдельный Docker volume `linux-node1-data`
+- Источник первого сигнала:
+  - read-only fixture `auth.log`, примонтированный в `/host-logs/auth.log`
+- Назначение:
+  - технический bootstrap для первого vertical slice Linux ingestion, а не production deploy
+
 ### Demo-Сценарий Baseline
 - Профиль Compose:
   - `demo-baseline`
@@ -94,7 +112,8 @@
   - локальную SQLite-базу;
   - HTTP API и встроенный UI.
 - Контейнер должен читать системные источники хоста (`journald`, `auth.log`, `sudo`) и обрабатывать их внутри узла, без обязательного второго sidecar-контейнера.
-- На текущий момент это только проектное решение, а не уже реализованный deploy-контур.
+- На текущий момент частично реализован только bootstrap-вариант: один узел умеет читать file-based `auth.log` и выделять `admin_ssh_login_success`.
+- Это ещё не production deploy-контур и не доказательство готовности к реальному развёртыванию.
 - До реализации такого контейнера production deployment всё ещё считается неописанным.
 
 ## Обязательное Чтение Перед Infra/Deploy Задачами

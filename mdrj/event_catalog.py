@@ -26,6 +26,16 @@ EVENT_CATALOG: Dict[str, Dict[str, object]] = {
             "source_ip": "192.0.2.15",
         },
     },
+    "admin_ssh_login_success": {
+        "class": EventClass.A,
+        "title": "Успешный административный SSH-вход",
+        "payload": {
+            "category": "authentication",
+            "event_kind": "admin_ssh_login_success",
+            "target_service": "sshd",
+            "result": "success",
+        },
+    },
     "mac_spoof": {
         "class": EventClass.A,
         "title": "Попытка MAC-spoofing",

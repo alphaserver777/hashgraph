@@ -17,6 +17,7 @@ from aiohttp import web
 from .config import NodeConfig
 from .consensus import ConsensusEngine
 from .gossip import GossipEngine
+from .linux_ingest import LinuxAuthLogIngestor, LinuxIngestStatus
 from .metrics import MetricsEngine
 from .models import Envelope, Event, EventClass, PeerInfo
 from .prioritization import Prioritizer
@@ -77,6 +78,16 @@ class Node:
         self._consensus_task: Optional[asyncio.Task] = None
         self._consensus_mismatch: Dict[str, int] = {}
         self._genesis_counter = 0
+        self._linux_ingest_task: Optional[asyncio.Task] = None
+        self._linux_ingest_stop = asyncio.Event()
+        self._linux_ingest_stop.set()
+        self._linux_ingestor: Optional[LinuxAuthLogIngestor] = None
+        self._linux_ingest_status = LinuxIngestStatus(
+            enabled=config.linux_ingest.enabled,
+            source_type=config.linux_ingest.source_type,
+            source_path=config.linux_ingest.auth_log_path,
+            host_id=config.linux_ingest.host_id or config.node_id,
+        )
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -112,10 +123,19 @@ class Node:
         self.metrics.update_peer_health(self.list_peers(), self._quorum())
         self._consensus_stop.clear()
         self._consensus_task = asyncio.create_task(self._consensus_monitor_loop())
+        if self.config.linux_ingest.enabled:
+            self._start_linux_ingest()
 
     async def stop(self) -> None:
         if self.simulation_running():
             await self.stop_simulation()
+        if self._linux_ingest_task:
+            self._linux_ingest_stop.set()
+            try:
+                await self._linux_ingest_task
+            except Exception:
+                logger.exception("Error while stopping Linux ingest")
+            self._linux_ingest_task = None
         if self._consensus_task:
             self._consensus_stop.set()
             try:
@@ -255,6 +275,7 @@ class Node:
         reset_metrics = self.metrics_snapshot()
         self._notify_viz_reset(reset_metrics)
         self._bootstrap_genesis(force=True)
+        self.storage.replace_incidents([])
         self.metrics.update_peer_health(self.list_peers(), self._quorum())
         return reset_metrics
 
@@ -357,6 +378,45 @@ class Node:
             self._gossip.add_pending(event.id)
         self._anchors = [event.id]
         self._notify_viz(envelope.event, stored=True, metrics=self.metrics_snapshot())
+
+    def _linux_ingest_state_path(self) -> str:
+        configured = self.config.linux_ingest.state_path
+        if configured:
+            return configured
+        storage_path = self.storage.path
+        return str(storage_path.with_name(f"{storage_path.stem}.linux-ingest.json"))
+
+    def _start_linux_ingest(self) -> None:
+        if self._linux_ingest_task and not self._linux_ingest_task.done():
+            return
+        self._linux_ingest_stop.clear()
+        self._linux_ingestor = LinuxAuthLogIngestor(
+            config=self.config.linux_ingest,
+            node_id=self.config.node_id,
+            default_state_path=self._linux_ingest_state_path(),
+        )
+        self._linux_ingest_task = asyncio.create_task(self._linux_ingest_loop())
+
+    async def _linux_ingest_loop(self) -> None:
+        interval = max(0.5, float(self.config.linux_ingest.poll_interval_sec))
+        while not self._linux_ingest_stop.is_set():
+            self._linux_ingest_status.last_poll_at = utc_timestamp()
+            try:
+                if self._linux_ingestor is not None:
+                    payloads = await asyncio.to_thread(self._linux_ingestor.poll)
+                    self._linux_ingest_status.last_error = None
+                    for payload in payloads:
+                        emission = await self.emit_event(EventClass.A, payload)
+                        if emission.stored:
+                            self._linux_ingest_status.emitted_count += 1
+                            self._linux_ingest_status.last_event_at = utc_timestamp()
+            except Exception as exc:
+                logger.exception("Linux ingestion polling failed")
+                self._linux_ingest_status.last_error = str(exc)
+            try:
+                await asyncio.wait_for(self._linux_ingest_stop.wait(), timeout=interval)
+            except asyncio.TimeoutError:
+                continue
 
     def _prime_gossip(self) -> None:
         if not self._gossip:
@@ -712,6 +772,7 @@ class Node:
                 "bw_kbps": self.config.profile.bw_kbps,
                 "threat_level": self.config.profile.threat_level,
             },
+            "linux_ingest": self._linux_ingest_status.to_dict(),
         }
 
     def metrics_snapshot(self) -> Dict[str, object]:

@@ -1,0 +1,32 @@
+node_id: "linux-node-1"
+listen: "0.0.0.0:9011"
+peers: []
+profile:
+  role: "light"
+  memory_mb: 128
+  bw_kbps: 256
+  cpu_quota: 0.7
+  threat_level: "LOW"
+gossip:
+  period_sec: 1.0
+  fan_out: 1
+prioritization:
+  level_threshold_B: "ELEV"
+  max_batch_bytes: 32768
+security:
+  hmac_key: "linux-demo-key"
+storage:
+  sqlite_path: "/data/node.db"
+linux_ingest:
+  enabled: true
+  source_type: "auth_log_file"
+  auth_log_path: "/host-logs/auth.log"
+  poll_interval_sec: 1.0
+  host_id: "linux-host-1"
+  admin_users:
+    - "root"
+    - "admin"
+  privileged_groups:
+    - "sudo"
+    - "wheel"
+  state_path: "/data/linux-ingest-state.json"

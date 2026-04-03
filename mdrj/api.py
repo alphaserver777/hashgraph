@@ -2442,9 +2442,11 @@ VIZ_HTML = """
       }
 
       function eventTypeLabelFromPayload(payload) {
+        var eventKind = payload && payload.event_kind ? String(payload.event_kind) : '';
         var scenario = payload && payload.scenario ? String(payload.scenario) : '';
         var category = payload && payload.category ? String(payload.category) : '';
         var mapping = {
+          admin_ssh_login_success: 'Административный SSH-вход',
           virus: 'Вредоносное ПО',
           admin_login: 'Удалённый вход',
           mac_spoof: 'Подмена сетевого адреса',
@@ -2455,6 +2457,9 @@ VIZ_HTML = """
           network: 'Сетевой сигнал',
           diagnostic: 'Диагностика'
         };
+        if (eventKind && mapping[eventKind]) {
+          return mapping[eventKind];
+        }
         if (scenario && mapping[scenario]) {
           return mapping[scenario];
         }
@@ -2465,14 +2470,19 @@ VIZ_HTML = """
       }
 
       function eventTitleFromPayload(payload, fallbackClass) {
+        var eventKind = payload && payload.event_kind ? String(payload.event_kind) : '';
         var scenario = payload && payload.scenario ? String(payload.scenario) : '';
         var titles = {
+          admin_ssh_login_success: 'Успешный административный SSH-вход',
           virus: 'Обнаружен вирус',
           admin_login: 'Удалённый вход администратора',
           mac_spoof: 'Попытка подмены сетевого адреса',
           portscan: 'Аномальный порт-скан',
           heartbeat: 'Служебный heartbeat'
         };
+        if (eventKind && titles[eventKind]) {
+          return titles[eventKind];
+        }
         if (scenario && titles[scenario]) {
           return titles[scenario];
         }
@@ -2492,6 +2502,18 @@ VIZ_HTML = """
         }
         if (payload && payload.source_ip) {
           parts.push('Источник сети: ' + String(payload.source_ip));
+        }
+        if (payload && payload.principal) {
+          parts.push('Учётная запись: ' + String(payload.principal));
+        }
+        if (payload && payload.target_service) {
+          parts.push('Сервис: ' + String(payload.target_service));
+        }
+        if (payload && payload.privilege_scope) {
+          parts.push('Привилегии: ' + String(payload.privilege_scope));
+        }
+        if (payload && payload.occurred_at) {
+          parts.push('Произошло: ' + String(payload.occurred_at));
         }
         if (payload && payload.confidence !== undefined && payload.confidence !== null) {
           parts.push('Уверенность: ' + String(payload.confidence));

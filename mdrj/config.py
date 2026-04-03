@@ -1,7 +1,7 @@
 """Configuration loader for MDRJ-DAG nodes."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
 
@@ -33,6 +33,18 @@ class StorageConfig:
 
 
 @dataclass(slots=True)
+class LinuxIngestConfig:
+    enabled: bool = False
+    source_type: str = "auth_log_file"
+    auth_log_path: Optional[str] = None
+    poll_interval_sec: float = 2.0
+    host_id: Optional[str] = None
+    admin_users: List[str] = field(default_factory=list)
+    privileged_groups: List[str] = field(default_factory=list)
+    state_path: Optional[str] = None
+
+
+@dataclass(slots=True)
 class NodeConfig:
     node_id: str
     listen: str
@@ -42,6 +54,7 @@ class NodeConfig:
     prioritization: PrioritizationConfig
     security: SecurityConfig
     storage: StorageConfig
+    linux_ingest: LinuxIngestConfig = field(default_factory=LinuxIngestConfig)
 
     @property
     def host(self) -> str:
@@ -76,6 +89,17 @@ def load_config(path: str | Path) -> NodeConfig:
     )
     security = SecurityConfig(hmac_key=raw.get("security", {}).get("hmac_key"))
     storage = StorageConfig(sqlite_path=raw["storage"]["sqlite_path"])
+    linux_raw = raw.get("linux_ingest", {}) or {}
+    linux_ingest = LinuxIngestConfig(
+        enabled=bool(linux_raw.get("enabled", False)),
+        source_type=str(linux_raw.get("source_type", "auth_log_file")),
+        auth_log_path=linux_raw.get("auth_log_path"),
+        poll_interval_sec=float(linux_raw.get("poll_interval_sec", 2.0)),
+        host_id=linux_raw.get("host_id"),
+        admin_users=list(linux_raw.get("admin_users", [])),
+        privileged_groups=list(linux_raw.get("privileged_groups", [])),
+        state_path=linux_raw.get("state_path"),
+    )
     return NodeConfig(
         node_id=raw["node_id"],
         listen=raw["listen"],
@@ -85,5 +109,5 @@ def load_config(path: str | Path) -> NodeConfig:
         prioritization=prioritization,
         security=security,
         storage=storage,
+        linux_ingest=linux_ingest,
     )
-

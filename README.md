@@ -100,6 +100,16 @@ docker compose --profile demo-baseline up demo-baseline
 
 Скрипт `docker/scripts/demo_baseline.sh` подождёт, пока все сервисы будут здоровы, сгенерирует события классов `A` и `B`, затем выведет актуальные метрики всех узлов. Кластеры можно гасить командой `docker compose down` (добавьте `-v`, если необходимо очистить тома данных).
 
+### Linux bootstrap-узел
+
+Для первого вертикального среза реального Linux ingestion в `docker-compose.yaml` есть отдельный профиль `linux-node`:
+
+```bash
+docker compose --profile linux-node up --build -d linux-node1
+```
+
+Этот режим не заменяет demo-кластер. Он поднимает отдельный self-contained узел на `http://localhost:9111/viz`, читает примонтированный `auth.log` fixture и публикует минимальный production-oriented сигнал `admin_ssh_login_success` во внутренний DAG. Пока это только bootstrap-режим для одного file-based сигнала, а не полный production ingestion.
+
 ## Running a Local Cluster
 Use the helper script to spawn N nodes on one machine (default N=3, ports 9001+):
 ```bash

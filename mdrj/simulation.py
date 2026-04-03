@@ -9,9 +9,11 @@ from typing import Dict
 from .event_catalog import EVENT_CATALOG
 
 
+DEMO_SCENARIOS = ("virus", "admin_login", "mac_spoof", "portscan", "heartbeat")
 SCENARIOS: Dict[str, Dict[str, object]] = {
     key: {"class": entry["class"], "payload": dict(entry["payload"])}
     for key, entry in EVENT_CATALOG.items()
+    if key in DEMO_SCENARIOS
 }
 
 
