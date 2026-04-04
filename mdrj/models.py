@@ -165,6 +165,16 @@ class PeerInfo:
     address: str
     last_seen: Optional[float] = None
     healthy: bool = True
+    enabled: bool = True
+    note: str = ""
+    source: str = "runtime"
 
     def to_dict(self) -> Dict[str, Any]:
-        return {"address": self.address, "last_seen": self.last_seen, "healthy": self.healthy}
+        return {
+            "address": self.address,
+            "last_seen": self.last_seen,
+            "healthy": self.healthy,
+            "enabled": self.enabled,
+            "note": self.note,
+            "source": self.source,
+        }

@@ -56,7 +56,10 @@ class DAGStorage:
                 CREATE TABLE IF NOT EXISTS peers (
                     address TEXT PRIMARY KEY,
                     last_seen REAL,
-                    healthy INTEGER DEFAULT 1
+                    healthy INTEGER DEFAULT 1,
+                    enabled INTEGER DEFAULT 1,
+                    note TEXT DEFAULT '',
+                    source TEXT DEFAULT 'runtime'
                 );
                 CREATE TABLE IF NOT EXISTS incidents (
                     id TEXT PRIMARY KEY,
@@ -72,6 +75,19 @@ class DAGStorage:
                 CREATE INDEX IF NOT EXISTS idx_incidents_updated ON incidents(updated_at);
                 """
             )
+        self._ensure_peers_schema()
+
+    def _ensure_peers_schema(self) -> None:
+        columns = {
+            row["name"] for row in self._conn.execute("PRAGMA table_info(peers)").fetchall()
+        }
+        with self._conn:
+            if "enabled" not in columns:
+                self._conn.execute("ALTER TABLE peers ADD COLUMN enabled INTEGER DEFAULT 1")
+            if "note" not in columns:
+                self._conn.execute("ALTER TABLE peers ADD COLUMN note TEXT DEFAULT ''")
+            if "source" not in columns:
+                self._conn.execute("ALTER TABLE peers ADD COLUMN source TEXT DEFAULT 'runtime'")
 
     def clear_events(self) -> None:
         """Remove all events, edges and envelopes from storage."""
@@ -325,13 +341,113 @@ class DAGStorage:
     def upsert_peer(self, address: str, last_seen: float, healthy: bool) -> None:
         with self._conn:
             self._conn.execute(
-                "INSERT INTO peers(address, last_seen, healthy) VALUES (?, ?, ?)\n                 ON CONFLICT(address) DO UPDATE SET last_seen = excluded.last_seen, healthy = excluded.healthy",
+                "INSERT INTO peers(address, last_seen, healthy, enabled, note, source) VALUES (?, ?, ?, 1, '', 'runtime')\n                 ON CONFLICT(address) DO UPDATE SET last_seen = excluded.last_seen, healthy = excluded.healthy",
                 (address, last_seen, int(healthy)),
             )
+
+    def ensure_peer(
+        self,
+        address: str,
+        *,
+        last_seen: Optional[float],
+        healthy: bool,
+        enabled: bool = True,
+        note: str = "",
+        source: str = "runtime",
+    ) -> PeerInfo:
+        with self._lock, self._conn:
+            existing = self._conn.execute(
+                "SELECT * FROM peers WHERE address = ?",
+                (address,),
+            ).fetchone()
+            if existing:
+                merged_last_seen = last_seen if last_seen is not None else existing["last_seen"]
+                merged_healthy = int(healthy)
+                merged_enabled = bool(existing["enabled"])
+                merged_note = existing["note"] or note or ""
+                merged_source = existing["source"] or source
+                self._conn.execute(
+                    "UPDATE peers SET last_seen = ?, healthy = ?, enabled = ?, note = ?, source = ? WHERE address = ?",
+                    (
+                        merged_last_seen,
+                        merged_healthy,
+                        int(merged_enabled),
+                        merged_note,
+                        merged_source,
+                        address,
+                    ),
+                )
+                return PeerInfo(
+                    address=address,
+                    last_seen=merged_last_seen,
+                    healthy=bool(merged_healthy),
+                    enabled=merged_enabled,
+                    note=merged_note,
+                    source=merged_source,
+                )
+            self._conn.execute(
+                "INSERT INTO peers(address, last_seen, healthy, enabled, note, source) VALUES (?, ?, ?, ?, ?, ?)",
+                (address, last_seen, int(healthy), int(enabled), note, source),
+            )
+            return PeerInfo(
+                address=address,
+                last_seen=last_seen,
+                healthy=healthy,
+                enabled=enabled,
+                note=note,
+                source=source,
+            )
+
+    def update_peer(
+        self,
+        address: str,
+        *,
+        enabled: Optional[bool] = None,
+        note: Optional[str] = None,
+        last_seen: Optional[float] = None,
+        healthy: Optional[bool] = None,
+    ) -> Optional[PeerInfo]:
+        with self._lock, self._conn:
+            existing = self._conn.execute(
+                "SELECT * FROM peers WHERE address = ?",
+                (address,),
+            ).fetchone()
+            if not existing:
+                return None
+            next_last_seen = existing["last_seen"] if last_seen is None else last_seen
+            next_healthy = bool(existing["healthy"]) if healthy is None else healthy
+            next_enabled = bool(existing["enabled"]) if enabled is None else enabled
+            next_note = existing["note"] if note is None else note
+            next_source = existing["source"] or "runtime"
+            self._conn.execute(
+                "UPDATE peers SET last_seen = ?, healthy = ?, enabled = ?, note = ?, source = ? WHERE address = ?",
+                (next_last_seen, int(next_healthy), int(next_enabled), next_note, next_source, address),
+            )
+            return PeerInfo(
+                address=address,
+                last_seen=next_last_seen,
+                healthy=next_healthy,
+                enabled=next_enabled,
+                note=next_note,
+                source=next_source,
+            )
+
+    def delete_peer(self, address: str) -> None:
+        with self._lock, self._conn:
+            self._conn.execute("DELETE FROM peers WHERE address = ?", (address,))
 
     def list_peers(self) -> List[PeerInfo]:
         rows = self._conn.execute("SELECT * FROM peers").fetchall()
         peers: List[PeerInfo] = []
         for row in rows:
-            peers.append(PeerInfo(address=row["address"], last_seen=row["last_seen"], healthy=bool(row["healthy"])) )
+            peers.append(
+                PeerInfo(
+                    address=row["address"],
+                    last_seen=row["last_seen"],
+                    healthy=bool(row["healthy"]),
+                    enabled=bool(row["enabled"]) if "enabled" in row.keys() else True,
+                    note=(row["note"] if "note" in row.keys() else "") or "",
+                    source=(row["source"] if "source" in row.keys() else "runtime") or "runtime",
+                )
+            )
         return peers

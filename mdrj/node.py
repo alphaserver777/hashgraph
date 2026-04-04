@@ -6,6 +6,7 @@ import hashlib
 import logging
 import random
 import secrets
+import socket
 import time
 from dataclasses import dataclass
 from enum import Enum
@@ -54,11 +55,16 @@ class Node:
         self.metrics = MetricsEngine(
             self.storage, config.gossip, config.profile.memory_mb, config.profile.bw_kbps
         )
-        self._peers: Dict[str, PeerInfo] = {
-            addr: PeerInfo(address=addr) for addr in config.peers
-        }
-        for peer in self._peers.values():
-            self.storage.upsert_peer(peer.address, utc_timestamp(), healthy=True)
+        for peer_address in config.peers:
+            self.storage.ensure_peer(
+                peer_address,
+                last_seen=utc_timestamp(),
+                healthy=True,
+                enabled=True,
+                source="config",
+            )
+        self._peers: Dict[str, PeerInfo] = {}
+        self._reload_peers_from_storage()
         self._anchors: List[str] = []
         self._session: Optional[aiohttp.ClientSession] = None
         self._gossip: Optional[GossipEngine] = None
@@ -164,14 +170,52 @@ class Node:
     def list_peers(self) -> List[PeerInfo]:
         return list(self._peers.values())
 
-    def register_peer(self, address: str) -> None:
-        self._peers[address] = PeerInfo(address=address)
-        self.storage.upsert_peer(address, utc_timestamp(), healthy=True)
+    def list_peer_registry(self) -> List[PeerInfo]:
+        return self.storage.list_peers()
+
+    def _reload_peers_from_storage(self) -> None:
+        active: Dict[str, PeerInfo] = {}
+        for peer in self.storage.list_peers():
+            if peer.enabled:
+                active[peer.address] = peer
+        self._peers = active
+
+    def register_peer(self, address: str, note: str = "", source: str = "ui") -> None:
+        self.storage.ensure_peer(
+            address,
+            last_seen=utc_timestamp(),
+            healthy=True,
+            enabled=True,
+            note=note,
+            source=source,
+        )
+        peer = self.storage.update_peer(
+            address,
+            enabled=True,
+            note=note,
+            last_seen=utc_timestamp(),
+            healthy=True,
+        )
+        if peer is None:
+            return
+        peer.source = source
+        self._peers[address] = peer
         self.metrics.update_peer_health(self.list_peers(), self._quorum())
         if self._gossip:
             events = self.storage.list_events(limit=256)
             for event in events:
                 self._gossip.add_pending(event.id)
+
+    def update_peer(self, address: str, *, enabled: Optional[bool] = None, note: Optional[str] = None) -> Optional[PeerInfo]:
+        peer = self.storage.update_peer(address, enabled=enabled, note=note)
+        self._reload_peers_from_storage()
+        self.metrics.update_peer_health(self.list_peers(), self._quorum())
+        return peer
+
+    def remove_peer(self, address: str) -> None:
+        self.storage.delete_peer(address)
+        self._reload_peers_from_storage()
+        self.metrics.update_peer_health(self.list_peers(), self._quorum())
 
     def _quorum(self) -> int:
         peers = len(self._peers) + 1
@@ -349,6 +393,33 @@ class Node:
                 names.add(host)
         return sorted(names)
 
+    def _known_node_identities(self) -> List[Dict[str, object]]:
+        identities: List[Dict[str, object]] = []
+        listen_host, listen_port = self.config.listen.split(":")
+        identities.append(
+            {
+                "subject_node_id": self.config.node_id,
+                "host_id": self.config.linux_ingest.host_id or self.config.node_id,
+                "runtime_hostname": socket.gethostname(),
+                "listen": self.config.listen,
+                "listen_host": listen_host,
+                "listen_port": int(listen_port),
+                "identity_scope": "self",
+            }
+        )
+        for peer in self.config.peers:
+            peer_host, _, peer_port = peer.partition(":")
+            identities.append(
+                {
+                    "subject_node_id": peer_host or peer,
+                    "configured_peer_address": peer,
+                    "configured_peer_host": peer_host or peer,
+                    "configured_peer_port": int(peer_port) if peer_port.isdigit() else peer_port,
+                    "identity_scope": "known_peer",
+                }
+            )
+        return identities
+
     def _build_bias_map(self) -> Dict[str, float]:
         ordered = self._all_known_nodes()
         bias_step = 0.001
@@ -359,25 +430,34 @@ class Node:
             # ensure anchors cached for restarts
             self._anchor_ids()
             return
-        payload = {"anchor": 0, "node": self.config.node_id, "genesis": True}
-        ts = self._deterministic_genesis_ts()
-        event = Event.create(
-            cls_name=EventClass.C,
-            source=self.config.node_id,
-            ts_local=ts,
-            vclock={},
-            parents=[],
-            payload=payload,
-        )
-        envelope = Envelope(
-            event=event, path_meta=[{"node": self.config.node_id, "ts": event.ts_local}]
-        )
-        event.consensus_ts = ts
-        self.storage.store_envelope(envelope, ts)
-        if self._gossip:
-            self._gossip.add_pending(event.id)
-        self._anchors = [event.id]
-        self._notify_viz(envelope.event, stored=True, metrics=self.metrics_snapshot())
+        anchors: List[str] = []
+        for index, identity in enumerate(self._known_node_identities()):
+            payload = {
+                "anchor": index,
+                "node": self.config.node_id,
+                "genesis": True,
+                "genesis_kind": "node_identity",
+                **identity,
+            }
+            ts = self._deterministic_genesis_ts()
+            event = Event.create(
+                cls_name=EventClass.C,
+                source=self.config.node_id,
+                ts_local=ts,
+                vclock={},
+                parents=[],
+                payload=payload,
+            )
+            envelope = Envelope(
+                event=event, path_meta=[{"node": self.config.node_id, "ts": event.ts_local}]
+            )
+            event.consensus_ts = ts
+            self.storage.store_envelope(envelope, ts)
+            if self._gossip:
+                self._gossip.add_pending(event.id)
+            anchors.append(event.id)
+            self._notify_viz(envelope.event, stored=True, metrics=self.metrics_snapshot())
+        self._anchors = anchors
 
     def _linux_ingest_state_path(self) -> str:
         configured = self.config.linux_ingest.state_path

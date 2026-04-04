@@ -1596,6 +1596,163 @@ VIZ_HTML = """
       letter-spacing: 0.08em;
       border-bottom: 1px solid rgba(255,255,255,0.06);
     }
+    #network-workbench {
+      margin-top: 1rem;
+    }
+    .network-shell {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .network-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .network-summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+    }
+    .network-stat {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.38rem 0.68rem;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.05);
+      color: var(--text-1);
+      font-size: 0.76rem;
+    }
+    .network-add-form {
+      display: grid;
+      grid-template-columns: minmax(260px, 1.5fr) minmax(220px, 1fr) auto;
+      gap: 0.65rem;
+      align-items: end;
+    }
+    .network-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    .network-field label {
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-3);
+    }
+    .network-field input {
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(10, 19, 29, 0.82);
+      color: #ffffff;
+      padding: 0.74rem 0.82rem;
+      font-size: 0.88rem;
+      outline: none;
+    }
+    .network-field input:focus {
+      border-color: rgba(106, 169, 255, 0.35);
+      box-shadow: 0 0 0 1px rgba(106, 169, 255, 0.18);
+    }
+    .network-action-btn {
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.04);
+      color: #ffffff;
+      border-radius: 14px;
+      padding: 0.74rem 0.95rem;
+      cursor: pointer;
+      font-size: 0.84rem;
+      transition: background 0.18s ease, transform 0.18s ease;
+    }
+    .network-action-btn.primary {
+      background: rgba(90, 165, 255, 0.14);
+      border-color: rgba(90, 165, 255, 0.22);
+      color: #b6d6ff;
+    }
+    .network-action-btn.warn {
+      background: rgba(255, 201, 113, 0.12);
+      border-color: rgba(255, 201, 113, 0.18);
+      color: #ffd78c;
+    }
+    .network-action-btn.danger {
+      background: rgba(255, 109, 109, 0.12);
+      border-color: rgba(255, 109, 109, 0.18);
+      color: #ffaaaa;
+    }
+    .network-action-btn:hover {
+      transform: translateY(-1px);
+      background: rgba(255,255,255,0.08);
+    }
+    .network-table-wrap {
+      overflow: auto;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,0.05);
+      background: rgba(9, 18, 29, 0.78);
+    }
+    .network-table {
+      width: 100%;
+      min-width: 980px;
+      border-collapse: collapse;
+    }
+    .network-table th,
+    .network-table td {
+      text-align: left;
+      padding: 0.82rem 0.9rem;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      vertical-align: middle;
+    }
+    .network-table th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: rgba(14, 25, 38, 0.96);
+      color: var(--text-3);
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .network-table td {
+      color: var(--text-1);
+      font-size: 0.86rem;
+    }
+    .network-mode-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.28rem 0.56rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: rgba(255,255,255,0.05);
+    }
+    .network-mode-pill.enabled {
+      color: #8cf0b8;
+      background: rgba(87, 227, 147, 0.1);
+      border-color: rgba(87, 227, 147, 0.18);
+    }
+    .network-mode-pill.disabled {
+      color: #ffd78c;
+      background: rgba(255, 201, 113, 0.1);
+      border-color: rgba(255, 201, 113, 0.18);
+    }
+    .network-note-input {
+      width: 100%;
+      min-width: 180px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.03);
+      color: #ffffff;
+      padding: 0.55rem 0.65rem;
+      font-size: 0.82rem;
+    }
+    .network-row-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+    }
     .incident-row-title, .incident-card-title { color: #ffffff; font-weight: 600; }
     .incident-mini, .incident-card-desc { display: block; margin-top: 0.18rem; color: var(--text-2); font-size: 0.74rem; line-height: 1.45; }
     .incident-table-note { color: var(--text-2); max-width: 220px; line-height: 1.45; }
@@ -1950,6 +2107,7 @@ VIZ_HTML = """
                 '<a class="nav-item" href="#source-summary"><span class="nav-item-group"><span class="nav-icon">◎</span><span class="nav-copy">Источники</span></span></a>' +
                 '<a class="nav-item" href="#controls"><span class="nav-item-group"><span class="nav-icon">▶</span><span class="nav-copy">Сценарии</span></span></a>' +
                 '<a class="nav-item" href="#filters"><span class="nav-item-group"><span class="nav-icon">≡</span><span class="nav-copy">Фильтры</span></span></a>' +
+                '<a class="nav-item" href="#network-workbench"><span class="nav-item-group"><span class="nav-icon">☷</span><span class="nav-copy">Участники сети</span></span></a>' +
                 '<a class="nav-item" id="incident-nav-item" href="#incident-workbench" style="display:none;"><span class="nav-item-group"><span class="nav-icon">▣</span><span class="nav-copy">Инциденты</span></span></a>' +
               '</div>' +
             '</div>' +
@@ -2227,6 +2385,32 @@ VIZ_HTML = """
             '</div>' +
           '</div>';
         body.appendChild(incidentModal);
+
+        var networkWorkbench = document.createElement('section');
+        networkWorkbench.id = 'network-workbench';
+        networkWorkbench.className = 'panel-surface';
+        networkWorkbench.innerHTML =
+          '<div class="network-shell">' +
+            '<div class="network-toolbar">' +
+              '<div>' +
+                '<h2 style="margin:0;font-size:1.08rem;">Участники сети</h2>' +
+                '<div class="panel-hint">Локальный реестр доверенных узлов: добавление, временное исключение и удаление участников из gossip-контура.</div>' +
+              '</div>' +
+              '<div class="network-summary">' +
+                '<span class="network-stat">Всего <strong id="network-peer-total">0</strong></span>' +
+                '<span class="network-stat">Активных <strong id="network-peer-enabled">0</strong></span>' +
+                '<span class="network-stat">Исключённых <strong id="network-peer-disabled">0</strong></span>' +
+              '</div>' +
+            '</div>' +
+            '<div class="network-add-form">' +
+              '<div class="network-field"><label for="network-address-input">Адрес узла</label><input id="network-address-input" type="text" placeholder="host:port" /></div>' +
+              '<div class="network-field"><label for="network-note-input">Заметка</label><input id="network-note-input" type="text" placeholder="Например: seed, резервный, скомпрометирован" /></div>' +
+              '<button class="network-action-btn primary" id="network-add-btn" type="button">Добавить участника</button>' +
+            '</div>' +
+            '<div id="network-status-line" class="panel-hint">Локальный реестр участников сети загружается…</div>' +
+            '<div id="network-table-view"></div>' +
+          '</div>';
+        main.appendChild(networkWorkbench);
       }
 
       try {
@@ -2357,6 +2541,15 @@ VIZ_HTML = """
       var incidentClassFilterState = { A: true, B: true, C: true };
       var incidentSearchQuery = '';
       var incidentGroupBy = '';
+      var networkTableViewEl = document.getElementById('network-table-view');
+      var networkPeerTotalEl = document.getElementById('network-peer-total');
+      var networkPeerEnabledEl = document.getElementById('network-peer-enabled');
+      var networkPeerDisabledEl = document.getElementById('network-peer-disabled');
+      var networkAddressInputEl = document.getElementById('network-address-input');
+      var networkNoteInputEl = document.getElementById('network-note-input');
+      var networkAddBtnEl = document.getElementById('network-add-btn');
+      var networkStatusLineEl = document.getElementById('network-status-line');
+      var peerRegistry = [];
       var navStateStorageKey = 'mdrj-dashboard-nav-collapsed';
 
       function setNavCollapsed(collapsed) {
@@ -2737,6 +2930,202 @@ VIZ_HTML = """
             '<input type="text" data-check-text-index="' + index + '" value="' + escapeHtml(valueOr(item.text, '')) + '" />';
           incidentChecklistEl.appendChild(row);
         });
+      }
+
+      function formatPeerLastSeen(value) {
+        var ts = Number(value);
+        if (!ts || isNaN(ts)) {
+          return '—';
+        }
+        return new Date(ts * 1000).toLocaleString('ru-RU', {
+          day: '2-digit',
+          month: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        });
+      }
+
+      function setNetworkStatus(message, isError) {
+        if (!networkStatusLineEl) {
+          return;
+        }
+        networkStatusLineEl.textContent = message;
+        networkStatusLineEl.style.color = isError ? '#ffaaaa' : '';
+      }
+
+      function renderPeerRegistry() {
+        if (!networkTableViewEl) {
+          return;
+        }
+        var total = peerRegistry.length;
+        var enabledCount = peerRegistry.filter(function (item) { return !!item.enabled; }).length;
+        var disabledCount = total - enabledCount;
+        setText(networkPeerTotalEl, String(total));
+        setText(networkPeerEnabledEl, String(enabledCount));
+        setText(networkPeerDisabledEl, String(disabledCount));
+        if (!total) {
+          networkTableViewEl.innerHTML = '<div class="incident-empty">Участники сети ещё не добавлены.</div>';
+          return;
+        }
+        var rows = peerRegistry.map(function (peer, index) {
+          var modeClass = peer.enabled ? 'enabled' : 'disabled';
+          var modeLabel = peer.enabled ? 'Включён' : 'Исключён';
+          var health = peer.healthy ? 'Доступен' : 'Нет подтверждения';
+          return '<tr data-peer-row="' + index + '">' +
+            '<td><strong>' + escapeHtml(valueOr(peer.address, '—')) + '</strong></td>' +
+            '<td><span class="network-mode-pill ' + modeClass + '">' + modeLabel + '</span></td>' +
+            '<td>' + escapeHtml(health) + '</td>' +
+            '<td>' + escapeHtml(formatPeerLastSeen(peer.last_seen)) + '</td>' +
+            '<td>' + escapeHtml(valueOr(peer.source, 'runtime')) + '</td>' +
+            '<td><input class="network-note-input" data-peer-note="' + escapeHtml(valueOr(peer.address, '')) + '" type="text" value="' + escapeHtml(valueOr(peer.note, '')) + '" /></td>' +
+            '<td><div class="network-row-actions">' +
+              '<button class="network-action-btn" data-peer-save="' + escapeHtml(valueOr(peer.address, '')) + '" type="button">Сохранить</button>' +
+              '<button class="network-action-btn ' + (peer.enabled ? 'warn' : 'primary') + '" data-peer-toggle="' + escapeHtml(valueOr(peer.address, '')) + '" data-peer-enabled="' + (peer.enabled ? '1' : '0') + '" type="button">' + (peer.enabled ? 'Исключить' : 'Вернуть') + '</button>' +
+              '<button class="network-action-btn danger" data-peer-remove="' + escapeHtml(valueOr(peer.address, '')) + '" type="button">Удалить</button>' +
+            '</div></td>' +
+          '</tr>';
+        }).join('');
+        networkTableViewEl.innerHTML =
+          '<div class="network-table-wrap">' +
+            '<table class="network-table">' +
+              '<thead><tr><th>Адрес</th><th>Режим</th><th>Состояние</th><th>Последняя связь</th><th>Источник</th><th>Заметка</th><th>Действия</th></tr></thead>' +
+              '<tbody>' + rows + '</tbody>' +
+            '</table>' +
+          '</div>';
+
+        Array.prototype.slice.call(networkTableViewEl.querySelectorAll('[data-peer-save]')).forEach(function (button) {
+          button.addEventListener('click', function () {
+            var address = button.getAttribute('data-peer-save');
+            var noteInput = networkTableViewEl.querySelector('[data-peer-note="' + address + '"]');
+            updatePeerRegistryEntry(address, { note: noteInput ? noteInput.value : '' }, 'Сохраняем заметку по участнику…');
+          });
+        });
+        Array.prototype.slice.call(networkTableViewEl.querySelectorAll('[data-peer-toggle]')).forEach(function (button) {
+          button.addEventListener('click', function () {
+            var address = button.getAttribute('data-peer-toggle');
+            var enabled = button.getAttribute('data-peer-enabled') === '1';
+            var noteInput = networkTableViewEl.querySelector('[data-peer-note="' + address + '"]');
+            updatePeerRegistryEntry(address, { enabled: !enabled, note: noteInput ? noteInput.value : '' }, enabled ? 'Исключаем участника из сети…' : 'Возвращаем участника в сеть…');
+          });
+        });
+        Array.prototype.slice.call(networkTableViewEl.querySelectorAll('[data-peer-remove]')).forEach(function (button) {
+          button.addEventListener('click', function () {
+            var address = button.getAttribute('data-peer-remove');
+            removePeerRegistryEntry(address);
+          });
+        });
+      }
+
+      function loadPeerRegistry() {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/peers', true);
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState !== 4) {
+            return;
+          }
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              var resp = JSON.parse(xhr.responseText);
+              peerRegistry = Array.isArray(resp.peers) ? resp.peers : [];
+              setNetworkStatus('Реестр участников сети синхронизирован.', false);
+              renderPeerRegistry();
+            } catch (err) {
+              setNetworkStatus('Не удалось разобрать ответ реестра участников.', true);
+            }
+          } else {
+            setNetworkStatus('Не удалось загрузить участников сети.', true);
+          }
+        };
+        xhr.onerror = function () {
+          setNetworkStatus('Ошибка сети при загрузке участников.', true);
+        };
+        xhr.send();
+      }
+
+      function addPeerRegistryEntry() {
+        var address = valueOr(networkAddressInputEl && networkAddressInputEl.value, '').trim();
+        var note = valueOr(networkNoteInputEl && networkNoteInputEl.value, '').trim();
+        if (!address) {
+          setNetworkStatus('Укажите адрес узла в формате host:port.', true);
+          return;
+        }
+        setNetworkStatus('Добавляем участника сети…', false);
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/peers/register', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState !== 4) {
+            return;
+          }
+          if (xhr.status >= 200 && xhr.status < 300) {
+            if (networkAddressInputEl) { networkAddressInputEl.value = ''; }
+            if (networkNoteInputEl) { networkNoteInputEl.value = ''; }
+            setNetworkStatus('Участник добавлен в локальный реестр.', false);
+            loadPeerRegistry();
+            fetchNodeStatus();
+          } else {
+            setNetworkStatus('Не удалось добавить участника.', true);
+          }
+        };
+        xhr.onerror = function () {
+          setNetworkStatus('Ошибка сети при добавлении участника.', true);
+        };
+        xhr.send(JSON.stringify({ address: address, note: note }));
+      }
+
+      function updatePeerRegistryEntry(address, payload, pendingText) {
+        if (!address) {
+          return;
+        }
+        setNetworkStatus(pendingText || 'Обновляем участника сети…', false);
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/peers/update', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState !== 4) {
+            return;
+          }
+          if (xhr.status >= 200 && xhr.status < 300) {
+            setNetworkStatus('Участник сети обновлён.', false);
+            loadPeerRegistry();
+            fetchNodeStatus();
+          } else {
+            setNetworkStatus('Не удалось обновить участника сети.', true);
+          }
+        };
+        xhr.onerror = function () {
+          setNetworkStatus('Ошибка сети при обновлении участника.', true);
+        };
+        var body = cloneData(payload) || {};
+        body.address = address;
+        xhr.send(JSON.stringify(body));
+      }
+
+      function removePeerRegistryEntry(address) {
+        if (!address) {
+          return;
+        }
+        setNetworkStatus('Удаляем участника сети…', false);
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/peers/remove', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState !== 4) {
+            return;
+          }
+          if (xhr.status >= 200 && xhr.status < 300) {
+            setNetworkStatus('Участник удалён из локального реестра.', false);
+            loadPeerRegistry();
+            fetchNodeStatus();
+          } else {
+            setNetworkStatus('Не удалось удалить участника.', true);
+          }
+        };
+        xhr.onerror = function () {
+          setNetworkStatus('Ошибка сети при удалении участника.', true);
+        };
+        xhr.send(JSON.stringify({ address: address }));
       }
 
       function escapeHtml(value) {
@@ -3248,12 +3637,25 @@ VIZ_HTML = """
       if (incidentAddCheckBtnEl) {
         incidentAddCheckBtnEl.addEventListener('click', addIncidentChecklistItem);
       }
+      if (networkAddBtnEl) {
+        networkAddBtnEl.addEventListener('click', addPeerRegistryEntry);
+      }
+      if (networkAddressInputEl) {
+        networkAddressInputEl.addEventListener('keydown', function (event) {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            addPeerRegistryEntry();
+          }
+        });
+      }
       if (analyticsModalCloseEl) {
         analyticsModalCloseEl.addEventListener('click', closeAnalyticsModal);
       }
       if (analyticsModalBackdropEl) {
         analyticsModalBackdropEl.addEventListener('click', closeAnalyticsModal);
       }
+      renderPeerRegistry();
+      loadPeerRegistry();
 
       function openDetailsPanel() {
         if (!detailsPanel) {
@@ -6145,15 +6547,42 @@ async def handle_register_peer(request: web.Request) -> web.Response:
     node = request.app["node"]
     payload = await request.json()
     address = payload.get("address")
+    note = str(payload.get("note", "") or "")
     if not address:
         raise web.HTTPBadRequest(text="missing address")
-    node.register_peer(address)
+    node.register_peer(address, note=note, source="ui")
+    return web.json_response({"status": "ok", "peers": [peer.to_dict() for peer in node.list_peer_registry()]})
+
+
+async def handle_update_peer(request: web.Request) -> web.Response:
+    node = request.app["node"]
+    payload = await request.json()
+    address = payload.get("address")
+    if not address:
+        raise web.HTTPBadRequest(text="missing address")
+    enabled_raw = payload.get("enabled")
+    enabled = None if enabled_raw is None else bool(enabled_raw)
+    note = payload.get("note")
+    note_value = None if note is None else str(note)
+    peer = node.update_peer(address, enabled=enabled, note=note_value)
+    if peer is None:
+        raise web.HTTPNotFound(text="unknown peer")
+    return web.json_response({"status": "ok", "peer": peer.to_dict()})
+
+
+async def handle_remove_peer(request: web.Request) -> web.Response:
+    node = request.app["node"]
+    payload = await request.json()
+    address = payload.get("address")
+    if not address:
+        raise web.HTTPBadRequest(text="missing address")
+    node.remove_peer(address)
     return web.json_response({"status": "ok"})
 
 
 async def handle_peers(request: web.Request) -> web.Response:
     node = request.app["node"]
-    return web.json_response({"peers": [peer.to_dict() for peer in node.list_peers()]})
+    return web.json_response({"peers": [peer.to_dict() for peer in node.list_peer_registry()]})
 
 
 async def handle_dag(request: web.Request) -> web.Response:
@@ -6220,6 +6649,8 @@ def build_app(node) -> web.Application:
             web.get("/status", handle_status),
             web.get("/metrics", handle_metrics),
             web.post("/peers/register", handle_register_peer),
+            web.post("/peers/update", handle_update_peer),
+            web.post("/peers/remove", handle_remove_peer),
             web.get("/peers", handle_peers),
             web.get("/viz", handle_viz_page),
             web.get("/viz/graph", handle_viz_graph),

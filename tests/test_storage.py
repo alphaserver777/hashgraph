@@ -1,6 +1,8 @@
 from mdrj.models import Envelope, Event, EventClass
 from mdrj.storage import DAGStorage
 from mdrj.utils import utc_timestamp
+from mdrj.config import load_config
+from mdrj.node import Node
 
 
 def make_anchor(idx: int) -> Envelope:
@@ -53,3 +55,59 @@ def test_storage_append_and_query(tmp_path):
     assert removed >= 0
 
     storage.close()
+
+
+def test_bootstrap_genesis_contains_node_identity_for_known_nodes(tmp_path):
+    config_path = tmp_path / "node.yaml"
+    db_path = tmp_path / "node.db"
+    config_path.write_text(
+        "\n".join(
+            [
+                'node_id: "node-1"',
+                'listen: "0.0.0.0:9001"',
+                "peers:",
+                '  - "node2.example.net:9002"',
+                '  - "node3.example.net:9003"',
+                'profile:',
+                '  role: "light"',
+                "  memory_mb: 128",
+                "  bw_kbps: 256",
+                "  cpu_quota: 0.7",
+                '  threat_level: "LOW"',
+                "gossip:",
+                "  period_sec: 1.0",
+                "  fan_out: 1",
+                "prioritization:",
+                '  level_threshold_B: "ELEV"',
+                "  max_batch_bytes: 32768",
+                "security: {}",
+                "storage:",
+                f'  sqlite_path: "{db_path}"',
+            ]
+        ),
+        encoding="utf-8",
+    )
+    node = Node(load_config(config_path))
+    node._bootstrap_genesis(force=True)
+
+    events = node.storage.all_events()
+    payloads = [event.payload for event in events if event.payload.get("genesis")]
+
+    assert len(payloads) == 3
+    assert any(
+        payload.get("identity_scope") == "self"
+        and payload.get("subject_node_id") == "node-1"
+        and payload.get("listen") == "0.0.0.0:9001"
+        for payload in payloads
+    )
+    assert any(
+        payload.get("identity_scope") == "known_peer"
+        and payload.get("configured_peer_address") == "node2.example.net:9002"
+        for payload in payloads
+    )
+    assert any(
+        payload.get("identity_scope") == "known_peer"
+        and payload.get("configured_peer_address") == "node3.example.net:9003"
+        for payload in payloads
+    )
+    node.storage.close()
