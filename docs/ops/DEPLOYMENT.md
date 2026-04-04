@@ -129,6 +129,17 @@ AUTH_LOG_BIND_PATH=/var/log/auth.log
 - Сброс `docker compose down -v` удаляет локальную SQLite-базу и состояние ingestion на конкретном узле.
 - Для reproducible rollout использовать только зафиксированный commit SHA.
 
+#### Требование Ко Времени Узлов
+- Все внешние узлы стенда обязаны иметь:
+  - включённую NTP-синхронизацию системных часов;
+  - локальную временную зону `Europe/Moscow`.
+- Базовые команды проверки:
+  - `timedatectl show -p Timezone -p NTP -p NTPSynchronized -p SystemClockSynchronized`
+- Базовые команды применения:
+  - `timedatectl set-timezone Europe/Moscow`
+  - `timedatectl set-ntp true`
+- Это правило нужно для одинакового операционного чтения логов, UI и ручной проверки событий на стенде.
+
 #### Фактически Проверенное Состояние Стенда
 - По состоянию на `2026-04-04` внешний стенд был поднят на:
   - `Germany` (`64.188.64.23`)
@@ -140,6 +151,7 @@ AUTH_LOG_BIND_PATH=/var/log/auth.log
   - оба узла видят друг друга в `/peers`;
   - реальные события `admin_ssh_login_success` из `auth.log` создаются на обоих узлах;
   - эти события реплицируются между двумя внешними узлами и видны в SQLite каждого узла.
+  - оба узла используют `Europe/Moscow` и сообщают `NTP=yes`, `NTPSynchronized=yes`.
 
 ### Demo-Сценарий Baseline
 - Профиль Compose:
