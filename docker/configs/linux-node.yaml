@@ -1,0 +1,32 @@
+node_id: "${NODE_ID}"
+listen: "${LISTEN:-0.0.0.0:9011}"
+peers: "${PEERS:-}"
+profile:
+  role: "${NODE_ROLE:-light}"
+  memory_mb: ${MEMORY_MB:-128}
+  bw_kbps: ${BW_KBPS:-256}
+  cpu_quota: ${CPU_QUOTA:-0.7}
+  threat_level: "${THREAT_LEVEL:-LOW}"
+gossip:
+  period_sec: ${GOSSIP_PERIOD_SEC:-1.0}
+  fan_out: ${GOSSIP_FAN_OUT:-1}
+prioritization:
+  level_threshold_B: "${LEVEL_THRESHOLD_B:-ELEV}"
+  max_batch_bytes: ${MAX_BATCH_BYTES:-32768}
+security:
+  hmac_key: "${HMAC_KEY:-linux-demo-key}"
+storage:
+  sqlite_path: "${SQLITE_PATH:-/data/node.db}"
+linux_ingest:
+  enabled: ${LINUX_INGEST_ENABLED:-true}
+  source_type: "${LINUX_SOURCE_TYPE:-auth_log_file}"
+  auth_log_path: "${AUTH_LOG_PATH:-/host-logs/auth.log}"
+  poll_interval_sec: ${LINUX_POLL_INTERVAL_SEC:-1.0}
+  host_id: "${HOST_ID:-}"
+  admin_users:
+    - "${ADMIN_USER_1:-root}"
+    - "${ADMIN_USER_2:-admin}"
+  privileged_groups:
+    - "${PRIV_GROUP_1:-sudo}"
+    - "${PRIV_GROUP_2:-wheel}"
+  state_path: "${LINUX_STATE_PATH:-/data/linux-ingest-state.json}"

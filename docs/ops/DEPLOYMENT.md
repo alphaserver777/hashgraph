@@ -44,20 +44,84 @@
 ### Docker Compose Linux Bootstrap
 - Файлы:
   - `docker-compose.yaml`
-  - `docker/configs/linux-node1.yaml`
+  - `docker/configs/linux-node.yaml`
   - `docker/linux-fixtures/auth.log`
 - Профиль:
   - `linux-node`
 - Команда запуска:
-  - `docker compose --profile linux-node up --build -d linux-node1`
+  - `docker compose --profile linux-node up --build -d linux-node`
 - Порты:
-  - `localhost:9111 -> linux-node1:9011`
+  - по умолчанию `localhost:9111 -> linux-node:9011`, но bind задаётся env-переменной
 - Данные:
-  - отдельный Docker volume `linux-node1-data`
+  - отдельный Docker volume `linux-node-data` по умолчанию, но имя тоже может задаваться env-переменной
 - Источник первого сигнала:
-  - read-only fixture `auth.log`, примонтированный в `/host-logs/auth.log`
+  - read-only `auth.log`, путь задаётся env-переменной
 - Назначение:
   - технический bootstrap для первого vertical slice Linux ingestion, а не production deploy
+- Важный принцип:
+  - используется один универсальный YAML-конфиг узла и один compose-сервис;
+  - различия между серверами задаются через env-переменные (`NODE_ID`, `HOST_ID`, `LISTEN`, `PEERS`, пути и порты)
+
+### Внешний Испытательный Стенд На Два Linux-Хоста
+- Назначение:
+  - проверить первый внешний контур репликации и ingestion на двух публично доступных Linux-серверах;
+  - не считать этот контур production-ready до появления TLS, более сильной модели доверия и нормального release-процесса.
+- Модель:
+  - на каждом хосте запускается один контейнер `linux-node`;
+  - каждый контейнер использует один и тот же `docker/configs/linux-node.yaml`;
+  - различия задаются только env-переменными конкретного сервера.
+- Подтверждённые внешние узлы стенда:
+  - `Germany` (`64.188.64.23`)
+  - `Zomro` (`46.21.250.147`)
+- Минимальные требования:
+  - установлен `docker` и `docker compose`;
+  - доступен читаемый `auth.log` на хосте;
+  - открыт только порт runtime узла для второго стендового сервера и для оператора;
+  - доступ к UI/API не публикуется на весь интернет без firewall-ограничений.
+
+#### Переменные Для Germany
+```bash
+NODE_ID=linux-node-germany
+HOST_ID=germany-host
+LISTEN=0.0.0.0:9011
+LINUX_CONTAINER_PORT=9011
+LINUX_PORT_BIND=9111
+LINUX_CONTAINER_NAME=mdrj-linux-node-germany
+LINUX_DATA_VOLUME=linux-node-germany-data
+PEERS=46.21.250.147:9011
+AUTH_LOG_BIND_PATH=/var/log/auth.log
+```
+
+#### Переменные Для Zomro
+```bash
+NODE_ID=linux-node-zomro
+HOST_ID=zomro-host
+LISTEN=0.0.0.0:9011
+LINUX_CONTAINER_PORT=9011
+LINUX_PORT_BIND=9111
+LINUX_CONTAINER_NAME=mdrj-linux-node-zomro
+LINUX_DATA_VOLUME=linux-node-zomro-data
+PEERS=64.188.64.23:9011
+AUTH_LOG_BIND_PATH=/var/log/auth.log
+```
+
+#### Порядок Развёртывания На Каждом Хосте
+1. Развернуть зафиксированный commit нужной ветки репозитория.
+2. Подставить env-переменные узла.
+3. Запустить:
+   - `docker compose --profile linux-node up --build -d linux-node`
+4. Проверить:
+   - `curl http://127.0.0.1:<port>/status`
+   - `curl http://127.0.0.1:<port>/peers`
+   - `http://<host>:<port>/viz`
+5. На одном из серверов выполнить реальный успешный административный SSH-вход.
+6. Убедиться, что `admin_ssh_login_success` появился на локальном узле и затем реплицировался на второй.
+
+#### Ограничения И Риски Стенда
+- Пока нет TLS и подтверждённой mutual auth-модели для внешней сети.
+- Поэтому стенд нужно считать внешним испытательным, а не production.
+- Сброс `docker compose down -v` удаляет локальную SQLite-базу и состояние ingestion на конкретном узле.
+- Для reproducible rollout использовать только зафиксированный commit SHA.
 
 ### Demo-Сценарий Baseline
 - Профиль Compose:

@@ -104,9 +104,9 @@
 В первой версии это может быть отдельный compose-файл, отдельный профиль или отдельный сервис, но в задаче и коде это должно быть оформлено однозначно.
 
 Фактически выбранный вариант для первого среза:
-- отдельный сервис `linux-node1` в `docker-compose.yaml`;
+- отдельный сервис `linux-node` в `docker-compose.yaml`;
 - отдельный профиль `linux-node`;
-- отдельный конфиг `docker/configs/linux-node1.yaml`;
+- отдельный универсальный конфиг `docker/configs/linux-node.yaml`;
 - входной источник для первой версии: файл `auth.log`, примонтированный в контейнер как read-only fixture.
 
 ### 6. Видимость в UI
@@ -161,7 +161,7 @@
 Фактически выполненная verification:
 - `python -m py_compile mdrj/api.py mdrj/node.py mdrj/linux_ingest.py mdrj/simulation.py mdrj/event_catalog.py`
 - unit-smoke через новый парсер и stateful ingestion в `tests/test_linux_ingest.py` подготовлен, но `pytest` в текущем окружении отсутствует
-- runtime-контур разведен по конфигам: demo `docker/configs/node*.yaml` и Linux-mode `docker/configs/linux-node1.yaml`
+- runtime-контур разведен по конфигам: demo `docker/configs/node*.yaml` и Linux-mode `docker/configs/linux-node.yaml`
 
 Невыполненная часть verification:
 - ручной запуск Docker-профиля `linux-node` в текущем окружении ещё не подтверждён

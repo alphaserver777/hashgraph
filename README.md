@@ -105,10 +105,16 @@ docker compose --profile demo-baseline up demo-baseline
 Для первого вертикального среза реального Linux ingestion в `docker-compose.yaml` есть отдельный профиль `linux-node`:
 
 ```bash
-docker compose --profile linux-node up --build -d linux-node1
+NODE_ID=linux-node-1 \
+HOST_ID=linux-host-1 \
+LISTEN=0.0.0.0:9011 \
+LINUX_CONTAINER_PORT=9011 \
+LINUX_PORT_BIND=9111 \
+PEERS= \
+docker compose --profile linux-node up --build -d linux-node
 ```
 
-Этот режим не заменяет demo-кластер. Он поднимает отдельный self-contained узел на `http://localhost:9111/viz`, читает примонтированный `auth.log` fixture и публикует минимальный production-oriented сигнал `admin_ssh_login_success` во внутренний DAG. Пока это только bootstrap-режим для одного file-based сигнала, а не полный production ingestion.
+Этот режим не заменяет demo-кластер. Он поднимает отдельный self-contained узел, читает примонтированный `auth.log` и публикует минимальный production-oriented сигнал `admin_ssh_login_success` во внутренний DAG. Используется один универсальный конфиг `docker/configs/linux-node.yaml`; различия между серверами задаются env-переменными.
 
 ## Running a Local Cluster
 Use the helper script to spawn N nodes on one machine (default N=3, ports 9001+):

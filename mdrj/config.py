@@ -1,6 +1,8 @@
 """Configuration loader for MDRJ-DAG nodes."""
 from __future__ import annotations
 
+import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
@@ -67,7 +69,32 @@ class NodeConfig:
 
 def _read_yaml(path: Path) -> dict:
     with path.open("r", encoding="utf-8") as fp:
-        return yaml.safe_load(fp)
+        return yaml.safe_load(_expand_env_vars(fp.read()))
+
+
+ENV_PATTERN = re.compile(r"\$\{(?P<name>[A-Z0-9_]+)(?::-?(?P<default>[^}]*))?\}")
+
+
+def _expand_env_vars(text: str) -> str:
+    def _replace(match: re.Match[str]) -> str:
+        name = match.group("name")
+        default = match.group("default")
+        value = os.environ.get(name)
+        if value is not None:
+            return value
+        return default or ""
+
+    return ENV_PATTERN.sub(_replace, text)
+
+
+def _parse_peers(raw_peers: object) -> List[str]:
+    if raw_peers is None:
+        return []
+    if isinstance(raw_peers, list):
+        return [str(item).strip() for item in raw_peers if str(item).strip()]
+    if isinstance(raw_peers, str):
+        return [item.strip() for item in raw_peers.split(",") if item.strip()]
+    return []
 
 
 def load_config(path: str | Path) -> NodeConfig:
@@ -103,7 +130,7 @@ def load_config(path: str | Path) -> NodeConfig:
     return NodeConfig(
         node_id=raw["node_id"],
         listen=raw["listen"],
-        peers=list(raw.get("peers", [])),
+        peers=_parse_peers(raw.get("peers", [])),
         profile=profile,
         gossip=gossip,
         prioritization=prioritization,
