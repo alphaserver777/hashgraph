@@ -20,7 +20,14 @@ from .consensus import ConsensusEngine
 from .gossip import GossipEngine
 from .linux_ingest import LinuxAuthLogIngestor, LinuxIngestStatus
 from .metrics import MetricsEngine
-from .models import Envelope, Event, EventClass, PeerInfo
+from .models import (
+    NODE_ROLE_NODE,
+    Envelope,
+    Event,
+    EventClass,
+    PeerInfo,
+    normalize_node_role,
+)
 from .prioritization import Prioritizer
 from .simulation import SCENARIOS, scenario_payload
 from .storage import DAGStorage
@@ -49,11 +56,21 @@ class Node:
         self.config = config
         self.state = NodeState.STARTED
         self.storage = DAGStorage(config.storage.sqlite_path)
+        self._self_registry_address = f"self:{config.node_id}"
         self.vector_clock = VectorClock()
         self.consensus = ConsensusEngine(config.node_id, bias_map=self._build_bias_map())
         self.prioritizer = Prioritizer(config.profile, config.gossip, config.prioritization)
         self.metrics = MetricsEngine(
             self.storage, config.gossip, config.profile.memory_mb, config.profile.bw_kbps
+        )
+        self.storage.ensure_peer(
+            self._self_registry_address,
+            last_seen=utc_timestamp(),
+            healthy=True,
+            enabled=True,
+            note="Текущий узел",
+            source="self",
+            role=normalize_node_role(config.profile.role),
         )
         for peer_address in config.peers:
             self.storage.ensure_peer(
@@ -62,6 +79,7 @@ class Node:
                 healthy=True,
                 enabled=True,
                 source="config",
+                role=NODE_ROLE_NODE,
             )
         self._peers: Dict[str, PeerInfo] = {}
         self._reload_peers_from_storage()
@@ -176,11 +194,20 @@ class Node:
     def _reload_peers_from_storage(self) -> None:
         active: Dict[str, PeerInfo] = {}
         for peer in self.storage.list_peers():
-            if peer.enabled:
+            if peer.enabled and not peer.is_self:
                 active[peer.address] = peer
         self._peers = active
 
-    def register_peer(self, address: str, note: str = "", source: str = "ui") -> None:
+    def current_role(self) -> str:
+        for peer in self.storage.list_peers():
+            if peer.is_self:
+                return normalize_node_role(peer.role)
+        return normalize_node_role(self.config.profile.role)
+
+    def _current_profile_role(self) -> str:
+        return self.current_role()
+
+    def register_peer(self, address: str, note: str = "", source: str = "ui", role: str = NODE_ROLE_NODE) -> None:
         self.storage.ensure_peer(
             address,
             last_seen=utc_timestamp(),
@@ -188,6 +215,7 @@ class Node:
             enabled=True,
             note=note,
             source=source,
+            role=role,
         )
         peer = self.storage.update_peer(
             address,
@@ -195,6 +223,7 @@ class Node:
             note=note,
             last_seen=utc_timestamp(),
             healthy=True,
+            role=role,
         )
         if peer is None:
             return
@@ -206,13 +235,32 @@ class Node:
             for event in events:
                 self._gossip.add_pending(event.id)
 
-    def update_peer(self, address: str, *, enabled: Optional[bool] = None, note: Optional[str] = None) -> Optional[PeerInfo]:
-        peer = self.storage.update_peer(address, enabled=enabled, note=note)
+    def update_peer(
+        self,
+        address: str,
+        *,
+        enabled: Optional[bool] = None,
+        note: Optional[str] = None,
+        role: Optional[str] = None,
+    ) -> Optional[PeerInfo]:
+        if address == self._self_registry_address:
+            peer = self.storage.update_peer(
+                address,
+                enabled=True,
+                note=note,
+                role=role,
+                last_seen=utc_timestamp(),
+                healthy=True,
+            )
+        else:
+            peer = self.storage.update_peer(address, enabled=enabled, note=note, role=role)
         self._reload_peers_from_storage()
         self.metrics.update_peer_health(self.list_peers(), self._quorum())
         return peer
 
     def remove_peer(self, address: str) -> None:
+        if address == self._self_registry_address:
+            return
         self.storage.delete_peer(address)
         self._reload_peers_from_storage()
         self.metrics.update_peer_health(self.list_peers(), self._quorum())
@@ -850,7 +898,7 @@ class Node:
             "state": self.state.value,
             "peers": [peer.to_dict() for peer in self.list_peers()],
             "profile": {
-                "role": self.config.profile.role,
+                "role": self._current_profile_role(),
                 "memory_mb": self.config.profile.memory_mb,
                 "bw_kbps": self.config.profile.bw_kbps,
                 "threat_level": self.config.profile.threat_level,

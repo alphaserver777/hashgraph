@@ -4,7 +4,7 @@ peers:
   - "node1:9001"
   - "node3:9003"
 profile:
-  role: "medium"
+  role: "node"
   memory_mb: 256
   bw_kbps: 512
   cpu_quota: 1.0

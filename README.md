@@ -143,7 +143,7 @@ Configuration files are generated under `configs/demo/`, logs under `logs/`. Man
    - Emit events separately, then heal.
    - Watch `metrics` for `K_r ≥ 0.95`; the total order remains deterministic (`/dag`).
 3. **Quota enforcement**
-   - Configure a node with `profile.role=light`, low `bw_kbps`.
+   - Configure a node with `profile.role=node`, low `bw_kbps`.
    - Flood with `mdrj emit` events (`--cls C`); `metrics` show `C_net ≤ 1` while `A` events always deliver.
 4. **Node failures**
    - Start ≥5 nodes, stop one process.

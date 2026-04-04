@@ -9,7 +9,7 @@ from typing import List, Optional
 
 import yaml
 
-from .models import NodeProfile
+from .models import NodeProfile, normalize_node_role
 
 
 @dataclass(slots=True)
@@ -100,7 +100,7 @@ def _parse_peers(raw_peers: object) -> List[str]:
 def load_config(path: str | Path) -> NodeConfig:
     raw = _read_yaml(Path(path))
     profile = NodeProfile(
-        role=raw["profile"]["role"],
+        role=normalize_node_role(raw["profile"]["role"]),
         memory_mb=int(raw["profile"]["memory_mb"]),
         bw_kbps=int(raw["profile"]["bw_kbps"]),
         cpu_quota=float(raw["profile"].get("cpu_quota", 1.0)),

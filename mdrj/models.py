@@ -8,6 +8,17 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional
 
 from .utils import canonical_json, compute_event_id
 
+NODE_ROLE_NODE = "node"
+NODE_ROLE_RESPONDER = "responder"
+NODE_ROLES = {NODE_ROLE_NODE, NODE_ROLE_RESPONDER}
+
+
+def normalize_node_role(value: object) -> str:
+    text = str(value or "").strip().lower()
+    if text in NODE_ROLES:
+        return text
+    return NODE_ROLE_NODE
+
 
 class EventClass(str, Enum):
     A = "A"
@@ -168,6 +179,8 @@ class PeerInfo:
     enabled: bool = True
     note: str = ""
     source: str = "runtime"
+    role: str = NODE_ROLE_NODE
+    is_self: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -177,4 +190,6 @@ class PeerInfo:
             "enabled": self.enabled,
             "note": self.note,
             "source": self.source,
+            "role": normalize_node_role(self.role),
+            "is_self": self.is_self,
         }

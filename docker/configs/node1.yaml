@@ -4,7 +4,7 @@ peers:
   - "node2:9002"
   - "node3:9003"
 profile:
-  role: "light"
+  role: "responder"
   memory_mb: 128
   bw_kbps: 256
   cpu_quota: 0.7

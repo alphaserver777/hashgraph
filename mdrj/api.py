@@ -739,6 +739,16 @@ VIZ_HTML = """
       color: #ffffff;
       font-weight: 600;
     }
+    .role-value-link {
+      color: #d9e9ff;
+      text-decoration: none;
+      border-bottom: 1px dashed rgba(106, 169, 255, 0.42);
+      padding-bottom: 1px;
+    }
+    .role-value-link:hover {
+      color: #ffffff;
+      border-bottom-color: rgba(154, 197, 255, 0.78);
+    }
     #metrics {
       margin-top: 0;
       font-family: 'IBM Plex Mono', 'JetBrains Mono', monospace;
@@ -1748,6 +1758,15 @@ VIZ_HTML = """
       padding: 0.55rem 0.65rem;
       font-size: 0.82rem;
     }
+    .network-role-select {
+      min-width: 150px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.03);
+      color: #ffffff;
+      padding: 0.55rem 0.65rem;
+      font-size: 0.82rem;
+    }
     .network-row-actions {
       display: flex;
       flex-wrap: wrap;
@@ -2404,6 +2423,7 @@ VIZ_HTML = """
             '</div>' +
             '<div class="network-add-form">' +
               '<div class="network-field"><label for="network-address-input">Адрес узла</label><input id="network-address-input" type="text" placeholder="host:port" /></div>' +
+              '<div class="network-field"><label for="network-role-input">Роль</label><select id="network-role-input"><option value="node">Участник сети</option><option value="responder">Реагирование</option></select></div>' +
               '<div class="network-field"><label for="network-note-input">Заметка</label><input id="network-note-input" type="text" placeholder="Например: seed, резервный, скомпрометирован" /></div>' +
               '<button class="network-action-btn primary" id="network-add-btn" type="button">Добавить участника</button>' +
             '</div>' +
@@ -2531,7 +2551,6 @@ VIZ_HTML = """
       var lastSourceCount = 0;
       var analyticsModalKind = null;
       var incidentView = 'table';
-      var incidentOperatorNodeId = 'node-1';
       var incidentEnabled = false;
       var incidentDraftId = null;
       var incidents = [];
@@ -2546,6 +2565,7 @@ VIZ_HTML = """
       var networkPeerEnabledEl = document.getElementById('network-peer-enabled');
       var networkPeerDisabledEl = document.getElementById('network-peer-disabled');
       var networkAddressInputEl = document.getElementById('network-address-input');
+      var networkRoleInputEl = document.getElementById('network-role-input');
       var networkNoteInputEl = document.getElementById('network-note-input');
       var networkAddBtnEl = document.getElementById('network-add-btn');
       var networkStatusLineEl = document.getElementById('network-status-line');
@@ -2954,6 +2974,33 @@ VIZ_HTML = """
         networkStatusLineEl.style.color = isError ? '#ffaaaa' : '';
       }
 
+      function normalizeNodeRole(role) {
+        return role === 'responder' ? 'responder' : 'node';
+      }
+
+      function formatNodeRoleLabel(role) {
+        return normalizeNodeRole(role) === 'responder' ? 'Реагирование' : 'Участник сети';
+      }
+
+      function isResponderRole(role) {
+        return normalizeNodeRole(role) === 'responder';
+      }
+
+      function renderRoleValue(targetEl, role) {
+        if (!targetEl) {
+          return;
+        }
+        targetEl.innerHTML = '<a href="#network-workbench" class="role-value-link">' + escapeHtml(formatNodeRoleLabel(role)) + '</a>';
+      }
+
+      function buildRoleSelectMarkup(address, role, disabled) {
+        var current = normalizeNodeRole(role);
+        return '<select class="network-role-select" data-peer-role="' + escapeHtml(valueOr(address, '')) + '"' + (disabled ? ' disabled' : '') + '>' +
+          '<option value="node"' + (current === 'node' ? ' selected' : '') + '>Участник сети</option>' +
+          '<option value="responder"' + (current === 'responder' ? ' selected' : '') + '>Реагирование</option>' +
+        '</select>';
+      }
+
       function renderPeerRegistry() {
         if (!networkTableViewEl) {
           return;
@@ -2970,26 +3017,35 @@ VIZ_HTML = """
         }
         var rows = peerRegistry.map(function (peer, index) {
           var modeClass = peer.enabled ? 'enabled' : 'disabled';
-          var modeLabel = peer.enabled ? 'Включён' : 'Исключён';
+          var modeLabel = peer.is_self ? 'Текущий узел' : (peer.enabled ? 'Включён' : 'Исключён');
           var health = peer.healthy ? 'Доступен' : 'Нет подтверждения';
+          var addressLabel = peer.is_self ? ('Текущий узел · ' + valueOr(lastStatusSnapshot && lastStatusSnapshot.node_id, valueOr(peer.address, '—'))) : valueOr(peer.address, '—');
+          var addressKey = escapeHtml(valueOr(peer.address, ''));
+          var roleSelect = buildRoleSelectMarkup(peer.address, peer.role, false);
+          var noteInput = '<input class="network-note-input" data-peer-note="' + addressKey + '" type="text" value="' + escapeHtml(valueOr(peer.note, '')) + '" />';
+          var actionButtons = '<div class="network-row-actions">' +
+              '<button class="network-action-btn" data-peer-save="' + addressKey + '" type="button">Сохранить</button>';
+          if (!peer.is_self) {
+            actionButtons +=
+              '<button class="network-action-btn ' + (peer.enabled ? 'warn' : 'primary') + '" data-peer-toggle="' + addressKey + '" data-peer-enabled="' + (peer.enabled ? '1' : '0') + '" type="button">' + (peer.enabled ? 'Исключить' : 'Вернуть') + '</button>' +
+              '<button class="network-action-btn danger" data-peer-remove="' + addressKey + '" type="button">Удалить</button>';
+          }
+          actionButtons += '</div>';
           return '<tr data-peer-row="' + index + '">' +
-            '<td><strong>' + escapeHtml(valueOr(peer.address, '—')) + '</strong></td>' +
+            '<td><strong>' + escapeHtml(addressLabel) + '</strong></td>' +
+            '<td>' + roleSelect + '</td>' +
             '<td><span class="network-mode-pill ' + modeClass + '">' + modeLabel + '</span></td>' +
             '<td>' + escapeHtml(health) + '</td>' +
             '<td>' + escapeHtml(formatPeerLastSeen(peer.last_seen)) + '</td>' +
             '<td>' + escapeHtml(valueOr(peer.source, 'runtime')) + '</td>' +
-            '<td><input class="network-note-input" data-peer-note="' + escapeHtml(valueOr(peer.address, '')) + '" type="text" value="' + escapeHtml(valueOr(peer.note, '')) + '" /></td>' +
-            '<td><div class="network-row-actions">' +
-              '<button class="network-action-btn" data-peer-save="' + escapeHtml(valueOr(peer.address, '')) + '" type="button">Сохранить</button>' +
-              '<button class="network-action-btn ' + (peer.enabled ? 'warn' : 'primary') + '" data-peer-toggle="' + escapeHtml(valueOr(peer.address, '')) + '" data-peer-enabled="' + (peer.enabled ? '1' : '0') + '" type="button">' + (peer.enabled ? 'Исключить' : 'Вернуть') + '</button>' +
-              '<button class="network-action-btn danger" data-peer-remove="' + escapeHtml(valueOr(peer.address, '')) + '" type="button">Удалить</button>' +
-            '</div></td>' +
+            '<td>' + noteInput + '</td>' +
+            '<td>' + actionButtons + '</td>' +
           '</tr>';
         }).join('');
         networkTableViewEl.innerHTML =
           '<div class="network-table-wrap">' +
             '<table class="network-table">' +
-              '<thead><tr><th>Адрес</th><th>Режим</th><th>Состояние</th><th>Последняя связь</th><th>Источник</th><th>Заметка</th><th>Действия</th></tr></thead>' +
+              '<thead><tr><th>Адрес</th><th>Роль</th><th>Режим</th><th>Состояние</th><th>Последняя связь</th><th>Источник</th><th>Заметка</th><th>Действия</th></tr></thead>' +
               '<tbody>' + rows + '</tbody>' +
             '</table>' +
           '</div>';
@@ -2998,7 +3054,8 @@ VIZ_HTML = """
           button.addEventListener('click', function () {
             var address = button.getAttribute('data-peer-save');
             var noteInput = networkTableViewEl.querySelector('[data-peer-note="' + address + '"]');
-            updatePeerRegistryEntry(address, { note: noteInput ? noteInput.value : '' }, 'Сохраняем заметку по участнику…');
+            var roleInput = networkTableViewEl.querySelector('[data-peer-role="' + address + '"]');
+            updatePeerRegistryEntry(address, { note: noteInput ? noteInput.value : '', role: roleInput ? roleInput.value : 'node' }, 'Сохраняем параметры участника…');
           });
         });
         Array.prototype.slice.call(networkTableViewEl.querySelectorAll('[data-peer-toggle]')).forEach(function (button) {
@@ -3006,7 +3063,15 @@ VIZ_HTML = """
             var address = button.getAttribute('data-peer-toggle');
             var enabled = button.getAttribute('data-peer-enabled') === '1';
             var noteInput = networkTableViewEl.querySelector('[data-peer-note="' + address + '"]');
-            updatePeerRegistryEntry(address, { enabled: !enabled, note: noteInput ? noteInput.value : '' }, enabled ? 'Исключаем участника из сети…' : 'Возвращаем участника в сеть…');
+            var roleInput = networkTableViewEl.querySelector('[data-peer-role="' + address + '"]');
+            updatePeerRegistryEntry(address, { enabled: !enabled, note: noteInput ? noteInput.value : '', role: roleInput ? roleInput.value : 'node' }, enabled ? 'Исключаем участника из сети…' : 'Возвращаем участника в сеть…');
+          });
+        });
+        Array.prototype.slice.call(networkTableViewEl.querySelectorAll('[data-peer-role]')).forEach(function (selectEl) {
+          selectEl.addEventListener('change', function () {
+            var address = selectEl.getAttribute('data-peer-role');
+            var noteInput = networkTableViewEl.querySelector('[data-peer-note="' + address + '"]');
+            updatePeerRegistryEntry(address, { role: selectEl.value, note: noteInput ? noteInput.value : '' }, 'Переключаем роль участника…');
           });
         });
         Array.prototype.slice.call(networkTableViewEl.querySelectorAll('[data-peer-remove]')).forEach(function (button) {
@@ -3045,6 +3110,7 @@ VIZ_HTML = """
 
       function addPeerRegistryEntry() {
         var address = valueOr(networkAddressInputEl && networkAddressInputEl.value, '').trim();
+        var role = normalizeNodeRole(valueOr(networkRoleInputEl && networkRoleInputEl.value, 'node'));
         var note = valueOr(networkNoteInputEl && networkNoteInputEl.value, '').trim();
         if (!address) {
           setNetworkStatus('Укажите адрес узла в формате host:port.', true);
@@ -3060,6 +3126,7 @@ VIZ_HTML = """
           }
           if (xhr.status >= 200 && xhr.status < 300) {
             if (networkAddressInputEl) { networkAddressInputEl.value = ''; }
+            if (networkRoleInputEl) { networkRoleInputEl.value = 'node'; }
             if (networkNoteInputEl) { networkNoteInputEl.value = ''; }
             setNetworkStatus('Участник добавлен в локальный реестр.', false);
             loadPeerRegistry();
@@ -3071,7 +3138,7 @@ VIZ_HTML = """
         xhr.onerror = function () {
           setNetworkStatus('Ошибка сети при добавлении участника.', true);
         };
-        xhr.send(JSON.stringify({ address: address, note: note }));
+        xhr.send(JSON.stringify({ address: address, note: note, role: role }));
       }
 
       function updatePeerRegistryEntry(address, payload, pendingText) {
@@ -3154,6 +3221,9 @@ VIZ_HTML = """
         if (!incidentEnabled) {
           incidentsLoaded = false;
           closeIncidentModal();
+          if (window.location.hash === '#incident-workbench') {
+            window.location.hash = '#network-workbench';
+          }
         }
       }
 
@@ -3884,17 +3954,17 @@ VIZ_HTML = """
         setText(navNodeIdEl, valueOr(status.node_id, '—'));
         setText(heroNodeIdEl, valueOr(status.node_id, '—'));
         setText(heroNodeStateEl, valueOr(status.state, '—'));
-        setText(heroNodeRoleEl, valueOr(profile.role, '—'));
+        renderRoleValue(heroNodeRoleEl, valueOr(profile.role, 'node'));
         setText(statusStateValueEl, valueOr(status.state, '—'));
         setText(statusNodeIdEl, valueOr(status.node_id, '—'));
         setText(statusPeerCountEl, String(peerCount));
-        setText(statusRoleEl, valueOr(profile.role, '—'));
+        renderRoleValue(statusRoleEl, valueOr(profile.role, 'node'));
         setText(statusThreatLevelEl, valueOr(profile.threat_level, '—'));
         demoControlsEnabled = status.demo_controls_enabled !== false;
         if (controlsRoot) {
           controlsRoot.style.display = demoControlsEnabled ? '' : 'none';
         }
-        var shouldEnableIncidents = nextNodeId === incidentOperatorNodeId;
+        var shouldEnableIncidents = isResponderRole(profile.role);
         setIncidentWorkbenchEnabled(shouldEnableIncidents);
         updateHeroOverview();
       }
@@ -6548,9 +6618,10 @@ async def handle_register_peer(request: web.Request) -> web.Response:
     payload = await request.json()
     address = payload.get("address")
     note = str(payload.get("note", "") or "")
+    role = payload.get("role", "node")
     if not address:
         raise web.HTTPBadRequest(text="missing address")
-    node.register_peer(address, note=note, source="ui")
+    node.register_peer(address, note=note, source="ui", role=str(role))
     return web.json_response({"status": "ok", "peers": [peer.to_dict() for peer in node.list_peer_registry()]})
 
 
@@ -6564,7 +6635,9 @@ async def handle_update_peer(request: web.Request) -> web.Response:
     enabled = None if enabled_raw is None else bool(enabled_raw)
     note = payload.get("note")
     note_value = None if note is None else str(note)
-    peer = node.update_peer(address, enabled=enabled, note=note_value)
+    role = payload.get("role")
+    role_value = None if role is None else str(role)
+    peer = node.update_peer(address, enabled=enabled, note=note_value, role=role_value)
     if peer is None:
         raise web.HTTPNotFound(text="unknown peer")
     return web.json_response({"status": "ok", "peer": peer.to_dict()})
@@ -6576,6 +6649,8 @@ async def handle_remove_peer(request: web.Request) -> web.Response:
     address = payload.get("address")
     if not address:
         raise web.HTTPBadRequest(text="missing address")
+    if str(address).startswith("self:"):
+        raise web.HTTPBadRequest(text="cannot remove self peer")
     node.remove_peer(address)
     return web.json_response({"status": "ok"})
 

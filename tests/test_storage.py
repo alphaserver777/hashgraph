@@ -111,3 +111,49 @@ def test_bootstrap_genesis_contains_node_identity_for_known_nodes(tmp_path):
         for payload in payloads
     )
     node.storage.close()
+
+
+def test_legacy_profile_role_normalizes_to_node_and_self_registry_controls_status(tmp_path):
+    config_path = tmp_path / "node-role.yaml"
+    db_path = tmp_path / "node-role.db"
+    config_path.write_text(
+        "\n".join(
+            [
+                'node_id: "node-1"',
+                'listen: "0.0.0.0:9001"',
+                "peers: []",
+                "profile:",
+                '  role: "light"',
+                "  memory_mb: 128",
+                "  bw_kbps: 256",
+                "  cpu_quota: 0.7",
+                '  threat_level: "LOW"',
+                "gossip:",
+                "  period_sec: 1.0",
+                "  fan_out: 1",
+                "prioritization:",
+                '  level_threshold_B: "ELEV"',
+                "  max_batch_bytes: 32768",
+                "security: {}",
+                "storage:",
+                f'  sqlite_path: "{db_path}"',
+            ]
+        ),
+        encoding="utf-8",
+    )
+    config = load_config(config_path)
+    assert config.profile.role == "node"
+
+    node = Node(config)
+    peers = node.list_peer_registry()
+    self_peers = [peer for peer in peers if peer.is_self]
+    assert len(self_peers) == 1
+    assert self_peers[0].role == "node"
+    assert node.status()["profile"]["role"] == "node"
+
+    updated = node.update_peer(self_peers[0].address, role="responder", note="операторский узел")
+    assert updated is not None
+    assert updated.role == "responder"
+    assert node.status()["profile"]["role"] == "responder"
+    assert node.list_peers() == []
+    node.storage.close()

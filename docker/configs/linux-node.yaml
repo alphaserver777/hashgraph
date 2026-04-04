@@ -2,7 +2,7 @@ node_id: "${NODE_ID}"
 listen: "${LISTEN:-0.0.0.0:9011}"
 peers: "${PEERS:-}"
 profile:
-  role: "${NODE_ROLE:-light}"
+  role: "${NODE_ROLE:-node}"
   memory_mb: ${MEMORY_MB:-128}
   bw_kbps: ${BW_KBPS:-256}
   cpu_quota: ${CPU_QUOTA:-0.7}

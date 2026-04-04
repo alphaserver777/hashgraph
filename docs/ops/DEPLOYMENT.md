@@ -38,6 +38,10 @@
   - `localhost:9103 -> node3:9003`
 - Данные:
   - отдельные Docker volumes `node1-data`, `node2-data`, `node3-data`
+- Роли demo-кластера:
+  - `node1` — `responder`
+  - `node2` — `node`
+  - `node3` — `node`
 - Healthcheck:
   - `GET /status` внутри контейнера
 
@@ -61,6 +65,8 @@
   - ISO-подобные строки journald/auth.log вида `2026-04-04T10:28:50+03:00 ...`
 - Назначение:
   - технический bootstrap для первого vertical slice Linux ingestion, а не production deploy
+- Роль по умолчанию:
+  - `NODE_ROLE=node`
 - Важный принцип:
   - используется один универсальный YAML-конфиг узла и один compose-сервис;
   - различия между серверами задаются через env-переменные (`NODE_ID`, `HOST_ID`, `LISTEN`, `PEERS`, пути и порты);

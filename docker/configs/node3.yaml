@@ -4,7 +4,7 @@ peers:
   - "node1:9001"
   - "node2:9002"
 profile:
-  role: "relay"
+  role: "node"
   memory_mb: 256
   bw_kbps: 512
   cpu_quota: 1.2

@@ -12,11 +12,13 @@ def test_peer_registry_persists_enabled_and_note(tmp_path):
         enabled=True,
         note="seed",
         source="config",
+        role="responder",
     )
     updated = storage.update_peer(
         "198.51.100.10:9001",
         enabled=False,
         note="исключён после компрометации",
+        role="node",
     )
 
     peers = storage.list_peers()
@@ -26,6 +28,7 @@ def test_peer_registry_persists_enabled_and_note(tmp_path):
     assert peers[0].enabled is False
     assert peers[0].note == "исключён после компрометации"
     assert peers[0].source == "config"
+    assert peers[0].role == "node"
 
     storage.delete_peer("198.51.100.10:9001")
     assert storage.list_peers() == []

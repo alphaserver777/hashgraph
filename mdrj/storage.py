@@ -9,7 +9,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
-from .models import Envelope, Event, EventClass, PeerInfo
+from .models import (
+    NODE_ROLE_NODE,
+    Envelope,
+    Event,
+    EventClass,
+    PeerInfo,
+    normalize_node_role,
+)
 from .utils import canonical_json, ensure_directory
 
 
@@ -59,7 +66,8 @@ class DAGStorage:
                     healthy INTEGER DEFAULT 1,
                     enabled INTEGER DEFAULT 1,
                     note TEXT DEFAULT '',
-                    source TEXT DEFAULT 'runtime'
+                    source TEXT DEFAULT 'runtime',
+                    role TEXT DEFAULT 'node'
                 );
                 CREATE TABLE IF NOT EXISTS incidents (
                     id TEXT PRIMARY KEY,
@@ -88,6 +96,16 @@ class DAGStorage:
                 self._conn.execute("ALTER TABLE peers ADD COLUMN note TEXT DEFAULT ''")
             if "source" not in columns:
                 self._conn.execute("ALTER TABLE peers ADD COLUMN source TEXT DEFAULT 'runtime'")
+            if "role" not in columns:
+                self._conn.execute(f"ALTER TABLE peers ADD COLUMN role TEXT DEFAULT '{NODE_ROLE_NODE}'")
+            self._conn.execute(
+                "UPDATE peers SET role = ? WHERE role IS NULL OR TRIM(role) = ''",
+                (NODE_ROLE_NODE,),
+            )
+            self._conn.execute(
+                "UPDATE peers SET role = ? WHERE LOWER(TRIM(COALESCE(role, ''))) NOT IN ('node', 'responder')",
+                (NODE_ROLE_NODE,),
+            )
 
     def clear_events(self) -> None:
         """Remove all events, edges and envelopes from storage."""
@@ -341,8 +359,8 @@ class DAGStorage:
     def upsert_peer(self, address: str, last_seen: float, healthy: bool) -> None:
         with self._conn:
             self._conn.execute(
-                "INSERT INTO peers(address, last_seen, healthy, enabled, note, source) VALUES (?, ?, ?, 1, '', 'runtime')\n                 ON CONFLICT(address) DO UPDATE SET last_seen = excluded.last_seen, healthy = excluded.healthy",
-                (address, last_seen, int(healthy)),
+                "INSERT INTO peers(address, last_seen, healthy, enabled, note, source, role) VALUES (?, ?, ?, 1, '', 'runtime', ?)\n                 ON CONFLICT(address) DO UPDATE SET last_seen = excluded.last_seen, healthy = excluded.healthy",
+                (address, last_seen, int(healthy), NODE_ROLE_NODE),
             )
 
     def ensure_peer(
@@ -354,26 +372,30 @@ class DAGStorage:
         enabled: bool = True,
         note: str = "",
         source: str = "runtime",
+        role: str = NODE_ROLE_NODE,
     ) -> PeerInfo:
         with self._lock, self._conn:
             existing = self._conn.execute(
                 "SELECT * FROM peers WHERE address = ?",
                 (address,),
             ).fetchone()
+            next_role = normalize_node_role(role)
             if existing:
                 merged_last_seen = last_seen if last_seen is not None else existing["last_seen"]
                 merged_healthy = int(healthy)
                 merged_enabled = bool(existing["enabled"])
                 merged_note = existing["note"] or note or ""
                 merged_source = existing["source"] or source
+                merged_role = normalize_node_role(existing["role"] if "role" in existing.keys() else next_role)
                 self._conn.execute(
-                    "UPDATE peers SET last_seen = ?, healthy = ?, enabled = ?, note = ?, source = ? WHERE address = ?",
+                    "UPDATE peers SET last_seen = ?, healthy = ?, enabled = ?, note = ?, source = ?, role = ? WHERE address = ?",
                     (
                         merged_last_seen,
                         merged_healthy,
                         int(merged_enabled),
                         merged_note,
                         merged_source,
+                        merged_role,
                         address,
                     ),
                 )
@@ -384,10 +406,12 @@ class DAGStorage:
                     enabled=merged_enabled,
                     note=merged_note,
                     source=merged_source,
+                    role=merged_role,
+                    is_self=merged_source == "self",
                 )
             self._conn.execute(
-                "INSERT INTO peers(address, last_seen, healthy, enabled, note, source) VALUES (?, ?, ?, ?, ?, ?)",
-                (address, last_seen, int(healthy), int(enabled), note, source),
+                "INSERT INTO peers(address, last_seen, healthy, enabled, note, source, role) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (address, last_seen, int(healthy), int(enabled), note, source, next_role),
             )
             return PeerInfo(
                 address=address,
@@ -396,6 +420,8 @@ class DAGStorage:
                 enabled=enabled,
                 note=note,
                 source=source,
+                role=next_role,
+                is_self=source == "self",
             )
 
     def update_peer(
@@ -406,6 +432,7 @@ class DAGStorage:
         note: Optional[str] = None,
         last_seen: Optional[float] = None,
         healthy: Optional[bool] = None,
+        role: Optional[str] = None,
     ) -> Optional[PeerInfo]:
         with self._lock, self._conn:
             existing = self._conn.execute(
@@ -419,9 +446,10 @@ class DAGStorage:
             next_enabled = bool(existing["enabled"]) if enabled is None else enabled
             next_note = existing["note"] if note is None else note
             next_source = existing["source"] or "runtime"
+            next_role = normalize_node_role(existing["role"] if role is None else role)
             self._conn.execute(
-                "UPDATE peers SET last_seen = ?, healthy = ?, enabled = ?, note = ?, source = ? WHERE address = ?",
-                (next_last_seen, int(next_healthy), int(next_enabled), next_note, next_source, address),
+                "UPDATE peers SET last_seen = ?, healthy = ?, enabled = ?, note = ?, source = ?, role = ? WHERE address = ?",
+                (next_last_seen, int(next_healthy), int(next_enabled), next_note, next_source, next_role, address),
             )
             return PeerInfo(
                 address=address,
@@ -430,6 +458,8 @@ class DAGStorage:
                 enabled=next_enabled,
                 note=next_note,
                 source=next_source,
+                role=next_role,
+                is_self=next_source == "self",
             )
 
     def delete_peer(self, address: str) -> None:
@@ -448,6 +478,9 @@ class DAGStorage:
                     enabled=bool(row["enabled"]) if "enabled" in row.keys() else True,
                     note=(row["note"] if "note" in row.keys() else "") or "",
                     source=(row["source"] if "source" in row.keys() else "runtime") or "runtime",
+                    role=normalize_node_role((row["role"] if "role" in row.keys() else NODE_ROLE_NODE) or NODE_ROLE_NODE),
+                    is_self=((row["source"] if "source" in row.keys() else "runtime") or "runtime") == "self",
                 )
             )
+        peers.sort(key=lambda peer: (not peer.is_self, peer.address))
         return peers
