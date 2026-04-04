@@ -70,6 +70,31 @@ services:
     image: mdrj-dag:latest
     profiles: ["linux-node"]
     container_name: ${LINUX_CONTAINER_NAME:-mdrj-linux-node}
+    environment:
+      NODE_ID: ${NODE_ID}
+      LISTEN: ${LISTEN:-0.0.0.0:9011}
+      PEERS: ${PEERS:-}
+      NODE_ROLE: ${NODE_ROLE:-light}
+      MEMORY_MB: ${MEMORY_MB:-128}
+      BW_KBPS: ${BW_KBPS:-256}
+      CPU_QUOTA: ${CPU_QUOTA:-0.7}
+      THREAT_LEVEL: ${THREAT_LEVEL:-LOW}
+      GOSSIP_PERIOD_SEC: ${GOSSIP_PERIOD_SEC:-1.0}
+      GOSSIP_FAN_OUT: ${GOSSIP_FAN_OUT:-1}
+      LEVEL_THRESHOLD_B: ${LEVEL_THRESHOLD_B:-ELEV}
+      MAX_BATCH_BYTES: ${MAX_BATCH_BYTES:-32768}
+      HMAC_KEY: ${HMAC_KEY:-linux-demo-key}
+      SQLITE_PATH: ${SQLITE_PATH:-/data/node.db}
+      LINUX_INGEST_ENABLED: ${LINUX_INGEST_ENABLED:-true}
+      LINUX_SOURCE_TYPE: ${LINUX_SOURCE_TYPE:-auth_log_file}
+      AUTH_LOG_PATH: ${AUTH_LOG_PATH:-/host-logs/auth.log}
+      LINUX_POLL_INTERVAL_SEC: ${LINUX_POLL_INTERVAL_SEC:-1.0}
+      HOST_ID: ${HOST_ID:-}
+      ADMIN_USER_1: ${ADMIN_USER_1:-root}
+      ADMIN_USER_2: ${ADMIN_USER_2:-admin}
+      PRIV_GROUP_1: ${PRIV_GROUP_1:-sudo}
+      PRIV_GROUP_2: ${PRIV_GROUP_2:-wheel}
+      LINUX_STATE_PATH: ${LINUX_STATE_PATH:-/data/linux-ingest-state.json}
     command: ["python", "-m", "mdrj.cli", "node", "--config", "/app/docker/configs/linux-node.yaml"]
     volumes:
       - linux-node-data:/data
