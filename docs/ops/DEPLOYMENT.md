@@ -53,7 +53,7 @@
 - Порты:
   - по умолчанию `localhost:9111 -> linux-node:9011`, но bind задаётся env-переменной
 - Данные:
-  - отдельный Docker volume `linux-node-data` по умолчанию, но имя тоже может задаваться env-переменной
+  - отдельный Docker volume `linux-node-data`
 - Источник первого сигнала:
   - read-only `auth.log`, путь задаётся env-переменной
 - Назначение:
@@ -87,8 +87,7 @@ LISTEN=0.0.0.0:9011
 LINUX_CONTAINER_PORT=9011
 LINUX_PORT_BIND=9111
 LINUX_CONTAINER_NAME=mdrj-linux-node-germany
-LINUX_DATA_VOLUME=linux-node-germany-data
-PEERS=46.21.250.147:9011
+PEERS=46.21.250.147:9111
 AUTH_LOG_BIND_PATH=/var/log/auth.log
 ```
 
@@ -100,8 +99,7 @@ LISTEN=0.0.0.0:9011
 LINUX_CONTAINER_PORT=9011
 LINUX_PORT_BIND=9111
 LINUX_CONTAINER_NAME=mdrj-linux-node-zomro
-LINUX_DATA_VOLUME=linux-node-zomro-data
-PEERS=64.188.64.23:9011
+PEERS=64.188.64.23:9111
 AUTH_LOG_BIND_PATH=/var/log/auth.log
 ```
 
@@ -116,6 +114,10 @@ AUTH_LOG_BIND_PATH=/var/log/auth.log
    - `http://<host>:<port>/viz`
 5. На одном из серверов выполнить реальный успешный административный SSH-вход.
 6. Убедиться, что `admin_ssh_login_success` появился на локальном узле и затем реплицировался на второй.
+
+Примечание:
+- `LISTEN` задаёт внутренний адрес процесса внутри контейнера.
+- В `PEERS` для внешнего стенда нужно указывать опубликованный хостовый порт второго сервера, то есть по умолчанию `9111`, а не внутренний контейнерный `9011`.
 
 #### Ограничения И Риски Стенда
 - Пока нет TLS и подтверждённой mutual auth-модели для внешней сети.

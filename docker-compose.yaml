@@ -72,7 +72,7 @@ services:
     container_name: ${LINUX_CONTAINER_NAME:-mdrj-linux-node}
     command: ["python", "-m", "mdrj.cli", "node", "--config", "/app/docker/configs/linux-node.yaml"]
     volumes:
-      - ${LINUX_DATA_VOLUME:-linux-node-data}:/data
+      - linux-node-data:/data
       - ${AUTH_LOG_BIND_PATH:-./docker/linux-fixtures/auth.log}:${AUTH_LOG_PATH:-/host-logs/auth.log}:ro
     ports:
       - "${LINUX_PORT_BIND:-9111}:${LINUX_CONTAINER_PORT:-9011}"

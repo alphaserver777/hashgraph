@@ -115,6 +115,7 @@ docker compose --profile linux-node up --build -d linux-node
 ```
 
 Этот режим не заменяет demo-кластер. Он поднимает отдельный self-contained узел, читает примонтированный `auth.log` и публикует минимальный production-oriented сигнал `admin_ssh_login_success` во внутренний DAG. Используется один универсальный конфиг `docker/configs/linux-node.yaml`; различия между серверами задаются env-переменными.
+Локальная SQLite-база при этом живёт в volume `linux-node-data` на конкретном хосте.
 
 ## Running a Local Cluster
 Use the helper script to spawn N nodes on one machine (default N=3, ports 9001+):
