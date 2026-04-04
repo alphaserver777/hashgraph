@@ -56,6 +56,9 @@
   - отдельный Docker volume `linux-node-data`
 - Источник первого сигнала:
   - read-only `auth.log`, путь задаётся env-переменной
+- Поддерживаемые форматы первой версии:
+  - классический `auth.log` с префиксом вида `Apr  3 10:16:04 ...`
+  - ISO-подобные строки journald/auth.log вида `2026-04-04T10:28:50+03:00 ...`
 - Назначение:
   - технический bootstrap для первого vertical slice Linux ingestion, а не production deploy
 - Важный принцип:

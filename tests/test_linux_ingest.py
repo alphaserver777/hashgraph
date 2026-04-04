@@ -69,3 +69,27 @@ def test_linux_ingest_state_prevents_replaying_same_log_lines(tmp_path):
 
     assert len(first) == 1
     assert second == []
+
+
+def test_linux_ingest_parses_iso_auth_log_format(tmp_path):
+    log_path = tmp_path / "auth.log"
+    state_path = tmp_path / "state.json"
+    log_path.write_text(
+        "2026-04-04T10:28:50.929532+03:00 zomro sshd-session[1717204]: "
+        "Accepted publickey for root from 45.81.243.96 port 51180 ssh2: ED25519 SHA256:demo\n",
+        encoding="utf-8",
+    )
+    ingestor = LinuxAuthLogIngestor(
+        config=make_config(str(log_path), str(state_path)),
+        node_id="linux-node-zomro",
+    )
+
+    payloads = ingestor.poll()
+
+    assert len(payloads) == 1
+    payload = payloads[0]
+    assert payload["event_kind"] == "admin_ssh_login_success"
+    assert payload["principal"] == "root"
+    assert payload["source_ip"] == "45.81.243.96"
+    assert payload["privilege_scope"] == "root"
+    assert payload["occurred_at"].startswith("2026-04-04T10:28:50")

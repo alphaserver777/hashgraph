@@ -14,12 +14,20 @@ from typing import Dict, List, Optional
 from .config import LinuxIngestConfig
 
 
-SSH_ACCEPTED_RE = re.compile(
+SYSLOG_SSH_ACCEPTED_RE = re.compile(
     r"^(?P<month>[A-Z][a-z]{2})\s+"
     r"(?P<day>\d{1,2})\s+"
     r"(?P<clock>\d{2}:\d{2}:\d{2})\s+"
     r"(?P<host>\S+)\s+"
-    r"sshd(?:\[\d+\])?:\s+"
+    r"sshd(?:-session)?(?:\[\d+\])?:\s+"
+    r"Accepted\s+(?P<method>\S+)\s+for\s+(?P<user>[\w.@-]+)\s+from\s+"
+    r"(?P<source_ip>[0-9a-fA-F:.]+)\s+port\s+(?P<port>\d+)"
+)
+
+ISO_SSH_ACCEPTED_RE = re.compile(
+    r"^(?P<occurred_at>\d{4}-\d{2}-\d{2}T[^\s]+)\s+"
+    r"(?P<host>\S+)\s+"
+    r"sshd(?:-session)?(?:\[\d+\])?:\s+"
     r"Accepted\s+(?P<method>\S+)\s+for\s+(?P<user>[\w.@-]+)\s+from\s+"
     r"(?P<source_ip>[0-9a-fA-F:.]+)\s+port\s+(?P<port>\d+)"
 )
@@ -106,7 +114,11 @@ class LinuxAuthLogIngestor:
         line_offset: int,
         collected_at_ts: float,
     ) -> Optional[Dict[str, object]]:
-        match = SSH_ACCEPTED_RE.match(line)
+        match = ISO_SSH_ACCEPTED_RE.match(line)
+        timestamp_kind = "iso"
+        if not match:
+            match = SYSLOG_SSH_ACCEPTED_RE.match(line)
+            timestamp_kind = "syslog"
         if not match:
             return None
 
@@ -115,11 +127,7 @@ class LinuxAuthLogIngestor:
         if privilege_scope is None:
             return None
 
-        occurred_at = self._parse_timestamp(
-            month=match.group("month"),
-            day=match.group("day"),
-            clock=match.group("clock"),
-        )
+        occurred_at = self._parse_timestamp(match, timestamp_kind)
         source_ip = match.group("source_ip")
         method = match.group("method")
         ssh_port = int(match.group("port"))
@@ -177,10 +185,13 @@ class LinuxAuthLogIngestor:
                 return True
         return False
 
-    def _parse_timestamp(self, *, month: str, day: str, clock: str) -> str:
+    def _parse_timestamp(self, match: re.Match[str], timestamp_kind: str) -> str:
+        if timestamp_kind == "iso":
+            occurred_at = match.group("occurred_at")
+            return datetime.fromisoformat(occurred_at).isoformat(timespec="seconds")
         now = datetime.now()
         candidate = datetime.strptime(
-            f"{now.year} {month} {day} {clock}",
+            f"{now.year} {match.group('month')} {match.group('day')} {match.group('clock')}",
             "%Y %b %d %H:%M:%S",
         )
         if candidate.timestamp() - now.timestamp() > 86400:
