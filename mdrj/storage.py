@@ -101,6 +101,23 @@ class DAGStorage:
                     ts REAL NOT NULL,
                     snapshot_json TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS checkpoints (
+                    round_received INTEGER PRIMARY KEY,
+                    merkle_root TEXT NOT NULL,
+                    members_snapshot_hash TEXT NOT NULL,
+                    signatures_json TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    confirmed_at REAL,
+                    created_at REAL NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS event_skeletons (
+                    id TEXT PRIMARY KEY,
+                    cls TEXT NOT NULL,
+                    parent_ids TEXT NOT NULL,
+                    round_received INTEGER,
+                    payload_hash TEXT NOT NULL,
+                    archived_at REAL NOT NULL
+                );
                 CREATE INDEX IF NOT EXISTS idx_events_consensus ON events(consensus_ts);
                 CREATE INDEX IF NOT EXISTS idx_events_cls ON events(cls);
                 CREATE INDEX IF NOT EXISTS idx_events_created ON events(created_at);
@@ -508,6 +525,113 @@ class DAGStorage:
             )
             return cur.rowcount or 0
 
+    # ------------------------------------------------------------------
+    # Checkpoints (Этап 3)
+    def upsert_checkpoint(
+        self,
+        *,
+        round_received: int,
+        merkle_root: str,
+        members_snapshot_hash: str,
+        signatures: Dict[str, str],
+        status: str,
+        confirmed_at: Optional[float] = None,
+    ) -> None:
+        with self._lock, self._conn:
+            self._conn.execute(
+                "INSERT INTO checkpoints(round_received, merkle_root, members_snapshot_hash, signatures_json, status, confirmed_at, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT(round_received) DO UPDATE SET "
+                "merkle_root = excluded.merkle_root, "
+                "members_snapshot_hash = excluded.members_snapshot_hash, "
+                "signatures_json = excluded.signatures_json, "
+                "status = excluded.status, "
+                "confirmed_at = excluded.confirmed_at",
+                (
+                    int(round_received),
+                    str(merkle_root),
+                    str(members_snapshot_hash),
+                    canonical_json(signatures),
+                    str(status),
+                    confirmed_at,
+                    time.time(),
+                ),
+            )
+
+    def get_checkpoint(self, round_received: int) -> Optional[Dict[str, object]]:
+        row = self._conn.execute(
+            "SELECT round_received, merkle_root, members_snapshot_hash, signatures_json, status, confirmed_at, created_at "
+            "FROM checkpoints WHERE round_received = ?",
+            (int(round_received),),
+        ).fetchone()
+        if not row:
+            return None
+        return _row_to_checkpoint(row)
+
+    def list_checkpoints(self, *, status: Optional[str] = None, limit: int = 100) -> List[Dict[str, object]]:
+        if status is not None:
+            rows = self._conn.execute(
+                "SELECT round_received, merkle_root, members_snapshot_hash, signatures_json, status, confirmed_at, created_at "
+                "FROM checkpoints WHERE status = ? ORDER BY round_received DESC LIMIT ?",
+                (status, int(limit)),
+            ).fetchall()
+        else:
+            rows = self._conn.execute(
+                "SELECT round_received, merkle_root, members_snapshot_hash, signatures_json, status, confirmed_at, created_at "
+                "FROM checkpoints ORDER BY round_received DESC LIMIT ?",
+                (int(limit),),
+            ).fetchall()
+        return [_row_to_checkpoint(row) for row in rows]
+
+    def latest_confirmed_checkpoint(self) -> Optional[Dict[str, object]]:
+        row = self._conn.execute(
+            "SELECT round_received, merkle_root, members_snapshot_hash, signatures_json, status, confirmed_at, created_at "
+            "FROM checkpoints WHERE status = 'confirmed' ORDER BY round_received DESC LIMIT 1"
+        ).fetchone()
+        if not row:
+            return None
+        return _row_to_checkpoint(row)
+
+    def add_event_skeleton(
+        self,
+        *,
+        event_id: str,
+        cls: str,
+        parent_ids: List[str],
+        round_received: Optional[int],
+        payload_hash: str,
+    ) -> None:
+        with self._lock, self._conn:
+            self._conn.execute(
+                "INSERT OR REPLACE INTO event_skeletons(id, cls, parent_ids, round_received, payload_hash, archived_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    event_id,
+                    cls,
+                    canonical_json(list(parent_ids)),
+                    round_received,
+                    payload_hash,
+                    time.time(),
+                ),
+            )
+
+    def list_event_skeletons(self, *, limit: int = 1000) -> List[Dict[str, object]]:
+        rows = self._conn.execute(
+            "SELECT id, cls, parent_ids, round_received, payload_hash, archived_at FROM event_skeletons ORDER BY archived_at ASC LIMIT ?",
+            (int(limit),),
+        ).fetchall()
+        return [
+            {
+                "id": row["id"],
+                "cls": row["cls"],
+                "parent_ids": json.loads(row["parent_ids"]),
+                "round_received": row["round_received"],
+                "payload_hash": row["payload_hash"],
+                "archived_at": float(row["archived_at"]),
+            }
+            for row in rows
+        ]
+
     def event_count(self) -> int:
         row = self._conn.execute("SELECT COUNT(*) FROM events").fetchone()
         return row[0]
@@ -670,3 +794,15 @@ class DAGStorage:
                 "INSERT INTO consensus_state(key, value) VALUES ('membership_snapshot', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
                 (canonical_json(snapshot),),
             )
+
+
+def _row_to_checkpoint(row) -> Dict[str, object]:
+    return {
+        "round_received": int(row["round_received"]),
+        "merkle_root": row["merkle_root"],
+        "members_snapshot_hash": row["members_snapshot_hash"],
+        "signatures": json.loads(row["signatures_json"]),
+        "status": row["status"],
+        "confirmed_at": row["confirmed_at"],
+        "created_at": float(row["created_at"]),
+    }

@@ -795,6 +795,115 @@ class Node:
     def list_metrics_history(self, *, limit: int = 1000, since_ts: float = 0.0) -> List[Dict[str, object]]:
         return self.storage.list_metrics_history(limit=limit, since_ts=since_ts)
 
+    # ------------------------------------------------------------------
+    # Checkpoints (Этап 3.a): propose, ingest, verify
+    def _events_up_to_round_received(self, target_round: int) -> List[Event]:
+        events = self.storage.all_events()
+        return [event for event in events if event.round_received is not None and event.round_received <= target_round]
+
+    def _membership_node_ids(self) -> List[str]:
+        snapshot = self.active_consensus_membership()
+        return [str(m.get("node_id") or "").strip() for m in snapshot.get("members", []) if m.get("node_id")]
+
+    def _membership_snapshot_hash(self) -> str:
+        snapshot = self.active_consensus_membership()
+        return str(snapshot.get("membership_snapshot_hash") or "")
+
+    def propose_local_checkpoint(self, target_round: int) -> Dict[str, object]:
+        """Propose a checkpoint at target_round_received and add the local
+        signature to a pending checkpoint in the DB. Returns the proposal so
+        the caller can broadcast it to peers."""
+        from .checkpoint import CheckpointProposal, compute_merkle_root, sign_proposal
+
+        if target_round < 0:
+            raise ValueError("target_round must be non-negative")
+        hmac_key = self.config.security.hmac_key
+        if not hmac_key:
+            raise ValueError("security.hmac_key must be set to propose checkpoints")
+        events = self._events_up_to_round_received(target_round)
+        if not events:
+            raise ValueError(f"no events with round_received <= {target_round}")
+        merkle = compute_merkle_root(events)
+        members_hash = self._membership_snapshot_hash()
+        proposal = CheckpointProposal(
+            round_received=int(target_round),
+            merkle_root=merkle,
+            members_snapshot_hash=members_hash,
+            proposer_node_id=self.config.node_id,
+        )
+        proposal.signature = sign_proposal(proposal, hmac_key)
+        self._record_proposal_signature(proposal)
+        return proposal.to_dict()
+
+    def _record_proposal_signature(self, proposal) -> Dict[str, object]:
+        from .checkpoint import is_quorum_reached
+
+        existing = self.storage.get_checkpoint(proposal.round_received)
+        signatures: Dict[str, str] = dict(existing["signatures"]) if existing else {}
+        if existing and existing["merkle_root"] != proposal.merkle_root:
+            logger.warning(
+                "Checkpoint at round %s has mismatching merkle_root (local=%s incoming=%s) — ignoring proposal",
+                proposal.round_received,
+                existing["merkle_root"],
+                proposal.merkle_root,
+            )
+            return existing
+        signatures[proposal.proposer_node_id] = proposal.signature
+        members = self._membership_node_ids()
+        if is_quorum_reached(signatures, members):
+            status = "confirmed"
+            confirmed_at = utc_timestamp()
+        else:
+            status = existing["status"] if existing and existing["status"] == "confirmed" else "pending"
+            confirmed_at = existing["confirmed_at"] if existing and existing["confirmed_at"] else None
+        self.storage.upsert_checkpoint(
+            round_received=proposal.round_received,
+            merkle_root=proposal.merkle_root,
+            members_snapshot_hash=proposal.members_snapshot_hash,
+            signatures=signatures,
+            status=status,
+            confirmed_at=confirmed_at,
+        )
+        return self.storage.get_checkpoint(proposal.round_received) or {}
+
+    def ingest_checkpoint_proposal(self, payload: Dict[str, object]) -> Dict[str, object]:
+        """Accept a proposal from another peer, verify HMAC, add to local
+        checkpoint state."""
+        from .checkpoint import CheckpointProposal, verify_proposal_signature
+
+        proposal = CheckpointProposal.from_dict(payload)
+        hmac_key = self.config.security.hmac_key
+        if hmac_key and proposal.signature:
+            if not verify_proposal_signature(proposal, proposal.signature, hmac_key):
+                raise ValueError("invalid checkpoint signature")
+        return self._record_proposal_signature(proposal)
+
+    def list_checkpoints(self, *, status: Optional[str] = None, limit: int = 100) -> List[Dict[str, object]]:
+        return self.storage.list_checkpoints(status=status, limit=limit)
+
+    def verify_checkpoint(self, round_received: int) -> Dict[str, object]:
+        """Recompute merkle from local events and compare against checkpoint."""
+        from .checkpoint import CheckpointVerificationReport, compute_merkle_root
+
+        checkpoint = self.storage.get_checkpoint(round_received)
+        if not checkpoint:
+            raise KeyError(f"no checkpoint at round_received={round_received}")
+        events = self._events_up_to_round_received(round_received)
+        local_merkle = compute_merkle_root(events) if events else ""
+        matches = bool(local_merkle) and local_merkle == checkpoint["merkle_root"]
+        report = CheckpointVerificationReport(
+            matches_merkle=matches,
+            local_merkle_root=local_merkle,
+            confirmed_merkle_root=checkpoint["merkle_root"],
+            checkpoint_round=round_received,
+            has_tamper_evidence=not matches and checkpoint["status"] == "confirmed",
+        )
+        if checkpoint["status"] != "confirmed":
+            report.notes.append("checkpoint is not yet confirmed")
+        if not events:
+            report.notes.append("no local events at or before target round")
+        return report.to_dict()
+
     async def _linux_ingest_loop(self) -> None:
         interval = max(0.5, float(self.config.linux_ingest.poll_interval_sec))
         while not self._linux_ingest_stop.is_set():

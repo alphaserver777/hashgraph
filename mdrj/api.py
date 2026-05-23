@@ -6873,6 +6873,62 @@ async def handle_metrics_dashboard(request: web.Request) -> web.Response:
     return web.Response(text=METRICS_DASHBOARD_HTML, content_type="text/html")
 
 
+async def handle_checkpoint_propose(request: web.Request) -> web.Response:
+    """Either propose a local checkpoint (no body) or accept a peer proposal."""
+    node = request.app["node"]
+    try:
+        payload = await request.json()
+    except json.JSONDecodeError:
+        payload = {}
+    if payload and "merkle_root" in payload:
+        try:
+            record = await asyncio.to_thread(node.ingest_checkpoint_proposal, payload)
+        except ValueError as exc:
+            raise web.HTTPBadRequest(text=str(exc)) from exc
+        return web.json_response({"status": "ok", "checkpoint": record})
+    target_round = payload.get("round_received") if isinstance(payload, dict) else None
+    if target_round is None:
+        confirmed = await asyncio.to_thread(lambda: node.storage.latest_confirmed_checkpoint())
+        next_round_start = (confirmed["round_received"] + 1) if confirmed else 0
+        events = await asyncio.to_thread(node.storage.all_events)
+        max_round = max(
+            (e.round_received for e in events if e.round_received is not None),
+            default=-1,
+        )
+        if max_round < next_round_start:
+            raise web.HTTPBadRequest(text="no new events with round_received available for checkpoint")
+        target_round = max_round
+    try:
+        proposal = await asyncio.to_thread(node.propose_local_checkpoint, int(target_round))
+    except ValueError as exc:
+        raise web.HTTPBadRequest(text=str(exc)) from exc
+    return web.json_response({"status": "ok", "proposal": proposal})
+
+
+async def handle_checkpoint_list(request: web.Request) -> web.Response:
+    node = request.app["node"]
+    status = request.query.get("status")
+    try:
+        limit = int(request.query.get("limit", "100"))
+    except ValueError:
+        limit = 100
+    items = await asyncio.to_thread(node.list_checkpoints, status=status, limit=limit)
+    return web.json_response({"items": items})
+
+
+async def handle_checkpoint_verify(request: web.Request) -> web.Response:
+    node = request.app["node"]
+    try:
+        round_received = int(request.query.get("round_received") or request.match_info.get("round_received", ""))
+    except ValueError:
+        raise web.HTTPBadRequest(text="round_received must be integer")
+    try:
+        report = await asyncio.to_thread(node.verify_checkpoint, round_received)
+    except KeyError as exc:
+        raise web.HTTPNotFound(text=str(exc)) from exc
+    return web.json_response(report)
+
+
 async def handle_consensus_digest(request: web.Request) -> web.Response:
     node = request.app["node"]
     snapshot = await node.get_consensus_snapshot()
@@ -7007,6 +7063,9 @@ def build_app(node) -> web.Application:
             web.get("/metrics/prometheus", handle_metrics_prometheus),
             web.get("/metrics/history", handle_metrics_history),
             web.get("/metrics/dashboard", handle_metrics_dashboard),
+            web.post("/checkpoint/propose", handle_checkpoint_propose),
+            web.get("/checkpoint/list", handle_checkpoint_list),
+            web.get("/checkpoint/verify", handle_checkpoint_verify),
             web.post("/peers/register", handle_register_peer),
             web.post("/peers/update", handle_update_peer),
             web.post("/peers/remove", handle_remove_peer),
