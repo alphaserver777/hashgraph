@@ -43,12 +43,32 @@
   Обнаружен вирус на узле.
 - `admin_ssh_login_success`
   Успешный административный вход по SSH из Linux-контура ingestion.
+- `admin_login_failure`
+  Неудачная попытка входа администратора или привилегированного пользователя.
+- `failed_login_burst`
+  Превышен порог неудачных попыток входа за окно времени (по умолчанию ≥10 за 60 с, настраивается коллектором).
+- `critical_file_modified`
+  Зафиксировано изменение системного файла из списка критических (например, `/etc/passwd`, `/etc/shadow`, `/etc/ssh/sshd_config`).
+- `windows_registry_modified`
+  Зафиксировано изменение ключа реестра Windows из списка критических.
+- `known_malicious_process`
+  Имя/хеш запущенного процесса совпало со списком известных вредоносных.
+- `firewall_rule_changed`
+  Зафиксировано изменение конфигурации межсетевого экрана (например, Windows Firewall, ufw, firewalld).
+- `iptables_rule_changed`
+  Зафиксировано изменение правил iptables/nftables.
+- `critical_security_error`
+  Критическая ошибка подсистемы безопасности (kernel, audit, antivirus).
 - `mac_spoof`
   Попытка подмены MAC-адреса.
 
 ### Класс B
 - `admin_login`
   Удалённый вход администратора.
+- `remote_login_rdp`
+  Удалённый вход через RDP (Windows).
+- `privileged_process_started`
+  Запуск процесса с повышенными привилегиями (EUID=0, административный токен).
 - `portscan`
   Аномальный порт-скан внешним узлом.
 

@@ -3,15 +3,43 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import hashlib
+import hmac as hmac_lib
 import json
+import logging
 import secrets
 from datetime import datetime
 from typing import Any, Dict, List
 
 from aiohttp import web
 
+from .event_catalog import event_class_for, is_known_event_kind
 from .models import Envelope, EventClass
 from .simulation import SCENARIOS, scenario_payload
+
+HMAC_HEADER = "X-MDRJ-Sig"
+HMAC_PROTECTED_METHODS = {"POST", "PUT", "DELETE", "PATCH"}
+
+_auth_logger = logging.getLogger("mdrj.api.auth")
+
+
+@web.middleware
+async def hmac_auth_middleware(request: web.Request, handler):
+    """Verify HMAC-SHA256 signature of state-changing requests when key is set."""
+    hmac_key = request.app.get("hmac_key")
+    if not hmac_key or request.method not in HMAC_PROTECTED_METHODS:
+        return await handler(request)
+
+    provided = request.headers.get(HMAC_HEADER, "")
+    if not provided:
+        raise web.HTTPUnauthorized(text=f"missing {HMAC_HEADER} header")
+
+    body = await request.read()
+    expected = hmac_lib.new(hmac_key.encode(), body, hashlib.sha256).hexdigest()
+    if not hmac_lib.compare_digest(provided, expected):
+        _auth_logger.warning("HMAC verification failed for %s %s", request.method, request.path)
+        raise web.HTTPUnauthorized(text="invalid signature")
+    return await handler(request)
 
 VIZ_HTML = """
 <!DOCTYPE html>
@@ -6505,11 +6533,20 @@ async def handle_event_batch(request: web.Request) -> web.Response:
 async def handle_emit_local(request: web.Request) -> web.Response:
     node = request.app["node"]
     payload = await request.json()
+    body = dict(payload.get("payload") or {})
+    event_kind = payload.get("event_kind") or body.get("event_kind")
     cls_raw = payload.get("cls")
-    if not cls_raw:
-        raise web.HTTPBadRequest(text="missing cls")
-    event_cls = EventClass.from_str(cls_raw)
-    body = payload.get("payload", {})
+
+    if event_kind:
+        if not is_known_event_kind(event_kind):
+            raise web.HTTPBadRequest(text=f"unknown event_kind: {event_kind}")
+        event_cls = event_class_for(event_kind)
+        body["event_kind"] = event_kind
+    elif cls_raw:
+        event_cls = EventClass.from_str(cls_raw)
+    else:
+        raise web.HTTPBadRequest(text="missing event_kind or cls")
+
     emission = await node.emit_event(event_cls, body)
     return web.json_response({"event": emission.event.to_dict(), "stored": emission.stored})
 
@@ -6713,8 +6750,14 @@ async def handle_viz_stream(request: web.Request) -> web.StreamResponse:
     return response
 
 def build_app(node) -> web.Application:
-    app = web.Application()
+    app = web.Application(middlewares=[hmac_auth_middleware])
     app["node"] = node
+    app["hmac_key"] = getattr(getattr(node.config, "security", None), "hmac_key", None) if hasattr(node, "config") else None
+    if not app["hmac_key"]:
+        _auth_logger.warning(
+            "security.hmac_key is not set — HTTP API accepts unauthenticated state changes. "
+            "Set security.hmac_key in node config before exposing the API to untrusted networks."
+        )
     app.add_routes(
         [
             web.post("/event/batch", handle_event_batch),

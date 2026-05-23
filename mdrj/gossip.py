@@ -14,7 +14,7 @@ from .metrics import MetricsEngine
 from .models import Envelope, EventClass, PeerInfo
 from .prioritization import Prioritizer
 from .storage import DAGStorage
-from .utils import utc_timestamp
+from .utils import signed_request_body, utc_timestamp
 
 PeerProvider = Callable[[], Sequence[PeerInfo]]
 
@@ -37,6 +37,7 @@ class GossipEngine:
         session: aiohttp.ClientSession,
         fan_out: int,
         period_sec: float,
+        hmac_key: Optional[str] = None,
     ) -> None:
         self.node_id = node_id
         self.storage = storage
@@ -46,6 +47,7 @@ class GossipEngine:
         self.session = session
         self.fan_out = fan_out
         self.period_sec = period_sec
+        self.hmac_key = hmac_key
         self._pending: asyncio.Queue[str] = asyncio.Queue()
         self._known_pending: set[str] = set()
         self._task: Optional[asyncio.Task] = None
@@ -137,8 +139,9 @@ class GossipEngine:
                 "event": event_dict,
                 "path_meta": env.path_meta,
             })
+        body, headers = signed_request_body(payload, self.hmac_key)
         try:
-            async with self.session.post(url, json=payload, timeout=self.period_sec * 2) as resp:
+            async with self.session.post(url, data=body, headers=headers, timeout=self.period_sec * 2) as resp:
                 if resp.status != 200:
                     self.storage.upsert_peer(address, time.time(), healthy=False)
                     return False

@@ -38,6 +38,24 @@ def hmac_signature(key: str, message: Mapping[str, Any]) -> str:
     return digest.hexdigest()
 
 
+def hmac_request_signature(key: str, body: bytes) -> str:
+    """Return hex HMAC-SHA256 over raw HTTP request body bytes."""
+    return hmac.new(key.encode(), body, DEFAULT_HASH_ALGO).hexdigest()
+
+
+def signed_request_body(payload: Any, hmac_key: "str | None") -> tuple[bytes, Dict[str, str]]:
+    """Serialize *payload* as JSON and return (body_bytes, headers).
+
+    If *hmac_key* is set, headers include `X-MDRJ-Sig` matching the body
+    so the request passes the receiving node's HMAC middleware.
+    """
+    body = json.dumps(payload).encode()
+    headers: Dict[str, str] = {"Content-Type": "application/json"}
+    if hmac_key:
+        headers["X-MDRJ-Sig"] = hmac_request_signature(hmac_key, body)
+    return body, headers
+
+
 def median(values: Sequence[float]) -> float:
     if not values:
         raise ValueError("cannot compute median of empty sequence")

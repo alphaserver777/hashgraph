@@ -31,7 +31,7 @@ from .models import (
 from .prioritization import Prioritizer
 from .simulation import SCENARIOS, scenario_payload
 from .storage import DAGStorage
-from .utils import hmac_signature, utc_timestamp
+from .utils import hmac_signature, signed_request_body, utc_timestamp
 from .vectorclock import VectorClock
 
 
@@ -128,6 +128,7 @@ class Node:
             session=self._session,
             fan_out=self.config.gossip.fan_out,
             period_sec=self.config.gossip.period_sec,
+            hmac_key=self.config.security.hmac_key,
         )
         self._prime_gossip()
         await self._gossip.start()
@@ -812,8 +813,9 @@ class Node:
 
     async def _send_simulation_request(self, address: str, payload: Dict[str, object]) -> None:
         url = f"http://{address}/viz/simulation/control"
+        body, headers = signed_request_body(payload, self.config.security.hmac_key)
         try:
-            async with self._session.post(url, json=payload, timeout=5) as resp:
+            async with self._session.post(url, data=body, headers=headers, timeout=5) as resp:
                 await resp.read()
         except Exception:
             pass
@@ -834,8 +836,9 @@ class Node:
 
     async def _send_clear_request(self, address: str, payload: Dict[str, object]) -> None:
         url = f"http://{address}/viz/clear"
+        body, headers = signed_request_body(payload, self.config.security.hmac_key)
         try:
-            async with self._session.post(url, json=payload, timeout=5) as resp:
+            async with self._session.post(url, data=body, headers=headers, timeout=5) as resp:
                 await resp.read()
         except Exception:
             pass
