@@ -11,11 +11,15 @@
 - Gossip обязан ставить вновь сохранённые события в очередь на дальнейшую репликацию.
 
 ## Инварианты Упорядочивания
-- `consensus_ts` должен вычисляться детерминированно из локально наблюдаемого состояния события и envelope, после чего итоговый порядок разрешается через tie-break по `event.id`.
+- Для каждого события должны сохраняться `creator`, `self_parent_id`, `other_parent_id`, `round`, `round_received`, `is_witness`, `is_famous_witness`, `fame_decided`, `fame_decision_round`, `fame_decision_kind`, `fame_needs_coin`, `fame_coin_used`, `fame_coin_round`, `fame_vote_round`, `fame_vote_yes` и `fame_vote_no`.
+- Активный consensus membership не должен меняться от live peer-registry без явной операции `reconfigure consensus membership`.
+- Итоговый порядок разрешается как `round_received -> consensus_ts -> event.id`.
+- `consensus_ts` должен вычисляться детерминированно из сетевых наблюдений события в `path_meta` относительно активного membership snapshot, а не только из локальных часов узла.
 - Если меняется семантика порядка, интеграционные тесты должны подтверждать сходимость между узлами после снятия partition.
 
 ## Инварианты Хранения
 - SQLite является источником истины для событий, связей графа, envelope и сохранённого состояния пиров.
+- SQLite также является источником истины для активного consensus membership snapshot и его epoch.
 - В пустом хранилище genesis anchors должны появиться до начала обычной эмиссии событий.
 - Genesis anchors могут содержать identity-метаданные известных узлов, но должны оставаться обычными `C`-событиями без родителей.
 - Запрос frontier должен отражать листовые вершины в соответствии с таблицей `edges`.

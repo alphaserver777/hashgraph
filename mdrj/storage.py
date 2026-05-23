@@ -42,13 +42,29 @@ class DAGStorage:
                     id TEXT PRIMARY KEY,
                     cls TEXT NOT NULL,
                     source TEXT NOT NULL,
+                    creator TEXT,
                     ts_local REAL NOT NULL,
                     vclock TEXT NOT NULL,
                     parents TEXT NOT NULL,
+                    self_parent_id TEXT,
+                    other_parent_id TEXT,
                     payload TEXT NOT NULL,
                     sig TEXT,
                     consensus_ts REAL,
                     lamport_ts INTEGER,
+                    round INTEGER,
+                    round_received INTEGER,
+                    is_witness INTEGER DEFAULT 0,
+                    is_famous_witness INTEGER DEFAULT 0,
+                    fame_decided INTEGER DEFAULT 0,
+                    fame_decision_round INTEGER,
+                    fame_decision_kind TEXT DEFAULT 'pending',
+                    fame_needs_coin INTEGER DEFAULT 0,
+                    fame_coin_used INTEGER DEFAULT 0,
+                    fame_coin_round INTEGER,
+                    fame_vote_round INTEGER,
+                    fame_vote_yes INTEGER DEFAULT 0,
+                    fame_vote_no INTEGER DEFAULT 0,
                     created_at REAL NOT NULL
                 );
                 CREATE TABLE IF NOT EXISTS edges (
@@ -62,12 +78,17 @@ class DAGStorage:
                 );
                 CREATE TABLE IF NOT EXISTS peers (
                     address TEXT PRIMARY KEY,
+                    node_id TEXT DEFAULT '',
                     last_seen REAL,
                     healthy INTEGER DEFAULT 1,
                     enabled INTEGER DEFAULT 1,
                     note TEXT DEFAULT '',
                     source TEXT DEFAULT 'runtime',
                     role TEXT DEFAULT 'node'
+                );
+                CREATE TABLE IF NOT EXISTS consensus_state (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
                 );
                 CREATE TABLE IF NOT EXISTS incidents (
                     id TEXT PRIMARY KEY,
@@ -84,12 +105,15 @@ class DAGStorage:
                 """
             )
         self._ensure_peers_schema()
+        self._ensure_events_schema()
 
     def _ensure_peers_schema(self) -> None:
         columns = {
             row["name"] for row in self._conn.execute("PRAGMA table_info(peers)").fetchall()
         }
         with self._conn:
+            if "node_id" not in columns:
+                self._conn.execute("ALTER TABLE peers ADD COLUMN node_id TEXT DEFAULT ''")
             if "enabled" not in columns:
                 self._conn.execute("ALTER TABLE peers ADD COLUMN enabled INTEGER DEFAULT 1")
             if "note" not in columns:
@@ -105,6 +129,57 @@ class DAGStorage:
             self._conn.execute(
                 "UPDATE peers SET role = ? WHERE LOWER(TRIM(COALESCE(role, ''))) NOT IN ('node', 'responder')",
                 (NODE_ROLE_NODE,),
+            )
+
+    def _ensure_events_schema(self) -> None:
+        columns = {
+            row["name"] for row in self._conn.execute("PRAGMA table_info(events)").fetchall()
+        }
+        with self._conn:
+            if "creator" not in columns:
+                self._conn.execute("ALTER TABLE events ADD COLUMN creator TEXT")
+            if "self_parent_id" not in columns:
+                self._conn.execute("ALTER TABLE events ADD COLUMN self_parent_id TEXT")
+            if "other_parent_id" not in columns:
+                self._conn.execute("ALTER TABLE events ADD COLUMN other_parent_id TEXT")
+            if "round" not in columns:
+                self._conn.execute("ALTER TABLE events ADD COLUMN round INTEGER")
+            if "round_received" not in columns:
+                self._conn.execute("ALTER TABLE events ADD COLUMN round_received INTEGER")
+            if "is_witness" not in columns:
+                self._conn.execute("ALTER TABLE events ADD COLUMN is_witness INTEGER DEFAULT 0")
+            if "is_famous_witness" not in columns:
+                self._conn.execute("ALTER TABLE events ADD COLUMN is_famous_witness INTEGER DEFAULT 0")
+            if "fame_decided" not in columns:
+                self._conn.execute("ALTER TABLE events ADD COLUMN fame_decided INTEGER DEFAULT 0")
+            if "fame_decision_round" not in columns:
+                self._conn.execute("ALTER TABLE events ADD COLUMN fame_decision_round INTEGER")
+            if "fame_decision_kind" not in columns:
+                self._conn.execute("ALTER TABLE events ADD COLUMN fame_decision_kind TEXT DEFAULT 'pending'")
+            if "fame_needs_coin" not in columns:
+                self._conn.execute("ALTER TABLE events ADD COLUMN fame_needs_coin INTEGER DEFAULT 0")
+            if "fame_coin_used" not in columns:
+                self._conn.execute("ALTER TABLE events ADD COLUMN fame_coin_used INTEGER DEFAULT 0")
+            if "fame_coin_round" not in columns:
+                self._conn.execute("ALTER TABLE events ADD COLUMN fame_coin_round INTEGER")
+            if "fame_vote_round" not in columns:
+                self._conn.execute("ALTER TABLE events ADD COLUMN fame_vote_round INTEGER")
+            if "fame_vote_yes" not in columns:
+                self._conn.execute("ALTER TABLE events ADD COLUMN fame_vote_yes INTEGER DEFAULT 0")
+            if "fame_vote_no" not in columns:
+                self._conn.execute("ALTER TABLE events ADD COLUMN fame_vote_no INTEGER DEFAULT 0")
+            self._conn.execute(
+                "UPDATE events SET fame_decision_kind = 'pending' WHERE fame_decision_kind IS NULL OR TRIM(fame_decision_kind) = ''"
+            )
+            self._conn.execute(
+                "UPDATE events SET fame_decision_kind = 'pending' WHERE LOWER(TRIM(COALESCE(fame_decision_kind, ''))) NOT IN ('pending', 'vote', 'coin_surrogate')"
+            )
+            self._conn.execute("UPDATE events SET creator = source WHERE creator IS NULL OR TRIM(creator) = ''")
+            self._conn.execute(
+                "UPDATE events SET self_parent_id = json_extract(parents, '$[0]') WHERE self_parent_id IS NULL"
+            )
+            self._conn.execute(
+                "UPDATE events SET other_parent_id = json_extract(parents, '$[1]') WHERE other_parent_id IS NULL"
             )
 
     def clear_events(self) -> None:
@@ -194,8 +269,8 @@ class DAGStorage:
                     self._merge_path_meta(event.id, envelope.path_meta)
                     if consensus_ts is not None:
                         self._conn.execute(
-                            "UPDATE events SET consensus_ts = COALESCE(consensus_ts, ?) WHERE id = ?",
-                            (consensus_ts, event.id),
+                            "UPDATE events SET consensus_ts = COALESCE(consensus_ts, ?), creator = COALESCE(creator, ?), self_parent_id = COALESCE(self_parent_id, ?), other_parent_id = COALESCE(other_parent_id, ?) WHERE id = ?",
+                            (consensus_ts, event.creator, event.self_parent_id, event.other_parent_id, event.id),
                         )
                 return False
             record = event.to_record()
@@ -205,8 +280,8 @@ class DAGStorage:
                 self._conn.execute(
                     """
                     INSERT INTO events(
-                        id, cls, source, ts_local, vclock, parents, payload, sig, consensus_ts, lamport_ts, created_at
-                    ) VALUES (:id, :cls, :source, :ts_local, :vclock, :parents, :payload, :sig, :consensus_ts, :lamport_ts, :created_at)
+                        id, cls, source, creator, ts_local, vclock, parents, self_parent_id, other_parent_id, payload, sig, consensus_ts, lamport_ts, round, round_received, is_witness, created_at
+                    ) VALUES (:id, :cls, :source, :creator, :ts_local, :vclock, :parents, :self_parent_id, :other_parent_id, :payload, :sig, :consensus_ts, :lamport_ts, :round, :round_received, :is_witness, :created_at)
                     """,
                     record,
                 )
@@ -218,12 +293,52 @@ class DAGStorage:
                 self._merge_path_meta(event.id, envelope.path_meta)
             return True
 
-    def update_consensus(self, event_id: str, consensus_ts: float) -> None:
+    def replace_consensus_state(self, states: Sequence[Dict[str, object]]) -> None:
         with self._lock, self._conn:
-            self._conn.execute(
-                "UPDATE events SET consensus_ts = ? WHERE id = ?",
-                (consensus_ts, event_id),
-            )
+            for state in states:
+                self._conn.execute(
+                    """
+                    UPDATE events
+                    SET consensus_ts = ?,
+                        round = ?,
+                        round_received = ?,
+                        is_witness = ?,
+                        is_famous_witness = ?,
+                        fame_decided = ?,
+                        fame_decision_round = ?,
+                        fame_decision_kind = ?,
+                        fame_needs_coin = ?,
+                        fame_coin_used = ?,
+                        fame_coin_round = ?,
+                        fame_vote_round = ?,
+                        fame_vote_yes = ?,
+                        fame_vote_no = ?,
+                        creator = COALESCE(creator, ?),
+                        self_parent_id = COALESCE(self_parent_id, ?),
+                        other_parent_id = COALESCE(other_parent_id, ?)
+                    WHERE id = ?
+                    """,
+                    (
+                        state.get("consensus_ts"),
+                        state.get("round"),
+                        state.get("round_received"),
+                        int(bool(state.get("is_witness", False))),
+                        int(bool(state.get("is_famous_witness", False))),
+                        int(bool(state.get("fame_decided", False))),
+                        state.get("fame_decision_round"),
+                        str(state.get("fame_decision_kind") or "pending"),
+                        int(bool(state.get("fame_needs_coin", False))),
+                        int(bool(state.get("fame_coin_used", False))),
+                        state.get("fame_coin_round"),
+                        state.get("fame_vote_round"),
+                        int(state.get("fame_vote_yes", 0) or 0),
+                        int(state.get("fame_vote_no", 0) or 0),
+                        state.get("creator"),
+                        state.get("self_parent_id"),
+                        state.get("other_parent_id"),
+                        state["event_id"],
+                    ),
+                )
 
     def get_event(self, event_id: str) -> Optional[Event]:
         cur = self._conn.execute("SELECT * FROM events WHERE id = ?", (event_id,))
@@ -359,7 +474,7 @@ class DAGStorage:
     def upsert_peer(self, address: str, last_seen: float, healthy: bool) -> None:
         with self._conn:
             self._conn.execute(
-                "INSERT INTO peers(address, last_seen, healthy, enabled, note, source, role) VALUES (?, ?, ?, 1, '', 'runtime', ?)\n                 ON CONFLICT(address) DO UPDATE SET last_seen = excluded.last_seen, healthy = excluded.healthy",
+                "INSERT INTO peers(address, node_id, last_seen, healthy, enabled, note, source, role) VALUES (?, '', ?, ?, 1, '', 'runtime', ?)\n                 ON CONFLICT(address) DO UPDATE SET last_seen = excluded.last_seen, healthy = excluded.healthy",
                 (address, last_seen, int(healthy), NODE_ROLE_NODE),
             )
 
@@ -367,6 +482,7 @@ class DAGStorage:
         self,
         address: str,
         *,
+        node_id: str = "",
         last_seen: Optional[float],
         healthy: bool,
         enabled: bool = True,
@@ -387,9 +503,11 @@ class DAGStorage:
                 merged_note = existing["note"] or note or ""
                 merged_source = existing["source"] or source
                 merged_role = normalize_node_role(existing["role"] if "role" in existing.keys() else next_role)
+                merged_node_id = (existing["node_id"] if "node_id" in existing.keys() else "") or node_id or ""
                 self._conn.execute(
-                    "UPDATE peers SET last_seen = ?, healthy = ?, enabled = ?, note = ?, source = ?, role = ? WHERE address = ?",
+                    "UPDATE peers SET node_id = ?, last_seen = ?, healthy = ?, enabled = ?, note = ?, source = ?, role = ? WHERE address = ?",
                     (
+                        merged_node_id,
                         merged_last_seen,
                         merged_healthy,
                         int(merged_enabled),
@@ -401,6 +519,7 @@ class DAGStorage:
                 )
                 return PeerInfo(
                     address=address,
+                    node_id=merged_node_id,
                     last_seen=merged_last_seen,
                     healthy=bool(merged_healthy),
                     enabled=merged_enabled,
@@ -410,11 +529,12 @@ class DAGStorage:
                     is_self=merged_source == "self",
                 )
             self._conn.execute(
-                "INSERT INTO peers(address, last_seen, healthy, enabled, note, source, role) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (address, last_seen, int(healthy), int(enabled), note, source, next_role),
+                "INSERT INTO peers(address, node_id, last_seen, healthy, enabled, note, source, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (address, node_id, last_seen, int(healthy), int(enabled), note, source, next_role),
             )
             return PeerInfo(
                 address=address,
+                node_id=node_id,
                 last_seen=last_seen,
                 healthy=healthy,
                 enabled=enabled,
@@ -433,6 +553,7 @@ class DAGStorage:
         last_seen: Optional[float] = None,
         healthy: Optional[bool] = None,
         role: Optional[str] = None,
+        node_id: Optional[str] = None,
     ) -> Optional[PeerInfo]:
         with self._lock, self._conn:
             existing = self._conn.execute(
@@ -447,12 +568,14 @@ class DAGStorage:
             next_note = existing["note"] if note is None else note
             next_source = existing["source"] or "runtime"
             next_role = normalize_node_role(existing["role"] if role is None else role)
+            next_node_id = ((existing["node_id"] if "node_id" in existing.keys() else "") or "") if node_id is None else str(node_id or "")
             self._conn.execute(
-                "UPDATE peers SET last_seen = ?, healthy = ?, enabled = ?, note = ?, source = ?, role = ? WHERE address = ?",
-                (next_last_seen, int(next_healthy), int(next_enabled), next_note, next_source, next_role, address),
+                "UPDATE peers SET node_id = ?, last_seen = ?, healthy = ?, enabled = ?, note = ?, source = ?, role = ? WHERE address = ?",
+                (next_node_id, next_last_seen, int(next_healthy), int(next_enabled), next_note, next_source, next_role, address),
             )
             return PeerInfo(
                 address=address,
+                node_id=next_node_id,
                 last_seen=next_last_seen,
                 healthy=next_healthy,
                 enabled=next_enabled,
@@ -473,6 +596,7 @@ class DAGStorage:
             peers.append(
                 PeerInfo(
                     address=row["address"],
+                    node_id=(row["node_id"] if "node_id" in row.keys() else "") or "",
                     last_seen=row["last_seen"],
                     healthy=bool(row["healthy"]),
                     enabled=bool(row["enabled"]) if "enabled" in row.keys() else True,
@@ -484,3 +608,24 @@ class DAGStorage:
             )
         peers.sort(key=lambda peer: (not peer.is_self, peer.address))
         return peers
+
+    def get_consensus_membership_snapshot(self) -> Optional[Dict[str, object]]:
+        row = self._conn.execute(
+            "SELECT value FROM consensus_state WHERE key = 'membership_snapshot'"
+        ).fetchone()
+        if not row:
+            return None
+        try:
+            data = json.loads(row["value"])
+        except Exception:
+            return None
+        if not isinstance(data, dict):
+            return None
+        return data
+
+    def save_consensus_membership_snapshot(self, snapshot: Dict[str, object]) -> None:
+        with self._lock, self._conn:
+            self._conn.execute(
+                "INSERT INTO consensus_state(key, value) VALUES ('membership_snapshot', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                (canonical_json(snapshot),),
+            )

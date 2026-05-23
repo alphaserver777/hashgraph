@@ -1654,6 +1654,21 @@ VIZ_HTML = """
       flex-wrap: wrap;
       gap: 0.55rem;
     }
+    .network-consensus-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.85rem 0.95rem;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,0.05);
+      background: rgba(10, 19, 29, 0.72);
+    }
+    .network-consensus-copy {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
     .network-stat {
       display: inline-flex;
       align-items: center;
@@ -1723,6 +1738,11 @@ VIZ_HTML = """
     .network-action-btn:hover {
       transform: translateY(-1px);
       background: rgba(255,255,255,0.08);
+    }
+    .network-action-btn:disabled {
+      opacity: 0.55;
+      cursor: default;
+      transform: none;
     }
     .network-table-wrap {
       overflow: auto;
@@ -2441,13 +2461,20 @@ VIZ_HTML = """
             '<div class="network-toolbar">' +
               '<div>' +
                 '<h2 style="margin:0;font-size:1.08rem;">Участники сети</h2>' +
-                '<div class="panel-hint">Локальный реестр доверенных узлов: добавление, временное исключение и удаление участников из gossip-контура.</div>' +
+                '<div class="panel-hint">Локальный реестр доверенных узлов: добавление, временное исключение и удаление участников из gossip-контура. Активный состав consensus фиксируется отдельно и меняется только после явной пересборки.</div>' +
               '</div>' +
               '<div class="network-summary">' +
                 '<span class="network-stat">Всего <strong id="network-peer-total">0</strong></span>' +
                 '<span class="network-stat">Активных <strong id="network-peer-enabled">0</strong></span>' +
                 '<span class="network-stat">Исключённых <strong id="network-peer-disabled">0</strong></span>' +
               '</div>' +
+            '</div>' +
+            '<div class="network-consensus-card">' +
+              '<div class="network-consensus-copy">' +
+                '<strong>Активный consensus snapshot</strong>' +
+                '<div class="panel-hint" id="network-consensus-summary">Загружаем epoch и состав участников…</div>' +
+              '</div>' +
+              '<button class="network-action-btn primary" id="network-reconfigure-btn" type="button">Пересобрать состав консенсуса</button>' +
             '</div>' +
             '<div class="network-add-form">' +
               '<div class="network-field"><label for="network-address-input">Адрес узла</label><input id="network-address-input" type="text" placeholder="host:port" /></div>' +
@@ -2597,6 +2624,8 @@ VIZ_HTML = """
       var networkNoteInputEl = document.getElementById('network-note-input');
       var networkAddBtnEl = document.getElementById('network-add-btn');
       var networkStatusLineEl = document.getElementById('network-status-line');
+      var networkConsensusSummaryEl = document.getElementById('network-consensus-summary');
+      var networkReconfigureBtnEl = document.getElementById('network-reconfigure-btn');
       var peerRegistry = [];
       var navStateStorageKey = 'mdrj-dashboard-nav-collapsed';
 
@@ -3002,6 +3031,20 @@ VIZ_HTML = """
         networkStatusLineEl.style.color = isError ? '#ffaaaa' : '';
       }
 
+      function renderConsensusMembershipSummary() {
+        if (!networkConsensusSummaryEl) {
+          return;
+        }
+        if (!lastStatusSnapshot) {
+          networkConsensusSummaryEl.textContent = 'Загружаем epoch и состав участников…';
+          return;
+        }
+        var epoch = valueOr(lastStatusSnapshot.consensus_epoch, '—');
+        var size = valueOr(lastStatusSnapshot.consensus_membership_size, '—');
+        var fingerprint = String(valueOr(lastStatusSnapshot.membership_snapshot_hash, '—'));
+        networkConsensusSummaryEl.textContent = 'Epoch ' + epoch + ' · участников ' + size + ' · hash ' + fingerprint.slice(0, 12);
+      }
+
       function normalizeNodeRole(role) {
         return role === 'responder' ? 'responder' : 'node';
       }
@@ -3061,6 +3104,7 @@ VIZ_HTML = """
           actionButtons += '</div>';
           return '<tr data-peer-row="' + index + '">' +
             '<td><strong>' + escapeHtml(addressLabel) + '</strong></td>' +
+            '<td>' + escapeHtml(valueOr(peer.node_id, 'не определён')) + '</td>' +
             '<td>' + roleSelect + '</td>' +
             '<td><span class="network-mode-pill ' + modeClass + '">' + modeLabel + '</span></td>' +
             '<td>' + escapeHtml(health) + '</td>' +
@@ -3073,7 +3117,7 @@ VIZ_HTML = """
         networkTableViewEl.innerHTML =
           '<div class="network-table-wrap">' +
             '<table class="network-table">' +
-              '<thead><tr><th>Адрес</th><th>Роль</th><th>Режим</th><th>Состояние</th><th>Последняя связь</th><th>Источник</th><th>Заметка</th><th>Действия</th></tr></thead>' +
+              '<thead><tr><th>Адрес</th><th>Node ID</th><th>Роль</th><th>Режим</th><th>Состояние</th><th>Последняя связь</th><th>Источник</th><th>Заметка</th><th>Действия</th></tr></thead>' +
               '<tbody>' + rows + '</tbody>' +
             '</table>' +
           '</div>';
@@ -3123,6 +3167,7 @@ VIZ_HTML = """
               peerRegistry = Array.isArray(resp.peers) ? resp.peers : [];
               setNetworkStatus('Реестр участников сети синхронизирован.', false);
               renderPeerRegistry();
+              renderConsensusMembershipSummary();
             } catch (err) {
               setNetworkStatus('Не удалось разобрать ответ реестра участников.', true);
             }
@@ -3221,6 +3266,28 @@ VIZ_HTML = """
           setNetworkStatus('Ошибка сети при удалении участника.', true);
         };
         xhr.send(JSON.stringify({ address: address }));
+      }
+
+      function reconfigureConsensusMembership() {
+        setNetworkStatus('Пересобираем frozen consensus membership…', false);
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/consensus/reconfigure', true);
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState !== 4) {
+            return;
+          }
+          if (xhr.status >= 200 && xhr.status < 300) {
+            setNetworkStatus('Активный состав консенсуса пересобран.', false);
+            fetchNodeStatus();
+            loadPeerRegistry();
+          } else {
+            setNetworkStatus('Не удалось пересобрать состав консенсуса.', true);
+          }
+        };
+        xhr.onerror = function () {
+          setNetworkStatus('Ошибка сети при пересборке консенсуса.', true);
+        };
+        xhr.send(JSON.stringify({}));
       }
 
       function escapeHtml(value) {
@@ -3738,6 +3805,9 @@ VIZ_HTML = """
       if (networkAddBtnEl) {
         networkAddBtnEl.addEventListener('click', addPeerRegistryEntry);
       }
+      if (networkReconfigureBtnEl) {
+        networkReconfigureBtnEl.addEventListener('click', reconfigureConsensusMembership);
+      }
       if (networkAddressInputEl) {
         networkAddressInputEl.addEventListener('keydown', function (event) {
           if (event.key === 'Enter') {
@@ -3988,6 +4058,7 @@ VIZ_HTML = """
         setText(statusPeerCountEl, String(peerCount));
         renderRoleValue(statusRoleEl, valueOr(profile.role, 'node'));
         setText(statusThreatLevelEl, valueOr(profile.threat_level, '—'));
+        renderConsensusMembershipSummary();
         demoControlsEnabled = status.demo_controls_enabled !== false;
         if (controlsRoot) {
           controlsRoot.style.display = demoControlsEnabled ? '' : 'none';
@@ -6656,9 +6727,10 @@ async def handle_register_peer(request: web.Request) -> web.Response:
     address = payload.get("address")
     note = str(payload.get("note", "") or "")
     role = payload.get("role", "node")
+    node_id = str(payload.get("node_id", "") or "")
     if not address:
         raise web.HTTPBadRequest(text="missing address")
-    node.register_peer(address, note=note, source="ui", role=str(role))
+    node.register_peer(address, note=note, source="ui", role=str(role), node_id=node_id)
     return web.json_response({"status": "ok", "peers": [peer.to_dict() for peer in node.list_peer_registry()]})
 
 
@@ -6674,7 +6746,9 @@ async def handle_update_peer(request: web.Request) -> web.Response:
     note_value = None if note is None else str(note)
     role = payload.get("role")
     role_value = None if role is None else str(role)
-    peer = node.update_peer(address, enabled=enabled, note=note_value, role=role_value)
+    node_id = payload.get("node_id")
+    node_id_value = None if node_id is None else str(node_id)
+    peer = node.update_peer(address, enabled=enabled, note=note_value, role=role_value, node_id=node_id_value)
     if peer is None:
         raise web.HTTPNotFound(text="unknown peer")
     return web.json_response({"status": "ok", "peer": peer.to_dict()})
@@ -6695,6 +6769,12 @@ async def handle_remove_peer(request: web.Request) -> web.Response:
 async def handle_peers(request: web.Request) -> web.Response:
     node = request.app["node"]
     return web.json_response({"peers": [peer.to_dict() for peer in node.list_peer_registry()]})
+
+
+async def handle_reconfigure_consensus_membership(request: web.Request) -> web.Response:
+    node = request.app["node"]
+    snapshot = await node.reconfigure_consensus_membership()
+    return web.json_response({"status": "ok", "snapshot": snapshot})
 
 
 async def handle_dag(request: web.Request) -> web.Response:
@@ -6770,6 +6850,7 @@ def build_app(node) -> web.Application:
             web.post("/peers/update", handle_update_peer),
             web.post("/peers/remove", handle_remove_peer),
             web.get("/peers", handle_peers),
+            web.post("/consensus/reconfigure", handle_reconfigure_consensus_membership),
             web.get("/viz", handle_viz_page),
             web.get("/viz/graph", handle_viz_graph),
             web.get("/viz/stream", handle_viz_stream),

@@ -12,7 +12,8 @@
 - Состав пиров статический или ручной, поэтому восстановление кластера и масштабирование зависят от действий оператора.
 - `lamport_ts` хранится в базе, но не является центральной частью текущего пайплайна упорядочивания; без отдельной документации это может путать следующих участников.
 - Появился первый встроенный Linux ingestion-loop, но он пока file-based и понимает только `admin_ssh_login_success`. Расширение до реального набора `journald/auth.log/sudo` остаётся отдельным риском и задачей.
-- Текущий `consensus_ts` остаётся упрощённой моделью порядка. Пока в проекте нет формализованных `rounds`, `virtual voting` и `round received`, нельзя считать порядок близким к production-уровню Hedera Hashgraph.
+- Первый этап Hashgraph-подобного порядка уже внедрён, а fame-layer вырос до explicit fame decision pipeline с persisted vote trace, без direct visibility fallback в поздних fame-rounds, с internal round-by-round vote history, отдельным formal decision resolver, более строгим `round_received`, явным флагом `fame_needs_coin`, deterministic coin surrogate для зависших fame cases и новым `fame_decision_kind`, который различает обычное vote-решение и surrogate bridge-step. Но в проекте всё ещё нет full famous witness voting и full `virtual voting`, поэтому нельзя считать порядок близким к production-уровню Hedera Hashgraph.
+- Consensus membership теперь зафиксирован snapshot-ом по epoch, но разные узлы могут остаться на разных snapshots. Пока это только операторская деградация, а не автоматически устраняемая protocol-ситуация.
 
 ## Низкий Приоритет
 - В репозитории лежат закоммиченные `.db`-файлы в `data/`. Для demo это удобно, но размывает границу между fixtures и живым состоянием.
@@ -23,5 +24,5 @@
 
 ## Вывод
 - Текущая архитектура согласована для уровня прототипа и достаточно структурирована для итеративного развития.
-- Ближайший полезный шаг, это формализация API и storage contracts, не теряя при этом узкий фокус на следующем расширении Linux ingestion после первого рабочего сигнала.
-- Параллельное стратегическое направление, это отдельный protocol-track на сближение с hashgraph-подобным consensus ordering без big bang переписывания ядра.
+- Ближайший полезный шаг в protocol-track, это доведение первого этапа порядка до integration verification и затем отдельный переход к famous witnesses / `virtual voting`.
+- Параллельно нельзя терять прикладной трек: API/storage contracts и расширение Linux ingestion остаются отдельными важными направлениями.

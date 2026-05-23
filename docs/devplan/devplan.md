@@ -83,12 +83,20 @@
 - подготовка к следующему шагу discovery/seed-модели.
 
 ### 2.6. Сблизить порядок событий с Hashgraph-подобным consensus
+Статус: активный
 Фокус:
 - честно зафиксировать разрыв между текущим `consensus_ts` и полноценным hashgraph-consensus;
-- ввести формальные `rounds`;
-- спроектировать `virtual voting`;
-- определить `round received`;
-- перейти к `consensus timestamp`, основанному на сетевом наблюдении, а не только на локальном времени;
+- ввести и закрепить первый рабочий этап с `rounds`, `round_received`, membership snapshot и новым reference-порядком;
+- расширить explicit fame decision pipeline persisted vote trace-полями `fame_vote_round/yes/no`;
+- убрать direct visibility fallback из поздних fame-rounds;
+- выделить explicit round-by-round internal vote history для fame pipeline;
+- выделить formal fame decision layer поверх этой vote history;
+- требовать fully decided fame rounds перед использованием их в `round_received`;
+- явно маркировать unresolved fame как `needs_coin`, когда обычные vote rounds исчерпаны;
+- ввести deterministic coin surrogate как временный bridge-step для unresolved fame;
+- ввести явный `fame_decision_kind`, чтобы downstream различал vote-решение и surrogate bridge-step;
+- следующим шагом перейти от fame voting без visibility fallback к full famous witness voting и `virtual voting`;
+- усилить integration verification для одновременных событий, плохих часов и partition/recovery;
 - покрыть это сценариями одновременных событий, плохих часов и partition/recovery.
 
 ## Этап 3. Сделать Разработку Повторяемой

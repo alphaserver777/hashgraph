@@ -16,7 +16,15 @@ import aiohttp
 from aiohttp import web
 
 from .config import NodeConfig
-from .consensus import ConsensusEngine
+from .collectors import (
+    BaseCollector,
+    LinuxAuditCollector,
+    LinuxFirewallCollector,
+    LinuxJournaldCollector,
+    LinuxProcCollector,
+)
+from .consensus import ConsensusEngine, MembershipEntry
+from .event_catalog import event_class_for, is_known_event_kind
 from .gossip import GossipEngine
 from .linux_ingest import LinuxAuthLogIngestor, LinuxIngestStatus
 from .metrics import MetricsEngine
@@ -58,13 +66,14 @@ class Node:
         self.storage = DAGStorage(config.storage.sqlite_path)
         self._self_registry_address = f"self:{config.node_id}"
         self.vector_clock = VectorClock()
-        self.consensus = ConsensusEngine(config.node_id, bias_map=self._build_bias_map())
+        self.consensus = ConsensusEngine(config.node_id)
         self.prioritizer = Prioritizer(config.profile, config.gossip, config.prioritization)
         self.metrics = MetricsEngine(
             self.storage, config.gossip, config.profile.memory_mb, config.profile.bw_kbps
         )
         self.storage.ensure_peer(
             self._self_registry_address,
+            node_id=config.node_id,
             last_seen=utc_timestamp(),
             healthy=True,
             enabled=True,
@@ -75,6 +84,7 @@ class Node:
         for peer_address in config.peers:
             self.storage.ensure_peer(
                 peer_address,
+                node_id="",
                 last_seen=utc_timestamp(),
                 healthy=True,
                 enabled=True,
@@ -112,6 +122,11 @@ class Node:
             source_path=config.linux_ingest.auth_log_path,
             host_id=config.linux_ingest.host_id or config.node_id,
         )
+        self._consensus_membership_snapshot: Optional[Dict[str, object]] = None
+        self._collectors: List[BaseCollector] = []
+        self._collector_tasks: List[asyncio.Task] = []
+        self._collectors_stop = asyncio.Event()
+        self._collectors_stop.set()
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -119,6 +134,8 @@ class Node:
         self._loop = asyncio.get_running_loop()
         self._bootstrap_genesis()
         self._session = aiohttp.ClientSession()
+        await self._hydrate_peer_node_ids()
+        await self._ensure_consensus_membership_snapshot()
         self._gossip = GossipEngine(
             node_id=self.config.node_id,
             storage=self.storage,
@@ -150,10 +167,19 @@ class Node:
         self._consensus_task = asyncio.create_task(self._consensus_monitor_loop())
         if self.config.linux_ingest.enabled:
             self._start_linux_ingest()
+        self._start_collectors()
 
     async def stop(self) -> None:
         if self.simulation_running():
             await self.stop_simulation()
+        if self._collector_tasks:
+            self._collectors_stop.set()
+            for task in self._collector_tasks:
+                try:
+                    await task
+                except Exception:
+                    logger.exception("Error while stopping collector")
+            self._collector_tasks = []
         if self._linux_ingest_task:
             self._linux_ingest_stop.set()
             try:
@@ -208,9 +234,17 @@ class Node:
     def _current_profile_role(self) -> str:
         return self.current_role()
 
-    def register_peer(self, address: str, note: str = "", source: str = "ui", role: str = NODE_ROLE_NODE) -> None:
+    def register_peer(
+        self,
+        address: str,
+        note: str = "",
+        source: str = "ui",
+        role: str = NODE_ROLE_NODE,
+        node_id: str = "",
+    ) -> None:
         self.storage.ensure_peer(
             address,
+            node_id=node_id,
             last_seen=utc_timestamp(),
             healthy=True,
             enabled=True,
@@ -225,6 +259,7 @@ class Node:
             last_seen=utc_timestamp(),
             healthy=True,
             role=role,
+            node_id=node_id,
         )
         if peer is None:
             return
@@ -243,6 +278,7 @@ class Node:
         enabled: Optional[bool] = None,
         note: Optional[str] = None,
         role: Optional[str] = None,
+        node_id: Optional[str] = None,
     ) -> Optional[PeerInfo]:
         if address == self._self_registry_address:
             peer = self.storage.update_peer(
@@ -250,11 +286,12 @@ class Node:
                 enabled=True,
                 note=note,
                 role=role,
+                node_id=self.config.node_id,
                 last_seen=utc_timestamp(),
                 healthy=True,
             )
         else:
-            peer = self.storage.update_peer(address, enabled=enabled, note=note, role=role)
+            peer = self.storage.update_peer(address, enabled=enabled, note=note, role=role, node_id=node_id)
         self._reload_peers_from_storage()
         self.metrics.update_peer_health(self.list_peers(), self._quorum())
         return peer
@@ -269,6 +306,143 @@ class Node:
     def _quorum(self) -> int:
         peers = len(self._peers) + 1
         return max(1, peers // 2 + 1)
+
+    def _membership_entries_from_registry(self) -> List[MembershipEntry]:
+        entries: List[MembershipEntry] = []
+        seen = set()
+        for peer in self.storage.list_peers():
+            if not peer.enabled and not peer.is_self:
+                continue
+            node_id = (peer.node_id or "").strip()
+            if not node_id:
+                continue
+            if node_id in seen:
+                continue
+            seen.add(node_id)
+            entries.append(
+                MembershipEntry(
+                    node_id=node_id,
+                    address=peer.address,
+                    role=peer.role,
+                    is_self=peer.is_self,
+                )
+            )
+        if self.config.node_id not in seen:
+            entries.append(
+                MembershipEntry(
+                    node_id=self.config.node_id,
+                    address=self._self_registry_address,
+                    role=self.current_role(),
+                    is_self=True,
+                )
+            )
+        return sorted(entries, key=lambda item: item.node_id)
+
+    async def _hydrate_peer_node_ids(self) -> None:
+        if not self._session:
+            return
+        peers = [peer for peer in self.storage.list_peers() if not peer.is_self and peer.enabled]
+        for peer in peers:
+            if peer.node_id:
+                continue
+            try:
+                async with self._session.get(f"http://{peer.address}/status", timeout=5) as resp:
+                    if resp.status < 200 or resp.status >= 300:
+                        continue
+                    payload = await resp.json()
+            except Exception:
+                continue
+            remote_node_id = str(payload.get("node_id") or "").strip()
+            if remote_node_id:
+                self.storage.update_peer(
+                    peer.address,
+                    node_id=remote_node_id,
+                    last_seen=utc_timestamp(),
+                    healthy=True,
+                )
+        self._reload_peers_from_storage()
+
+    async def _ensure_consensus_membership_snapshot(self) -> None:
+        snapshot = self.storage.get_consensus_membership_snapshot()
+        if snapshot:
+            self._consensus_membership_snapshot = snapshot
+            return
+        await self.reconfigure_consensus_membership()
+
+    def active_consensus_membership(self) -> Dict[str, object]:
+        snapshot = self._consensus_membership_snapshot or self.storage.get_consensus_membership_snapshot()
+        if snapshot:
+            self._consensus_membership_snapshot = snapshot
+            return snapshot
+        entries = self._membership_entries_from_registry()
+        snapshot = self.consensus.membership_snapshot(epoch=1, members=entries)
+        self.storage.save_consensus_membership_snapshot(snapshot)
+        self._consensus_membership_snapshot = snapshot
+        return snapshot
+
+    async def reconfigure_consensus_membership(self) -> Dict[str, object]:
+        await self._hydrate_peer_node_ids()
+        previous = self.storage.get_consensus_membership_snapshot()
+        epoch = int((previous or {}).get("epoch") or 0) + 1
+        entries = self._membership_entries_from_registry()
+        snapshot = self.consensus.membership_snapshot(epoch=epoch, members=entries)
+        self.storage.save_consensus_membership_snapshot(snapshot)
+        self._consensus_membership_snapshot = snapshot
+        self._recompute_consensus()
+        return snapshot
+
+    def _recompute_consensus(self) -> None:
+        events = self.storage.all_events()
+        if not events:
+            return
+        path_meta_by_event = {}
+        for event in events:
+            envelope = self.storage.get_envelope(event.id)
+            path_meta_by_event[event.id] = envelope.path_meta if envelope else []
+        snapshot = self.active_consensus_membership()
+        membership = [
+            MembershipEntry(
+                node_id=str(item.get("node_id") or "").strip(),
+                address=str(item.get("address") or ""),
+                role=str(item.get("role") or NODE_ROLE_NODE),
+                is_self=bool(item.get("is_self", False)),
+            )
+            for item in snapshot.get("members", [])
+            if str(item.get("node_id") or "").strip()
+        ]
+        order_ids = self.storage.toposort()
+        by_id = {event.id: event for event in events}
+        ordered_events = [by_id[event_id] for event_id in order_ids if event_id in by_id]
+        states = self.consensus.recompute(
+            ordered_events,
+            membership,
+            path_meta_by_event=path_meta_by_event,
+        )
+        self.storage.replace_consensus_state(
+            [
+                {
+                    "event_id": state.event_id,
+                    "creator": state.creator,
+                    "self_parent_id": state.self_parent_id,
+                    "other_parent_id": state.other_parent_id,
+                    "round": state.round,
+                    "round_received": state.round_received,
+                    "is_witness": state.is_witness,
+                    "is_famous_witness": state.is_famous_witness,
+                    "fame_decided": state.fame_decided,
+                    "fame_decision_round": state.fame_decision_round,
+                    "fame_decision_kind": state.fame_decision_kind,
+                    "fame_needs_coin": state.fame_needs_coin,
+                    "fame_coin_used": state.fame_coin_used,
+                    "fame_coin_round": state.fame_coin_round,
+                    "fame_vote_round": state.fame_vote_round,
+                    "fame_vote_yes": state.fame_vote_yes,
+                    "fame_vote_no": state.fame_vote_no,
+                    "consensus_ts": state.consensus_ts,
+                }
+                for state in states
+            ]
+        )
 
     # ------------------------------------------------------------------
     # Events
@@ -305,6 +479,9 @@ class Node:
             ts_local=ts,
             vclock=local_clock.to_dict(),
             parents=parents,
+            creator=self.config.node_id,
+            self_parent_id=parents[0] if parents else None,
+            other_parent_id=parents[1] if len(parents) > 1 else None,
             payload=payload,
             sig=self._sign_payload(payload) if self.config.security.hmac_key else None,
         )
@@ -317,10 +494,8 @@ class Node:
         return EventEmission(event=event, stored=stored)
 
     def _persist_envelope(self, envelope: Envelope) -> bool:
-        arrival_ts = utc_timestamp()
-        consensus = self.consensus.compute_timestamp(envelope, arrival_ts)
-        envelope.event.consensus_ts = consensus.consensus_ts
-        stored = self.storage.store_envelope(envelope, consensus.consensus_ts)
+        stored = self.storage.store_envelope(envelope, envelope.event.consensus_ts)
+        self._recompute_consensus()
         self.vector_clock = self.vector_clock.merge(envelope.event.vclock)
         if stored:
             self.metrics.record_merge_quality(self._reconstruction_ratio())
@@ -368,6 +543,7 @@ class Node:
         reset_metrics = self.metrics_snapshot()
         self._notify_viz_reset(reset_metrics)
         self._bootstrap_genesis(force=True)
+        self._recompute_consensus()
         self.storage.replace_incidents([])
         self.metrics.update_peer_health(self.list_peers(), self._quorum())
         return reset_metrics
@@ -469,11 +645,6 @@ class Node:
             )
         return identities
 
-    def _build_bias_map(self) -> Dict[str, float]:
-        ordered = self._all_known_nodes()
-        bias_step = 0.001
-        return {name: idx * bias_step for idx, name in enumerate(ordered)}
-
     def _bootstrap_genesis(self, *, force: bool = False) -> None:
         if not force and self.storage.event_count() > 0:
             # ensure anchors cached for restarts
@@ -492,6 +663,7 @@ class Node:
             event = Event.create(
                 cls_name=EventClass.C,
                 source=self.config.node_id,
+                creator=self.config.node_id,
                 ts_local=ts,
                 vclock={},
                 parents=[],
@@ -525,6 +697,57 @@ class Node:
             default_state_path=self._linux_ingest_state_path(),
         )
         self._linux_ingest_task = asyncio.create_task(self._linux_ingest_loop())
+
+    # ------------------------------------------------------------------
+    # Cross-platform collectors orchestration
+    def _build_collectors(self) -> List[BaseCollector]:
+        cfg = self.config.collectors
+        node_id = self.config.node_id
+        host_id = self.config.linux_ingest.host_id or node_id
+        built: List[BaseCollector] = []
+        if cfg.journald.enabled:
+            built.append(LinuxJournaldCollector(config=cfg.journald, node_id=node_id, host_id=host_id))
+        if cfg.audit.enabled:
+            built.append(LinuxAuditCollector(config=cfg.audit, node_id=node_id, host_id=host_id))
+        if cfg.firewall.enabled:
+            built.append(LinuxFirewallCollector(config=cfg.firewall, node_id=node_id, host_id=host_id))
+        if cfg.proc.enabled:
+            built.append(LinuxProcCollector(config=cfg.proc, node_id=node_id, host_id=host_id))
+        return built
+
+    def _start_collectors(self) -> None:
+        collectors = self._build_collectors()
+        if not collectors:
+            return
+        self._collectors = collectors
+        self._collectors_stop.clear()
+        for collector in collectors:
+            self._collector_tasks.append(asyncio.create_task(self._run_collector_loop(collector)))
+
+    async def _run_collector_loop(self, collector: BaseCollector) -> None:
+        interval = max(0.2, float(collector.poll_interval_sec))
+        while not self._collectors_stop.is_set():
+            try:
+                events = await asyncio.to_thread(collector.poll)
+                for event in events:
+                    if not is_known_event_kind(event.event_kind):
+                        logger.warning(
+                            "Collector %s emitted unknown event_kind %s; skipped",
+                            collector.name,
+                            event.event_kind,
+                        )
+                        continue
+                    cls = event_class_for(event.event_kind)
+                    await self.emit_event(cls, event.to_payload())
+            except Exception:
+                logger.exception("Collector %s polling failed", collector.name)
+            try:
+                await asyncio.wait_for(self._collectors_stop.wait(), timeout=interval)
+            except asyncio.TimeoutError:
+                continue
+
+    def list_collector_status(self) -> List[Dict[str, object]]:
+        return [collector.status.to_dict() for collector in self._collectors]
 
     async def _linux_ingest_loop(self) -> None:
         interval = max(0.5, float(self.config.linux_ingest.poll_interval_sec))
@@ -618,11 +841,15 @@ class Node:
         ids = [event.id for event in ordered]
         joined = "::".join(ids)
         digest = hashlib.sha256(joined.encode("utf-8")).hexdigest() if ids else hashlib.sha256(b"").hexdigest()
+        membership = self.active_consensus_membership()
         return {
             "node_id": self.config.node_id,
             "hash": digest,
             "event_count": len(ids),
             "latest_event": ids[-1] if ids else None,
+            "consensus_epoch": membership.get("epoch"),
+            "consensus_membership_size": membership.get("membership_size"),
+            "membership_snapshot_hash": membership.get("membership_snapshot_hash"),
             "generated_at": utc_timestamp(),
         }
 
@@ -719,6 +946,8 @@ class Node:
                     match = (
                         peer_snapshot.get("hash") == local_snapshot.get("hash")
                         and peer_snapshot.get("event_count") == local_snapshot.get("event_count")
+                        and peer_snapshot.get("membership_snapshot_hash") == local_snapshot.get("membership_snapshot_hash")
+                        and peer_snapshot.get("consensus_epoch") == local_snapshot.get("consensus_epoch")
                     )
                     self._notify_consensus_status(
                         peer.address,
@@ -741,7 +970,16 @@ class Node:
         try:
             async with self._session.get(url, timeout=5) as resp:
                 if resp.status >= 200 and resp.status < 300:
-                    return await resp.json()
+                    payload = await resp.json()
+                    peer_node_id = str(payload.get("node_id") or "").strip()
+                    if peer_node_id:
+                        self.storage.update_peer(
+                            address,
+                            node_id=peer_node_id,
+                            last_seen=utc_timestamp(),
+                            healthy=True,
+                        )
+                    return payload
         except Exception:
             return None
         return None
@@ -774,6 +1012,8 @@ class Node:
                 "hash": local_snapshot.get("hash"),
                 "event_count": local_snapshot.get("event_count"),
                 "latest_event": local_snapshot.get("latest_event"),
+                "consensus_epoch": local_snapshot.get("consensus_epoch"),
+                "membership_snapshot_hash": local_snapshot.get("membership_snapshot_hash"),
             },
             "timestamp": utc_timestamp(),
             "pending": pending,
@@ -784,6 +1024,8 @@ class Node:
                 "event_count": peer_snapshot.get("event_count"),
                 "latest_event": peer_snapshot.get("latest_event"),
                 "node_id": peer_snapshot.get("node_id"),
+                "consensus_epoch": peer_snapshot.get("consensus_epoch"),
+                "membership_snapshot_hash": peer_snapshot.get("membership_snapshot_hash"),
             }
         if error:
             payload["error"] = error
@@ -896,6 +1138,15 @@ class Node:
     # ------------------------------------------------------------------
     # Status / metrics
     def status(self) -> Dict[str, object]:
+        membership = self.active_consensus_membership()
+        mismatch_peers = sorted(peer for peer, count in self._consensus_mismatch.items() if count >= 3)
+        pending_peers = sorted(peer for peer, count in self._consensus_mismatch.items() if 0 < count < 3)
+        if mismatch_peers:
+            consensus_health = "mismatch"
+        elif pending_peers:
+            consensus_health = "pending"
+        else:
+            consensus_health = "ok"
         return {
             "node_id": self.config.node_id,
             "state": self.state.value,
@@ -906,6 +1157,12 @@ class Node:
                 "bw_kbps": self.config.profile.bw_kbps,
                 "threat_level": self.config.profile.threat_level,
             },
+            "consensus_epoch": membership.get("epoch"),
+            "consensus_membership_size": membership.get("membership_size"),
+            "membership_snapshot_hash": membership.get("membership_snapshot_hash"),
+            "consensus_health": consensus_health,
+            "consensus_mismatch_peers": mismatch_peers,
+            "consensus_pending_peers": pending_peers,
             "linux_ingest": self._linux_ingest_status.to_dict(),
             "demo_controls_enabled": self.demo_controls_enabled(),
         }
