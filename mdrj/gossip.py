@@ -146,6 +146,7 @@ class GossipEngine:
                     self.storage.upsert_peer(address, time.time(), healthy=False)
                     return False
                 await resp.json()
+                self.metrics.record_gossip_out_bytes(len(body))
                 self.storage.upsert_peer(address, time.time(), healthy=True)
                 return True
         except Exception:

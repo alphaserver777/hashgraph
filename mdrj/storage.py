@@ -96,12 +96,18 @@ class DAGStorage:
                     created_at REAL NOT NULL,
                     updated_at REAL NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS metrics_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ts REAL NOT NULL,
+                    snapshot_json TEXT NOT NULL
+                );
                 CREATE INDEX IF NOT EXISTS idx_events_consensus ON events(consensus_ts);
                 CREATE INDEX IF NOT EXISTS idx_events_cls ON events(cls);
                 CREATE INDEX IF NOT EXISTS idx_events_created ON events(created_at);
                 CREATE INDEX IF NOT EXISTS idx_edges_parent ON edges(parent_id);
                 CREATE INDEX IF NOT EXISTS idx_edges_child ON edges(child_id);
                 CREATE INDEX IF NOT EXISTS idx_incidents_updated ON incidents(updated_at);
+                CREATE INDEX IF NOT EXISTS idx_metrics_ts ON metrics_history(ts);
                 """
             )
         self._ensure_peers_schema()
@@ -466,6 +472,41 @@ class DAGStorage:
             "SELECT SUM(LENGTH(payload) + LENGTH(vclock) + LENGTH(parents)) FROM events"
         )
         return cur.fetchone()[0] or 0
+
+    def db_size_bytes(self) -> int:
+        """Return current SQLite database file size including WAL pages."""
+        try:
+            page_count = self._conn.execute("PRAGMA page_count").fetchone()[0]
+            page_size = self._conn.execute("PRAGMA page_size").fetchone()[0]
+            return int(page_count) * int(page_size)
+        except Exception:
+            return 0
+
+    def append_metrics_snapshot(self, ts: float, snapshot_json: str) -> None:
+        with self._lock, self._conn:
+            self._conn.execute(
+                "INSERT INTO metrics_history(ts, snapshot_json) VALUES (?, ?)",
+                (float(ts), snapshot_json),
+            )
+
+    def list_metrics_history(self, *, limit: int = 1000, since_ts: float = 0.0) -> List[dict]:
+        rows = self._conn.execute(
+            "SELECT ts, snapshot_json FROM metrics_history WHERE ts >= ? ORDER BY ts ASC LIMIT ?",
+            (float(since_ts), int(limit)),
+        ).fetchall()
+        return [{"ts": float(row["ts"]), "snapshot": json.loads(row["snapshot_json"])} for row in rows]
+
+    def prune_metrics_history(self, *, keep_last: int) -> int:
+        """Keep only the last `keep_last` rows, drop everything older."""
+        if keep_last <= 0:
+            return 0
+        with self._lock, self._conn:
+            cur = self._conn.execute(
+                "DELETE FROM metrics_history WHERE id NOT IN ("
+                "SELECT id FROM metrics_history ORDER BY ts DESC LIMIT ?)",
+                (int(keep_last),),
+            )
+            return cur.rowcount or 0
 
     def event_count(self) -> int:
         row = self._conn.execute("SELECT COUNT(*) FROM events").fetchone()

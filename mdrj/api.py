@@ -6593,7 +6593,9 @@ VIZ_HTML = """
 
 async def handle_event_batch(request: web.Request) -> web.Response:
     node = request.app["node"]
-    payload = await request.json()
+    body = await request.read()
+    node.metrics.record_gossip_in_bytes(len(body))
+    payload = json.loads(body) if body else None
     if not isinstance(payload, list):
         raise web.HTTPBadRequest(text="payload must be list of envelopes")
     envelopes = [Envelope.from_dict(item) for item in payload]
@@ -6713,6 +6715,162 @@ async def handle_status(request: web.Request) -> web.Response:
 async def handle_metrics(request: web.Request) -> web.Response:
     node = request.app["node"]
     return web.json_response(node.metrics_snapshot())
+
+
+PROMETHEUS_METRIC_TYPES = {
+    "A_est": "gauge",
+    "T_gossip": "gauge",
+    "K_r": "gauge",
+    "C_mem": "gauge",
+    "C_net": "gauge",
+    "event_count": "gauge",
+    "rss_bytes": "gauge",
+    "cpu_percent": "gauge",
+    "db_size_bytes": "gauge",
+    "gossip_bytes_in_total": "counter",
+    "gossip_bytes_out_total": "counter",
+    "bytes_per_event": "gauge",
+    "emit_to_consensus_latency_p50_ms": "gauge",
+    "emit_to_consensus_latency_p95_ms": "gauge",
+}
+
+
+async def handle_metrics_prometheus(request: web.Request) -> web.Response:
+    node = request.app["node"]
+    snap = node.metrics_snapshot()
+    node_id = getattr(getattr(node, "config", None), "node_id", "unknown")
+    lines: List[str] = []
+    for key, value in snap.items():
+        metric_name = f"mdrj_{key.lower()}"
+        metric_type = PROMETHEUS_METRIC_TYPES.get(key, "gauge")
+        lines.append(f"# TYPE {metric_name} {metric_type}")
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            continue
+        lines.append(f'{metric_name}{{node_id="{node_id}"}} {numeric}')
+    body = "\n".join(lines) + "\n"
+    return web.Response(text=body, content_type="text/plain")
+
+
+async def handle_metrics_history(request: web.Request) -> web.Response:
+    node = request.app["node"]
+    try:
+        limit = int(request.query.get("limit", "1000"))
+    except ValueError:
+        limit = 1000
+    try:
+        since_ts = float(request.query.get("since", "0"))
+    except ValueError:
+        since_ts = 0.0
+    rows = await asyncio.to_thread(node.list_metrics_history, limit=limit, since_ts=since_ts)
+    return web.json_response({"items": rows})
+
+
+METRICS_DASHBOARD_HTML = """<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <title>MDRJ-DAG Metrics Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    body { margin:0; font-family:system-ui, sans-serif; background:#0e1320; color:#e6e9ef; }
+    header { padding:14px 22px; background:#161c2c; border-bottom:1px solid #243049; }
+    h1 { margin:0; font-size:18px; }
+    .sub { color:#8892a6; font-size:12.5px; margin-top:4px; }
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:1px; background:#243049; }
+    .pane { background:#161c2c; padding:14px 16px; }
+    .pane h2 { margin:0 0 10px 0; font-size:13px; color:#4fc3f7; text-transform:uppercase; letter-spacing:0.3px; }
+    canvas { width:100%!important; height:220px!important; }
+    .latest { display:flex; flex-wrap:wrap; gap:14px; padding:14px 22px; background:#131a2b; font-family:monospace; font-size:12px; }
+    .latest .item { background:#0c1322; padding:6px 10px; border-radius:4px; }
+    .latest .item .k { color:#8892a6; margin-right:6px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>MDRJ-DAG metrics dashboard</h1>
+    <div class="sub">Узел: <code id="node-id">–</code> · обновление каждые 5 с</div>
+  </header>
+  <div class="latest" id="latest"></div>
+  <div class="grid">
+    <div class="pane"><h2>RSS &amp; DB size (bytes)</h2><canvas id="ch-mem"></canvas></div>
+    <div class="pane"><h2>Network bytes (in + out)</h2><canvas id="ch-net"></canvas></div>
+    <div class="pane"><h2>Emit→consensus latency (ms)</h2><canvas id="ch-lat"></canvas></div>
+    <div class="pane"><h2>Event count / bytes-per-event</h2><canvas id="ch-events"></canvas></div>
+  </div>
+<script>
+const charts = {};
+function makeChart(id, datasets){
+  const ctx = document.getElementById(id);
+  return new Chart(ctx, {
+    type:"line",
+    data:{labels:[],datasets:datasets.map(d=>({...d, fill:false, borderWidth:2, tension:0.2, pointRadius:0}))},
+    options:{animation:false, responsive:true, maintainAspectRatio:false,
+      scales:{x:{ticks:{color:"#8892a6"}, grid:{color:"#2a3145"}},
+              y:{ticks:{color:"#8892a6"}, grid:{color:"#2a3145"}}},
+      plugins:{legend:{labels:{color:"#e6e9ef"}}}}
+  });
+}
+function init(){
+  charts.mem = makeChart("ch-mem", [
+    {label:"RSS", data:[], borderColor:"#66bb6a"},
+    {label:"DB size", data:[], borderColor:"#ffb300"}]);
+  charts.net = makeChart("ch-net", [
+    {label:"gossip in (Δ)", data:[], borderColor:"#4fc3f7"},
+    {label:"gossip out (Δ)", data:[], borderColor:"#ef5350"}]);
+  charts.lat = makeChart("ch-lat", [
+    {label:"p50", data:[], borderColor:"#4fc3f7"},
+    {label:"p95", data:[], borderColor:"#ef5350"}]);
+  charts.events = makeChart("ch-events", [
+    {label:"events", data:[], borderColor:"#66bb6a"},
+    {label:"bytes/event", data:[], borderColor:"#ffb300"}]);
+}
+function appendPoint(chart, idx, ...values){
+  if(chart.data.labels.length>120){chart.data.labels.shift(); chart.data.datasets.forEach(d=>d.data.shift());}
+  chart.data.labels.push(idx);
+  values.forEach((v,i)=>chart.data.datasets[i].data.push(v));
+  chart.update("none");
+}
+let prevIn=null, prevOut=null;
+async function refresh(){
+  try{
+    const status = await fetch("/status").then(r=>r.json());
+    document.getElementById("node-id").textContent = status.node_id || "–";
+    const snap = await fetch("/metrics").then(r=>r.json());
+    const lbl = new Date().toLocaleTimeString();
+    const inB = snap.gossip_bytes_in_total||0;
+    const outB = snap.gossip_bytes_out_total||0;
+    const dIn = prevIn===null?0:Math.max(0, inB-prevIn);
+    const dOut = prevOut===null?0:Math.max(0, outB-prevOut);
+    prevIn=inB; prevOut=outB;
+    appendPoint(charts.mem, lbl, snap.rss_bytes||0, snap.db_size_bytes||0);
+    appendPoint(charts.net, lbl, dIn, dOut);
+    appendPoint(charts.lat, lbl, snap.emit_to_consensus_latency_p50_ms||0, snap.emit_to_consensus_latency_p95_ms||0);
+    appendPoint(charts.events, lbl, snap.event_count||0, snap.bytes_per_event||0);
+    const latest = document.getElementById("latest");
+    latest.innerHTML = "";
+    for (const [k,v] of Object.entries(snap)){
+      const item = document.createElement("div");
+      item.className = "item";
+      let val = v;
+      if (typeof v === "number"){
+        if (Math.abs(v) > 1000) val = v.toLocaleString();
+        else val = v.toFixed(3);
+      }
+      item.innerHTML = `<span class="k">${k}</span><span>${val}</span>`;
+      latest.appendChild(item);
+    }
+  }catch(e){console.warn(e);}
+}
+window.addEventListener("DOMContentLoaded", ()=>{init(); refresh(); setInterval(refresh, 5000);});
+</script>
+</body></html>"""
+
+
+async def handle_metrics_dashboard(request: web.Request) -> web.Response:
+    return web.Response(text=METRICS_DASHBOARD_HTML, content_type="text/html")
 
 
 async def handle_consensus_digest(request: web.Request) -> web.Response:
@@ -6846,6 +7004,9 @@ def build_app(node) -> web.Application:
             web.get("/dag", handle_dag),
             web.get("/status", handle_status),
             web.get("/metrics", handle_metrics),
+            web.get("/metrics/prometheus", handle_metrics_prometheus),
+            web.get("/metrics/history", handle_metrics_history),
+            web.get("/metrics/dashboard", handle_metrics_dashboard),
             web.post("/peers/register", handle_register_peer),
             web.post("/peers/update", handle_update_peer),
             web.post("/peers/remove", handle_remove_peer),

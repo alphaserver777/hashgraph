@@ -39,7 +39,7 @@ from .models import (
 from .prioritization import Prioritizer
 from .simulation import SCENARIOS, scenario_payload
 from .storage import DAGStorage
-from .utils import hmac_signature, signed_request_body, utc_timestamp
+from .utils import canonical_json, hmac_signature, signed_request_body, utc_timestamp
 from .vectorclock import VectorClock
 
 
@@ -127,6 +127,11 @@ class Node:
         self._collector_tasks: List[asyncio.Task] = []
         self._collectors_stop = asyncio.Event()
         self._collectors_stop.set()
+        self._metrics_history_task: Optional[asyncio.Task] = None
+        self._metrics_history_stop = asyncio.Event()
+        self._metrics_history_stop.set()
+        self._metrics_history_interval = 30.0
+        self._metrics_history_keep_rows = 5760  # ~48h at 30s cadence
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -168,10 +173,18 @@ class Node:
         if self.config.linux_ingest.enabled:
             self._start_linux_ingest()
         self._start_collectors()
+        self._start_metrics_history()
 
     async def stop(self) -> None:
         if self.simulation_running():
             await self.stop_simulation()
+        if self._metrics_history_task:
+            self._metrics_history_stop.set()
+            try:
+                await self._metrics_history_task
+            except Exception:
+                logger.exception("Error while stopping metrics history loop")
+            self._metrics_history_task = None
         if self._collector_tasks:
             self._collectors_stop.set()
             for task in self._collector_tasks:
@@ -447,6 +460,7 @@ class Node:
     # ------------------------------------------------------------------
     # Events
     async def emit_event(self, cls_name: EventClass, payload: Mapping[str, object]) -> EventEmission:
+        emit_start = time.perf_counter()
         ts = utc_timestamp()
         parents: List[str] = []
         self_parent = self.storage.latest_event_by_source(self.config.node_id)
@@ -487,6 +501,7 @@ class Node:
         )
         envelope = Envelope(event=event, path_meta=[{"node": self.config.node_id, "ts": ts}])
         stored = self._persist_envelope(envelope)
+        self.metrics.record_emit_to_consensus_latency(time.perf_counter() - emit_start)
         self.vector_clock = local_clock.merge(event.vclock)
         self.metrics.update_peer_health(self.list_peers(), self._quorum())
         if stored and event.cls in (EventClass.A, EventClass.B):
@@ -748,6 +763,37 @@ class Node:
 
     def list_collector_status(self) -> List[Dict[str, object]]:
         return [collector.status.to_dict() for collector in self._collectors]
+
+    # ------------------------------------------------------------------
+    # Metrics history (Этап 2)
+    def _start_metrics_history(self) -> None:
+        if self._metrics_history_task and not self._metrics_history_task.done():
+            return
+        self._metrics_history_stop.clear()
+        self._metrics_history_task = asyncio.create_task(self._metrics_history_loop())
+
+    async def _metrics_history_loop(self) -> None:
+        interval = max(0.05, float(self._metrics_history_interval))
+        while not self._metrics_history_stop.is_set():
+            try:
+                snapshot = self.metrics_snapshot()
+                payload = canonical_json(snapshot)
+                await asyncio.to_thread(
+                    self.storage.append_metrics_snapshot, utc_timestamp(), payload
+                )
+                # Periodic pruning to bound metrics_history rows
+                await asyncio.to_thread(
+                    lambda: self.storage.prune_metrics_history(keep_last=self._metrics_history_keep_rows)
+                )
+            except Exception:
+                logger.exception("metrics_history loop failure")
+            try:
+                await asyncio.wait_for(self._metrics_history_stop.wait(), timeout=interval)
+            except asyncio.TimeoutError:
+                continue
+
+    def list_metrics_history(self, *, limit: int = 1000, since_ts: float = 0.0) -> List[Dict[str, object]]:
+        return self.storage.list_metrics_history(limit=limit, since_ts=since_ts)
 
     async def _linux_ingest_loop(self) -> None:
         interval = max(0.5, float(self.config.linux_ingest.poll_interval_sec))
@@ -1176,4 +1222,12 @@ class Node:
             "C_mem": snap.c_mem,
             "C_net": snap.c_net,
             "event_count": snap.event_count,
+            "rss_bytes": snap.rss_bytes,
+            "cpu_percent": snap.cpu_percent,
+            "db_size_bytes": snap.db_size_bytes,
+            "gossip_bytes_in_total": snap.gossip_bytes_in_total,
+            "gossip_bytes_out_total": snap.gossip_bytes_out_total,
+            "bytes_per_event": snap.bytes_per_event,
+            "emit_to_consensus_latency_p50_ms": snap.emit_to_consensus_latency_p50_ms,
+            "emit_to_consensus_latency_p95_ms": snap.emit_to_consensus_latency_p95_ms,
         }

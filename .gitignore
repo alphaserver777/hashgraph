@@ -3,3 +3,4 @@
 .skaro/token_usage.yaml
 .skaro/usage_log.jsonl
 __pycache__/
+*.egg-info/
