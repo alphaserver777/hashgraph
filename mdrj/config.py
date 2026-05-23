@@ -9,6 +9,12 @@ from typing import List, Optional
 
 import yaml
 
+from .collectors import (
+    JournaldCollectorConfig,
+    LinuxAuditCollectorConfig,
+    LinuxFirewallCollectorConfig,
+    LinuxProcCollectorConfig,
+)
 from .models import NodeProfile, normalize_node_role
 
 
@@ -47,6 +53,15 @@ class LinuxIngestConfig:
 
 
 @dataclass(slots=True)
+class CollectorsConfig:
+    """Optional collectors section in the node config."""
+    journald: JournaldCollectorConfig = field(default_factory=JournaldCollectorConfig)
+    audit: LinuxAuditCollectorConfig = field(default_factory=LinuxAuditCollectorConfig)
+    firewall: LinuxFirewallCollectorConfig = field(default_factory=LinuxFirewallCollectorConfig)
+    proc: LinuxProcCollectorConfig = field(default_factory=LinuxProcCollectorConfig)
+
+
+@dataclass(slots=True)
 class NodeConfig:
     node_id: str
     listen: str
@@ -57,6 +72,7 @@ class NodeConfig:
     security: SecurityConfig
     storage: StorageConfig
     linux_ingest: LinuxIngestConfig = field(default_factory=LinuxIngestConfig)
+    collectors: CollectorsConfig = field(default_factory=CollectorsConfig)
 
     @property
     def host(self) -> str:
@@ -127,6 +143,7 @@ def load_config(path: str | Path) -> NodeConfig:
         privileged_groups=list(linux_raw.get("privileged_groups", [])),
         state_path=linux_raw.get("state_path"),
     )
+    collectors = _parse_collectors(raw.get("collectors", {}) or {})
     return NodeConfig(
         node_id=raw["node_id"],
         listen=raw["listen"],
@@ -137,4 +154,42 @@ def load_config(path: str | Path) -> NodeConfig:
         security=security,
         storage=storage,
         linux_ingest=linux_ingest,
+        collectors=collectors,
     )
+
+
+def _parse_collectors(raw: dict) -> CollectorsConfig:
+    def _intlist(values):
+        return [int(v) for v in values or []]
+
+    journald_raw = raw.get("journald", {}) or {}
+    audit_raw = raw.get("audit", {}) or {}
+    firewall_raw = raw.get("firewall", {}) or {}
+    proc_raw = raw.get("proc", {}) or {}
+
+    journald = JournaldCollectorConfig(
+        enabled=bool(journald_raw.get("enabled", False)),
+        units=list(journald_raw.get("units", ["ssh.service", "sshd.service"])),
+        burst_window_sec=int(journald_raw.get("burst_window_sec", 60)),
+        burst_threshold=int(journald_raw.get("burst_threshold", 10)),
+        poll_interval_sec=float(journald_raw.get("poll_interval_sec", 5.0)),
+    )
+    audit = LinuxAuditCollectorConfig(
+        enabled=bool(audit_raw.get("enabled", False)),
+        watch_paths=list(audit_raw.get("watch_paths", LinuxAuditCollectorConfig().watch_paths)),
+        poll_interval_sec=float(audit_raw.get("poll_interval_sec", 5.0)),
+        hash_max_bytes=int(audit_raw.get("hash_max_bytes", 1_048_576)),
+    )
+    firewall = LinuxFirewallCollectorConfig(
+        enabled=bool(firewall_raw.get("enabled", False)),
+        tool=str(firewall_raw.get("tool", "iptables-save")),
+        poll_interval_sec=float(firewall_raw.get("poll_interval_sec", 10.0)),
+    )
+    proc = LinuxProcCollectorConfig(
+        enabled=bool(proc_raw.get("enabled", False)),
+        blocklist=list(proc_raw.get("blocklist", LinuxProcCollectorConfig().blocklist)),
+        privileged_uids=_intlist(proc_raw.get("privileged_uids", [0])),
+        poll_interval_sec=float(proc_raw.get("poll_interval_sec", 3.0)),
+        proc_root=str(proc_raw.get("proc_root", "/proc")),
+    )
+    return CollectorsConfig(journald=journald, audit=audit, firewall=firewall, proc=proc)
