@@ -182,6 +182,88 @@ def metrics_watch(
     asyncio.run(_watch())
 
 
+checkpoint_app = typer.Typer(help="Checkpoint operations")
+app.add_typer(checkpoint_app, name="checkpoint")
+archive_app = typer.Typer(help="Cold archive operations")
+app.add_typer(archive_app, name="archive")
+
+
+@checkpoint_app.command("propose")
+def checkpoint_propose(
+    config: Path = typer.Option(..., exists=True),
+    round_received: Optional[int] = typer.Option(None, help="Target round_received (defaults to latest available)"),
+    api: Optional[str] = typer.Option(None, "--api"),
+) -> None:
+    cfg = load_config(config)
+    base = _base_url(cfg.listen, api)
+    payload = {} if round_received is None else {"round_received": int(round_received)}
+    result = asyncio.run(_post_json(f"{base}/checkpoint/propose", payload))
+    typer.echo(json.dumps(result, indent=2, ensure_ascii=False))
+
+
+@checkpoint_app.command("list")
+def checkpoint_list(
+    config: Path = typer.Option(..., exists=True),
+    status: Optional[str] = typer.Option(None, help="Filter by status: pending|confirmed"),
+    limit: int = typer.Option(20, help="Max items"),
+    api: Optional[str] = typer.Option(None, "--api"),
+) -> None:
+    cfg = load_config(config)
+    base = _base_url(cfg.listen, api)
+    qs = []
+    if status:
+        qs.append(f"status={status}")
+    qs.append(f"limit={limit}")
+    url = f"{base}/checkpoint/list?{'&'.join(qs)}"
+    result = asyncio.run(_get_json(url))
+    typer.echo(json.dumps(result, indent=2, ensure_ascii=False))
+
+
+@checkpoint_app.command("verify")
+def checkpoint_verify(
+    config: Path = typer.Option(..., exists=True),
+    round_received: int = typer.Option(..., help="Round to verify"),
+    api: Optional[str] = typer.Option(None, "--api"),
+) -> None:
+    cfg = load_config(config)
+    base = _base_url(cfg.listen, api)
+    url = f"{base}/checkpoint/verify?round_received={int(round_received)}"
+    result = asyncio.run(_get_json(url))
+    typer.echo(json.dumps(result, indent=2, ensure_ascii=False))
+    if result.get("has_tamper_evidence"):
+        raise typer.Exit(code=2)
+
+
+@archive_app.command("verify")
+def archive_verify(
+    path: Path = typer.Argument(..., exists=True, dir_okay=False, help="Path to JSONL archive file"),
+) -> None:
+    """Verify integrity of a cold archive file by recomputing every payload hash."""
+    import hashlib
+    from .utils import canonical_json as _canonical_json
+
+    ok = 0
+    bad = 0
+    with path.open("r", encoding="utf-8") as fp:
+        for raw_line in fp:
+            line = raw_line.strip()
+            if not line:
+                continue
+            record = json.loads(line)
+            if "_archive_header" in record:
+                continue
+            stated = record.get("payload_hash")
+            actual = hashlib.sha256(_canonical_json(record["payload"]).encode()).hexdigest()
+            if stated == actual:
+                ok += 1
+            else:
+                bad += 1
+                typer.echo(f"MISMATCH: event {record.get('id')} stated={stated} actual={actual}")
+    typer.echo(json.dumps({"records_ok": ok, "records_bad": bad}, indent=2))
+    if bad:
+        raise typer.Exit(code=2)
+
+
 def main() -> None:
     app()
 

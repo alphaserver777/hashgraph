@@ -62,6 +62,21 @@ class CollectorsConfig:
 
 
 @dataclass(slots=True)
+class RetentionConfig:
+    """Retention policy for hot storage (Этап 3.b).
+
+    Events covered by a confirmed checkpoint with `round_received <= checkpoint`
+    can be moved to the cold path (event_skeletons + optional archive file).
+    """
+    enabled: bool = False
+    max_db_bytes: int = 100 * 1024 * 1024  # 100 MB by default
+    max_age_days: int = 30
+    keep_class_a: bool = True
+    archive_path: Optional[str] = None  # if set, dump pruned events here before delete
+    poll_interval_sec: float = 300.0  # 5 minutes
+
+
+@dataclass(slots=True)
 class NodeConfig:
     node_id: str
     listen: str
@@ -73,6 +88,7 @@ class NodeConfig:
     storage: StorageConfig
     linux_ingest: LinuxIngestConfig = field(default_factory=LinuxIngestConfig)
     collectors: CollectorsConfig = field(default_factory=CollectorsConfig)
+    retention: RetentionConfig = field(default_factory=RetentionConfig)
 
     @property
     def host(self) -> str:
@@ -144,6 +160,7 @@ def load_config(path: str | Path) -> NodeConfig:
         state_path=linux_raw.get("state_path"),
     )
     collectors = _parse_collectors(raw.get("collectors", {}) or {})
+    retention = _parse_retention(raw.get("retention", {}) or {})
     return NodeConfig(
         node_id=raw["node_id"],
         listen=raw["listen"],
@@ -155,6 +172,18 @@ def load_config(path: str | Path) -> NodeConfig:
         storage=storage,
         linux_ingest=linux_ingest,
         collectors=collectors,
+        retention=retention,
+    )
+
+
+def _parse_retention(raw: dict) -> RetentionConfig:
+    return RetentionConfig(
+        enabled=bool(raw.get("enabled", False)),
+        max_db_bytes=int(raw.get("max_db_bytes", 100 * 1024 * 1024)),
+        max_age_days=int(raw.get("max_age_days", 30)),
+        keep_class_a=bool(raw.get("keep_class_a", True)),
+        archive_path=raw.get("archive_path"),
+        poll_interval_sec=float(raw.get("poll_interval_sec", 300.0)),
     )
 
 

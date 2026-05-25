@@ -1,6 +1,7 @@
 """SQLite storage backend for MDRJ-DAG."""
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 import threading
@@ -454,6 +455,86 @@ class DAGStorage:
         if len(order) != len(graph):
             raise ValueError("cycle detected in DAG")
         return order
+
+    def prune_under_checkpoint(
+        self,
+        *,
+        confirmed_round: int,
+        max_age_seconds: float,
+        keep_class_a: bool,
+        now: float,
+    ) -> List[Dict[str, object]]:
+        """Move events covered by a confirmed checkpoint to event_skeletons.
+
+        Safety contract:
+          - Only events with `round_received <= confirmed_round` are eligible.
+          - Class A events are kept in hot storage if `keep_class_a` is True.
+          - Events younger than `max_age_seconds` are kept (gives operators time
+            to inspect recent incidents in full).
+          - For every pruned event, an `event_skeleton` is recorded with
+            (id, cls, parent_ids, round_received, payload_hash) — causal
+            chain remains verifiable.
+
+        Returns a list of pruned-event records (full payload included) so the
+        caller can optionally write them to a cold archive file before they
+        are removed from hot storage.
+        """
+        age_threshold = now - max_age_seconds
+        rows = self._conn.execute(
+            "SELECT id, cls, source, creator, ts_local, vclock, parents, "
+            "self_parent_id, other_parent_id, payload, sig, consensus_ts, "
+            "lamport_ts, round, round_received, created_at "
+            "FROM events "
+            "WHERE round_received IS NOT NULL "
+            "  AND round_received <= ? "
+            "  AND created_at < ? "
+            + ("  AND cls != 'A' " if keep_class_a else "")
+            + "ORDER BY round_received ASC",
+            (int(confirmed_round), float(age_threshold)),
+        ).fetchall()
+        pruned: List[Dict[str, object]] = []
+        with self._lock, self._conn:
+            for row in rows:
+                payload_text = row["payload"]
+                payload_hash = hashlib.sha256(payload_text.encode("utf-8")).hexdigest()
+                self._conn.execute(
+                    "INSERT OR REPLACE INTO event_skeletons(id, cls, parent_ids, round_received, payload_hash, archived_at) "
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    (
+                        row["id"],
+                        row["cls"],
+                        row["parents"],
+                        row["round_received"],
+                        payload_hash,
+                        now,
+                    ),
+                )
+                pruned.append(
+                    {
+                        "id": row["id"],
+                        "cls": row["cls"],
+                        "source": row["source"],
+                        "creator": row["creator"],
+                        "ts_local": row["ts_local"],
+                        "vclock": json.loads(row["vclock"]),
+                        "parents": json.loads(row["parents"]),
+                        "self_parent_id": row["self_parent_id"],
+                        "other_parent_id": row["other_parent_id"],
+                        "payload": json.loads(row["payload"]),
+                        "sig": row["sig"],
+                        "consensus_ts": row["consensus_ts"],
+                        "lamport_ts": row["lamport_ts"],
+                        "round": row["round"],
+                        "round_received": row["round_received"],
+                        "payload_hash": payload_hash,
+                    }
+                )
+                self._conn.execute("DELETE FROM events WHERE id = ?", (row["id"],))
+                self._conn.execute("DELETE FROM envelopes WHERE event_id = ?", (row["id"],))
+                # NB: edges are intentionally preserved so that surviving
+                # children still reference their pruned parents through
+                # event_skeletons. This is critical for causal-chain replay.
+        return pruned
 
     def gc_by_quota(self, memory_mb: int) -> int:
         """Apply best-effort garbage collection. Returns number of events removed."""

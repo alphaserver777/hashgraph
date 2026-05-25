@@ -132,6 +132,9 @@ class Node:
         self._metrics_history_stop.set()
         self._metrics_history_interval = 30.0
         self._metrics_history_keep_rows = 5760  # ~48h at 30s cadence
+        self._retention_task: Optional[asyncio.Task] = None
+        self._retention_stop = asyncio.Event()
+        self._retention_stop.set()
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -174,10 +177,19 @@ class Node:
             self._start_linux_ingest()
         self._start_collectors()
         self._start_metrics_history()
+        if self.config.retention.enabled:
+            self._start_retention()
 
     async def stop(self) -> None:
         if self.simulation_running():
             await self.stop_simulation()
+        if self._retention_task:
+            self._retention_stop.set()
+            try:
+                await self._retention_task
+            except Exception:
+                logger.exception("Error while stopping retention loop")
+            self._retention_task = None
         if self._metrics_history_task:
             self._metrics_history_stop.set()
             try:
@@ -880,6 +892,66 @@ class Node:
 
     def list_checkpoints(self, *, status: Optional[str] = None, limit: int = 100) -> List[Dict[str, object]]:
         return self.storage.list_checkpoints(status=status, limit=limit)
+
+    # ------------------------------------------------------------------
+    # Retention loop (Этап 3.b)
+    def _start_retention(self) -> None:
+        if self._retention_task and not self._retention_task.done():
+            return
+        self._retention_stop.clear()
+        self._retention_task = asyncio.create_task(self._retention_loop())
+
+    async def _retention_loop(self) -> None:
+        interval = max(5.0, float(self.config.retention.poll_interval_sec))
+        while not self._retention_stop.is_set():
+            try:
+                await asyncio.to_thread(self.run_retention_once)
+            except Exception:
+                logger.exception("retention loop failure")
+            try:
+                await asyncio.wait_for(self._retention_stop.wait(), timeout=interval)
+            except asyncio.TimeoutError:
+                continue
+
+    def run_retention_once(self) -> Dict[str, object]:
+        """Single retention pass: prune events covered by latest confirmed checkpoint."""
+        cfg = self.config.retention
+        if not cfg.enabled:
+            return {"status": "disabled", "pruned": 0}
+        checkpoint = self.storage.latest_confirmed_checkpoint()
+        if not checkpoint:
+            return {"status": "no_confirmed_checkpoint", "pruned": 0}
+        max_age_sec = max(0.0, cfg.max_age_days * 86400.0)
+        pruned = self.storage.prune_under_checkpoint(
+            confirmed_round=int(checkpoint["round_received"]),
+            max_age_seconds=max_age_sec,
+            keep_class_a=cfg.keep_class_a,
+            now=utc_timestamp(),
+        )
+        if cfg.archive_path and pruned:
+            self._write_archive_chunk(cfg.archive_path, pruned, checkpoint)
+        return {
+            "status": "ok",
+            "pruned": len(pruned),
+            "checkpoint_round": int(checkpoint["round_received"]),
+        }
+
+    def _write_archive_chunk(self, path: str, records: List[Dict[str, object]], checkpoint: Dict[str, object]) -> None:
+        import json
+        from pathlib import Path
+
+        archive = Path(path)
+        archive.parent.mkdir(parents=True, exist_ok=True)
+        header = {
+            "checkpoint_round": int(checkpoint["round_received"]),
+            "merkle_root": checkpoint["merkle_root"],
+            "members_snapshot_hash": checkpoint["members_snapshot_hash"],
+            "exported_at": utc_timestamp(),
+        }
+        with archive.open("a", encoding="utf-8") as fp:
+            fp.write(json.dumps({"_archive_header": header}, ensure_ascii=False) + "\n")
+            for record in records:
+                fp.write(json.dumps(record, ensure_ascii=False) + "\n")
 
     def verify_checkpoint(self, round_received: int) -> Dict[str, object]:
         """Recompute merkle from local events and compare against checkpoint."""
