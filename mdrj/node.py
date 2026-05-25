@@ -400,17 +400,24 @@ class Node:
             self._discovery = None
 
     async def _on_discovered_peer(self, address: str, node_id: str, source: str) -> None:
-        """Discovery callback: add new peer as pending, never auto-approve.
+        """Discovery callback.
 
-        Approval requires an explicit operator action (`POST /peers/approve`).
-        This is the security gate that distinguishes auto-discovered peers
-        from configured/manually-added ones.
+        New peers normally land as `pending` and wait for an operator-issued
+        `POST /peers/approve`. In trusted environments (e.g. a k3s cluster
+        where every pod is ours by construction), `discovery.auto_approve_
+        discovered=true` skips this gate so the cluster forms automatically.
         """
-        from .models import PEER_APPROVAL_PENDING
+        from .models import PEER_APPROVAL_APPROVED, PEER_APPROVAL_PENDING
+
         # Skip if peer already known under any approval status
         for existing in self.storage.list_peers():
             if existing.address == address:
                 return
+        initial_status = (
+            PEER_APPROVAL_APPROVED
+            if self.config.discovery.auto_approve_discovered
+            else PEER_APPROVAL_PENDING
+        )
         try:
             await asyncio.to_thread(
                 self.register_peer,
@@ -419,13 +426,14 @@ class Node:
                 source,  # source (mdns | k8s)
                 NODE_ROLE_NODE,
                 node_id,
-                PEER_APPROVAL_PENDING,
+                initial_status,
             )
             logger.info(
-                "discovered new peer address=%s node_id=%s source=%s status=pending",
+                "discovered new peer address=%s node_id=%s source=%s status=%s",
                 address,
                 node_id,
                 source,
+                initial_status,
             )
         except Exception:
             logger.exception("failed to record discovered peer %s", address)

@@ -1,0 +1,33 @@
+---
+# Headless Service: peer discovery. DNS returns A-records for every pod.
+apiVersion: v1
+kind: Service
+metadata:
+  name: mdrj-headless
+  namespace: mdrj
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app: mdrj-dag
+  ports:
+    - name: http
+      port: 9001
+      targetPort: 9001
+---
+# ClusterIP Service: external entry-point for /viz, /metrics/dashboard.
+# Round-robins to any healthy pod (sticky session not required since UI is per-node).
+apiVersion: v1
+kind: Service
+metadata:
+  name: mdrj-ui
+  namespace: mdrj
+spec:
+  type: NodePort
+  selector:
+    app: mdrj-dag
+  ports:
+    - name: http
+      port: 9001
+      targetPort: 9001
+      nodePort: 30901

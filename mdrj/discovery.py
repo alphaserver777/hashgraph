@@ -23,9 +23,15 @@ class DiscoveryConfig:
       - "disabled" — discovery off (default).
       - "mdns"     — Zeroconf-based LAN discovery.
       - "k8s"      — Kubernetes headless-service DNS resolution.
+
+    auto_approve_discovered: when True, newly discovered peers go straight
+    to `approved` status without operator confirmation. This is appropriate
+    for trusted environments (e.g. a k3s cluster where every pod is ours
+    by construction) but should be False in untrusted LANs.
     """
     mode: str = "disabled"
     poll_interval_sec: float = 10.0
+    auto_approve_discovered: bool = False
     # mDNS settings
     advertise_port: Optional[int] = None  # if None, derived from node.listen
     # Kubernetes settings

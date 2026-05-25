@@ -213,6 +213,7 @@ def _parse_discovery(raw: dict) -> DiscoveryConfig:
     return DiscoveryConfig(
         mode=str(raw.get("mode", "disabled")),
         poll_interval_sec=float(raw.get("poll_interval_sec", 10.0)),
+        auto_approve_discovered=bool(raw.get("auto_approve_discovered", False)),
         advertise_port=int(raw["advertise_port"]) if raw.get("advertise_port") is not None else None,
         k8s_service=raw.get("k8s_service"),
         k8s_target_port=int(raw.get("k8s_target_port", 9001)),

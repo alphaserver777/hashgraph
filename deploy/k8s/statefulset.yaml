@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mdrj
+  namespace: mdrj
+spec:
+  serviceName: mdrj-headless
+  replicas: 5
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      app: mdrj-dag
+  template:
+    metadata:
+      labels:
+        app: mdrj-dag
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+        - name: mdrj
+          image: mdrj-dag:demo
+          imagePullPolicy: IfNotPresent
+          command:
+            - python
+            - -m
+            - mdrj.cli
+            - node
+            - --config
+            - /etc/mdrj/node.yaml
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: MDRJ_HMAC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: mdrj-secrets
+                  key: hmac-key
+          ports:
+            - name: http
+              containerPort: 9001
+          readinessProbe:
+            httpGet:
+              path: /status
+              port: 9001
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /status
+              port: 9001
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 200m
+              memory: 192Mi
+            limits:
+              cpu: 800m
+              memory: 384Mi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: config
+              mountPath: /etc/mdrj
+      volumes:
+        - name: config
+          configMap:
+            name: mdrj-node-config
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
