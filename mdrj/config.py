@@ -17,6 +17,7 @@ from .collectors import (
 )
 from .discovery import DiscoveryConfig
 from .models import NodeProfile, normalize_node_role
+from .notifier import EmailChannelConfig, NotifierConfig, TelegramChannelConfig
 
 
 @dataclass(slots=True)
@@ -91,6 +92,7 @@ class NodeConfig:
     collectors: CollectorsConfig = field(default_factory=CollectorsConfig)
     retention: RetentionConfig = field(default_factory=RetentionConfig)
     discovery: DiscoveryConfig = field(default_factory=DiscoveryConfig)
+    notifier: NotifierConfig = field(default_factory=NotifierConfig)
 
     @property
     def host(self) -> str:
@@ -164,6 +166,7 @@ def load_config(path: str | Path) -> NodeConfig:
     collectors = _parse_collectors(raw.get("collectors", {}) or {})
     retention = _parse_retention(raw.get("retention", {}) or {})
     discovery = _parse_discovery(raw.get("discovery", {}) or {})
+    notifier = _parse_notifier(raw.get("notifier", {}) or {})
     return NodeConfig(
         node_id=raw["node_id"],
         listen=raw["listen"],
@@ -177,6 +180,32 @@ def load_config(path: str | Path) -> NodeConfig:
         collectors=collectors,
         retention=retention,
         discovery=discovery,
+        notifier=notifier,
+    )
+
+
+def _parse_notifier(raw: dict) -> NotifierConfig:
+    email_raw = raw.get("email", {}) or {}
+    telegram_raw = raw.get("telegram", {}) or {}
+    return NotifierConfig(
+        enabled=bool(raw.get("enabled", False)),
+        trigger_classes=list(raw.get("trigger_classes", ["A"])),
+        email=EmailChannelConfig(
+            enabled=bool(email_raw.get("enabled", False)),
+            smtp_host=str(email_raw.get("smtp_host", "")),
+            smtp_port=int(email_raw.get("smtp_port", 587)),
+            smtp_user=email_raw.get("smtp_user"),
+            smtp_password=email_raw.get("smtp_password"),
+            use_tls=bool(email_raw.get("use_tls", True)),
+            from_addr=str(email_raw.get("from_addr", "")),
+            to_addrs=list(email_raw.get("to_addrs", [])),
+        ),
+        telegram=TelegramChannelConfig(
+            enabled=bool(telegram_raw.get("enabled", False)),
+            bot_token=str(telegram_raw.get("bot_token", "")),
+            chat_ids=[str(c) for c in telegram_raw.get("chat_ids", [])],
+            timeout_sec=float(telegram_raw.get("timeout_sec", 10.0)),
+        ),
     )
 
 

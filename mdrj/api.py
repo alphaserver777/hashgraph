@@ -56,6 +56,7 @@ VIEWER_READ_PATHS = {
     "/checkpoint/list",
     "/checkpoint/verify",
     "/auth/me",
+    "/notifier/status",
 }
 
 
@@ -7098,6 +7099,11 @@ async def handle_me(request: web.Request) -> web.Response:
     })
 
 
+async def handle_notifier_status(request: web.Request) -> web.Response:
+    node = request.app["node"]
+    return web.json_response(node.notifier.status())
+
+
 async def handle_users_list(request: web.Request) -> web.Response:
     node = request.app["node"]
     items = await asyncio.to_thread(node.list_users)
@@ -7311,6 +7317,7 @@ def build_app(node) -> web.Application:
             web.get("/users", handle_users_list),
             web.post("/users/add", handle_users_add),
             web.post("/users/remove", handle_users_remove),
+            web.get("/notifier/status", handle_notifier_status),
             web.post("/peers/register", handle_register_peer),
             web.post("/peers/update", handle_update_peer),
             web.post("/peers/remove", handle_remove_peer),

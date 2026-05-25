@@ -138,6 +138,8 @@ class Node:
         self._discovery = None  # type: ignore[assignment]
         from .auth import SessionStore
         self.session_store = SessionStore()
+        from .notifier import NotifierEngine
+        self.notifier = NotifierEngine(config.notifier)
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -659,7 +661,26 @@ class Node:
         self.metrics.update_peer_health(self.list_peers(), self._quorum())
         if stored and event.cls in (EventClass.A, EventClass.B):
             await self._broadcast_event(event.id)
+        if stored and self.notifier.should_trigger(event.cls.value):
+            asyncio.create_task(self._notify_event(event))
         return EventEmission(event=event, stored=stored)
+
+    async def _notify_event(self, event: Event) -> None:
+        from .notifier import NotificationPayload
+
+        try:
+            await self.notifier.dispatch(
+                NotificationPayload(
+                    event_id=event.id,
+                    event_kind=str(event.payload.get("event_kind", "")) or event.cls.value,
+                    cls=event.cls.value,
+                    creator=event.creator,
+                    payload=dict(event.payload),
+                    ts=utc_timestamp(),
+                )
+            )
+        except Exception:
+            logger.exception("notifier dispatch failed")
 
     def _persist_envelope(self, envelope: Envelope) -> bool:
         stored = self.storage.store_envelope(envelope, envelope.event.consensus_ts)
