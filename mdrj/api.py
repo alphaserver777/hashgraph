@@ -6916,6 +6916,30 @@ async def handle_checkpoint_list(request: web.Request) -> web.Response:
     return web.json_response({"items": items})
 
 
+async def handle_peer_approve(request: web.Request) -> web.Response:
+    node = request.app["node"]
+    payload = await request.json()
+    address = payload.get("address")
+    if not address:
+        raise web.HTTPBadRequest(text="missing address")
+    peer = await asyncio.to_thread(node.approve_peer, str(address))
+    if peer is None:
+        raise web.HTTPNotFound(text="unknown peer")
+    return web.json_response({"status": "ok", "peer": peer.to_dict()})
+
+
+async def handle_peer_reject(request: web.Request) -> web.Response:
+    node = request.app["node"]
+    payload = await request.json()
+    address = payload.get("address")
+    if not address:
+        raise web.HTTPBadRequest(text="missing address")
+    peer = await asyncio.to_thread(node.reject_peer, str(address))
+    if peer is None:
+        raise web.HTTPNotFound(text="unknown peer")
+    return web.json_response({"status": "ok", "peer": peer.to_dict()})
+
+
 async def handle_checkpoint_verify(request: web.Request) -> web.Response:
     node = request.app["node"]
     try:
@@ -7066,6 +7090,8 @@ def build_app(node) -> web.Application:
             web.post("/checkpoint/propose", handle_checkpoint_propose),
             web.get("/checkpoint/list", handle_checkpoint_list),
             web.get("/checkpoint/verify", handle_checkpoint_verify),
+            web.post("/peers/approve", handle_peer_approve),
+            web.post("/peers/reject", handle_peer_reject),
             web.post("/peers/register", handle_register_peer),
             web.post("/peers/update", handle_update_peer),
             web.post("/peers/remove", handle_remove_peer),

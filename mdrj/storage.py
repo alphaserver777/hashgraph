@@ -12,10 +12,12 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from .models import (
     NODE_ROLE_NODE,
+    PEER_APPROVAL_APPROVED,
     Envelope,
     Event,
     EventClass,
     PeerInfo,
+    normalize_approval_status,
     normalize_node_role,
 )
 from .utils import canonical_json, ensure_directory
@@ -85,7 +87,8 @@ class DAGStorage:
                     enabled INTEGER DEFAULT 1,
                     note TEXT DEFAULT '',
                     source TEXT DEFAULT 'runtime',
-                    role TEXT DEFAULT 'node'
+                    role TEXT DEFAULT 'node',
+                    approval_status TEXT DEFAULT 'approved'
                 );
                 CREATE TABLE IF NOT EXISTS consensus_state (
                     key TEXT PRIMARY KEY,
@@ -146,6 +149,8 @@ class DAGStorage:
                 self._conn.execute("ALTER TABLE peers ADD COLUMN source TEXT DEFAULT 'runtime'")
             if "role" not in columns:
                 self._conn.execute(f"ALTER TABLE peers ADD COLUMN role TEXT DEFAULT '{NODE_ROLE_NODE}'")
+            if "approval_status" not in columns:
+                self._conn.execute("ALTER TABLE peers ADD COLUMN approval_status TEXT DEFAULT 'approved'")
             self._conn.execute(
                 "UPDATE peers SET role = ? WHERE role IS NULL OR TRIM(role) = ''",
                 (NODE_ROLE_NODE,),
@@ -153,6 +158,9 @@ class DAGStorage:
             self._conn.execute(
                 "UPDATE peers SET role = ? WHERE LOWER(TRIM(COALESCE(role, ''))) NOT IN ('node', 'responder')",
                 (NODE_ROLE_NODE,),
+            )
+            self._conn.execute(
+                "UPDATE peers SET approval_status = 'approved' WHERE approval_status IS NULL OR TRIM(approval_status) = ''"
             )
 
     def _ensure_events_schema(self) -> None:
@@ -735,6 +743,7 @@ class DAGStorage:
         note: str = "",
         source: str = "runtime",
         role: str = NODE_ROLE_NODE,
+        approval_status: str = PEER_APPROVAL_APPROVED,
     ) -> PeerInfo:
         with self._lock, self._conn:
             existing = self._conn.execute(
@@ -742,6 +751,7 @@ class DAGStorage:
                 (address,),
             ).fetchone()
             next_role = normalize_node_role(role)
+            next_approval = normalize_approval_status(approval_status)
             if existing:
                 merged_last_seen = last_seen if last_seen is not None else existing["last_seen"]
                 merged_healthy = int(healthy)
@@ -750,8 +760,11 @@ class DAGStorage:
                 merged_source = existing["source"] or source
                 merged_role = normalize_node_role(existing["role"] if "role" in existing.keys() else next_role)
                 merged_node_id = (existing["node_id"] if "node_id" in existing.keys() else "") or node_id or ""
+                merged_approval = normalize_approval_status(
+                    existing["approval_status"] if "approval_status" in existing.keys() else next_approval
+                )
                 self._conn.execute(
-                    "UPDATE peers SET node_id = ?, last_seen = ?, healthy = ?, enabled = ?, note = ?, source = ?, role = ? WHERE address = ?",
+                    "UPDATE peers SET node_id = ?, last_seen = ?, healthy = ?, enabled = ?, note = ?, source = ?, role = ?, approval_status = ? WHERE address = ?",
                     (
                         merged_node_id,
                         merged_last_seen,
@@ -760,6 +773,7 @@ class DAGStorage:
                         merged_note,
                         merged_source,
                         merged_role,
+                        merged_approval,
                         address,
                     ),
                 )
@@ -773,10 +787,11 @@ class DAGStorage:
                     source=merged_source,
                     role=merged_role,
                     is_self=merged_source == "self",
+                    approval_status=merged_approval,
                 )
             self._conn.execute(
-                "INSERT INTO peers(address, node_id, last_seen, healthy, enabled, note, source, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (address, node_id, last_seen, int(healthy), int(enabled), note, source, next_role),
+                "INSERT INTO peers(address, node_id, last_seen, healthy, enabled, note, source, role, approval_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (address, node_id, last_seen, int(healthy), int(enabled), note, source, next_role, next_approval),
             )
             return PeerInfo(
                 address=address,
@@ -788,6 +803,7 @@ class DAGStorage:
                 source=source,
                 role=next_role,
                 is_self=source == "self",
+                approval_status=next_approval,
             )
 
     def update_peer(
@@ -800,6 +816,7 @@ class DAGStorage:
         healthy: Optional[bool] = None,
         role: Optional[str] = None,
         node_id: Optional[str] = None,
+        approval_status: Optional[str] = None,
     ) -> Optional[PeerInfo]:
         with self._lock, self._conn:
             existing = self._conn.execute(
@@ -815,9 +832,15 @@ class DAGStorage:
             next_source = existing["source"] or "runtime"
             next_role = normalize_node_role(existing["role"] if role is None else role)
             next_node_id = ((existing["node_id"] if "node_id" in existing.keys() else "") or "") if node_id is None else str(node_id or "")
+            current_approval = (
+                existing["approval_status"]
+                if "approval_status" in existing.keys() and existing["approval_status"]
+                else PEER_APPROVAL_APPROVED
+            )
+            next_approval = normalize_approval_status(current_approval if approval_status is None else approval_status)
             self._conn.execute(
-                "UPDATE peers SET node_id = ?, last_seen = ?, healthy = ?, enabled = ?, note = ?, source = ?, role = ? WHERE address = ?",
-                (next_node_id, next_last_seen, int(next_healthy), int(next_enabled), next_note, next_source, next_role, address),
+                "UPDATE peers SET node_id = ?, last_seen = ?, healthy = ?, enabled = ?, note = ?, source = ?, role = ?, approval_status = ? WHERE address = ?",
+                (next_node_id, next_last_seen, int(next_healthy), int(next_enabled), next_note, next_source, next_role, next_approval, address),
             )
             return PeerInfo(
                 address=address,
@@ -829,6 +852,7 @@ class DAGStorage:
                 source=next_source,
                 role=next_role,
                 is_self=next_source == "self",
+                approval_status=next_approval,
             )
 
     def delete_peer(self, address: str) -> None:
@@ -839,6 +863,10 @@ class DAGStorage:
         rows = self._conn.execute("SELECT * FROM peers").fetchall()
         peers: List[PeerInfo] = []
         for row in rows:
+            source = (row["source"] if "source" in row.keys() else "runtime") or "runtime"
+            approval = normalize_approval_status(
+                row["approval_status"] if "approval_status" in row.keys() else PEER_APPROVAL_APPROVED
+            )
             peers.append(
                 PeerInfo(
                     address=row["address"],
@@ -847,9 +875,10 @@ class DAGStorage:
                     healthy=bool(row["healthy"]),
                     enabled=bool(row["enabled"]) if "enabled" in row.keys() else True,
                     note=(row["note"] if "note" in row.keys() else "") or "",
-                    source=(row["source"] if "source" in row.keys() else "runtime") or "runtime",
+                    source=source,
                     role=normalize_node_role((row["role"] if "role" in row.keys() else NODE_ROLE_NODE) or NODE_ROLE_NODE),
-                    is_self=((row["source"] if "source" in row.keys() else "runtime") or "runtime") == "self",
+                    is_self=source == "self",
+                    approval_status=approval,
                 )
             )
         peers.sort(key=lambda peer: (not peer.is_self, peer.address))

@@ -271,6 +271,19 @@ class Envelope:
         return cls(event=event, path_meta=[dict(hop) for hop in data.get("path_meta", [])])
 
 
+PEER_APPROVAL_PENDING = "pending"
+PEER_APPROVAL_APPROVED = "approved"
+PEER_APPROVAL_REJECTED = "rejected"
+PEER_APPROVAL_STATUSES = {PEER_APPROVAL_PENDING, PEER_APPROVAL_APPROVED, PEER_APPROVAL_REJECTED}
+
+
+def normalize_approval_status(value: object) -> str:
+    text = str(value or "").strip().lower()
+    if text in PEER_APPROVAL_STATUSES:
+        return text
+    return PEER_APPROVAL_APPROVED  # default for backward compat with pre-Stage-4 configs
+
+
 @dataclass(slots=True)
 class PeerInfo:
     address: str
@@ -282,6 +295,7 @@ class PeerInfo:
     source: str = "runtime"
     role: str = NODE_ROLE_NODE
     is_self: bool = False
+    approval_status: str = PEER_APPROVAL_APPROVED
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -294,4 +308,5 @@ class PeerInfo:
             "source": self.source,
             "role": normalize_node_role(self.role),
             "is_self": self.is_self,
+            "approval_status": normalize_approval_status(self.approval_status),
         }

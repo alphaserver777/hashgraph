@@ -15,6 +15,7 @@ from .collectors import (
     LinuxFirewallCollectorConfig,
     LinuxProcCollectorConfig,
 )
+from .discovery import DiscoveryConfig
 from .models import NodeProfile, normalize_node_role
 
 
@@ -89,6 +90,7 @@ class NodeConfig:
     linux_ingest: LinuxIngestConfig = field(default_factory=LinuxIngestConfig)
     collectors: CollectorsConfig = field(default_factory=CollectorsConfig)
     retention: RetentionConfig = field(default_factory=RetentionConfig)
+    discovery: DiscoveryConfig = field(default_factory=DiscoveryConfig)
 
     @property
     def host(self) -> str:
@@ -161,6 +163,7 @@ def load_config(path: str | Path) -> NodeConfig:
     )
     collectors = _parse_collectors(raw.get("collectors", {}) or {})
     retention = _parse_retention(raw.get("retention", {}) or {})
+    discovery = _parse_discovery(raw.get("discovery", {}) or {})
     return NodeConfig(
         node_id=raw["node_id"],
         listen=raw["listen"],
@@ -173,6 +176,17 @@ def load_config(path: str | Path) -> NodeConfig:
         linux_ingest=linux_ingest,
         collectors=collectors,
         retention=retention,
+        discovery=discovery,
+    )
+
+
+def _parse_discovery(raw: dict) -> DiscoveryConfig:
+    return DiscoveryConfig(
+        mode=str(raw.get("mode", "disabled")),
+        poll_interval_sec=float(raw.get("poll_interval_sec", 10.0)),
+        advertise_port=int(raw["advertise_port"]) if raw.get("advertise_port") is not None else None,
+        k8s_service=raw.get("k8s_service"),
+        k8s_target_port=int(raw.get("k8s_target_port", 9001)),
     )
 
 

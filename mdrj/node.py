@@ -135,6 +135,7 @@ class Node:
         self._retention_task: Optional[asyncio.Task] = None
         self._retention_stop = asyncio.Event()
         self._retention_stop.set()
+        self._discovery = None  # type: ignore[assignment]
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -179,10 +180,17 @@ class Node:
         self._start_metrics_history()
         if self.config.retention.enabled:
             self._start_retention()
+        await self._start_discovery()
 
     async def stop(self) -> None:
         if self.simulation_running():
             await self.stop_simulation()
+        if self._discovery is not None:
+            try:
+                await self._discovery.stop()
+            except Exception:
+                logger.exception("Error while stopping discovery")
+            self._discovery = None
         if self._retention_task:
             self._retention_stop.set()
             try:
@@ -244,10 +252,16 @@ class Node:
         return self.storage.list_peers()
 
     def _reload_peers_from_storage(self) -> None:
+        from .models import PEER_APPROVAL_APPROVED
         active: Dict[str, PeerInfo] = {}
         for peer in self.storage.list_peers():
-            if peer.enabled and not peer.is_self:
-                active[peer.address] = peer
+            if not peer.enabled or peer.is_self:
+                continue
+            # Gossip only with approved peers — pending/rejected peers do NOT
+            # receive gossip traffic, which is the security gate for new joins.
+            if peer.approval_status != PEER_APPROVAL_APPROVED:
+                continue
+            active[peer.address] = peer
         self._peers = active
 
     def current_role(self) -> str:
@@ -266,7 +280,16 @@ class Node:
         source: str = "ui",
         role: str = NODE_ROLE_NODE,
         node_id: str = "",
+        approval_status: Optional[str] = None,
     ) -> None:
+        from .models import PEER_APPROVAL_APPROVED, PEER_APPROVAL_PENDING
+
+        # Manual operator entry (source=ui or config) auto-approves;
+        # auto-discovered peers (source=mdns/k8s) land as pending and wait.
+        if approval_status is None:
+            approval_status = (
+                PEER_APPROVAL_PENDING if source in ("mdns", "k8s") else PEER_APPROVAL_APPROVED
+            )
         self.storage.ensure_peer(
             address,
             node_id=node_id,
@@ -276,6 +299,7 @@ class Node:
             note=note,
             source=source,
             role=role,
+            approval_status=approval_status,
         )
         peer = self.storage.update_peer(
             address,
@@ -285,16 +309,88 @@ class Node:
             healthy=True,
             role=role,
             node_id=node_id,
+            approval_status=approval_status,
         )
         if peer is None:
             return
         peer.source = source
-        self._peers[address] = peer
+        # Only push to active gossip set if approved; pending peers are visible
+        # in the registry but do not receive gossip until an admin approves them.
+        if peer.approval_status == PEER_APPROVAL_APPROVED:
+            self._peers[address] = peer
         self.metrics.update_peer_health(self.list_peers(), self._quorum())
-        if self._gossip:
+        if self._gossip and peer.approval_status == PEER_APPROVAL_APPROVED:
             events = self.storage.list_events(limit=256)
             for event in events:
                 self._gossip.add_pending(event.id)
+
+    def approve_peer(self, address: str) -> Optional[PeerInfo]:
+        from .models import PEER_APPROVAL_APPROVED
+
+        peer = self.storage.update_peer(address, approval_status=PEER_APPROVAL_APPROVED)
+        self._reload_peers_from_storage()
+        self.metrics.update_peer_health(self.list_peers(), self._quorum())
+        return peer
+
+    def reject_peer(self, address: str) -> Optional[PeerInfo]:
+        from .models import PEER_APPROVAL_REJECTED
+
+        peer = self.storage.update_peer(address, approval_status=PEER_APPROVAL_REJECTED)
+        self._reload_peers_from_storage()
+        self.metrics.update_peer_health(self.list_peers(), self._quorum())
+        return peer
+
+    # ------------------------------------------------------------------
+    # Discovery (Этап 4)
+    async def _start_discovery(self) -> None:
+        from .discovery import build_discovery
+
+        backend = build_discovery(
+            config=self.config.discovery,
+            node_id=self.config.node_id,
+            listen=self.config.listen,
+            on_peer=self._on_discovered_peer,
+        )
+        if backend is None:
+            return
+        self._discovery = backend
+        try:
+            await backend.start()
+            logger.info("discovery started: mode=%s", self.config.discovery.mode)
+        except Exception:
+            logger.exception("discovery failed to start")
+            self._discovery = None
+
+    async def _on_discovered_peer(self, address: str, node_id: str, source: str) -> None:
+        """Discovery callback: add new peer as pending, never auto-approve.
+
+        Approval requires an explicit operator action (`POST /peers/approve`).
+        This is the security gate that distinguishes auto-discovered peers
+        from configured/manually-added ones.
+        """
+        from .models import PEER_APPROVAL_PENDING
+        # Skip if peer already known under any approval status
+        for existing in self.storage.list_peers():
+            if existing.address == address:
+                return
+        try:
+            await asyncio.to_thread(
+                self.register_peer,
+                address,
+                "",  # note
+                source,  # source (mdns | k8s)
+                NODE_ROLE_NODE,
+                node_id,
+                PEER_APPROVAL_PENDING,
+            )
+            logger.info(
+                "discovered new peer address=%s node_id=%s source=%s status=pending",
+                address,
+                node_id,
+                source,
+            )
+        except Exception:
+            logger.exception("failed to record discovered peer %s", address)
 
     def update_peer(
         self,
@@ -304,6 +400,7 @@ class Node:
         note: Optional[str] = None,
         role: Optional[str] = None,
         node_id: Optional[str] = None,
+        approval_status: Optional[str] = None,
     ) -> Optional[PeerInfo]:
         if address == self._self_registry_address:
             peer = self.storage.update_peer(
@@ -314,9 +411,17 @@ class Node:
                 node_id=self.config.node_id,
                 last_seen=utc_timestamp(),
                 healthy=True,
+                approval_status=approval_status,
             )
         else:
-            peer = self.storage.update_peer(address, enabled=enabled, note=note, role=role, node_id=node_id)
+            peer = self.storage.update_peer(
+                address,
+                enabled=enabled,
+                note=note,
+                role=role,
+                node_id=node_id,
+                approval_status=approval_status,
+            )
         self._reload_peers_from_storage()
         self.metrics.update_peer_health(self.list_peers(), self._quorum())
         return peer
