@@ -122,6 +122,12 @@ class DAGStorage:
                     payload_hash TEXT NOT NULL,
                     archived_at REAL NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS users (
+                    username TEXT PRIMARY KEY,
+                    password_hash TEXT NOT NULL,
+                    role TEXT NOT NULL DEFAULT 'viewer',
+                    created_at REAL NOT NULL
+                );
                 CREATE INDEX IF NOT EXISTS idx_events_consensus ON events(consensus_ts);
                 CREATE INDEX IF NOT EXISTS idx_events_cls ON events(cls);
                 CREATE INDEX IF NOT EXISTS idx_events_created ON events(created_at);
@@ -613,6 +619,47 @@ class DAGStorage:
                 (int(keep_last),),
             )
             return cur.rowcount or 0
+
+    # ------------------------------------------------------------------
+    # Users (Этап 5)
+    def upsert_user(self, *, username: str, password_hash: str, role: str) -> None:
+        with self._lock, self._conn:
+            self._conn.execute(
+                "INSERT INTO users(username, password_hash, role, created_at) VALUES (?, ?, ?, ?) "
+                "ON CONFLICT(username) DO UPDATE SET password_hash = excluded.password_hash, role = excluded.role",
+                (username, password_hash, role, time.time()),
+            )
+
+    def get_user(self, username: str) -> Optional[Dict[str, object]]:
+        row = self._conn.execute(
+            "SELECT username, password_hash, role, created_at FROM users WHERE username = ?",
+            (username,),
+        ).fetchone()
+        if not row:
+            return None
+        return {
+            "username": row["username"],
+            "password_hash": row["password_hash"],
+            "role": row["role"],
+            "created_at": float(row["created_at"]),
+        }
+
+    def list_users(self) -> List[Dict[str, object]]:
+        rows = self._conn.execute(
+            "SELECT username, role, created_at FROM users ORDER BY username"
+        ).fetchall()
+        return [
+            {"username": row["username"], "role": row["role"], "created_at": float(row["created_at"])}
+            for row in rows
+        ]
+
+    def delete_user(self, username: str) -> bool:
+        with self._lock, self._conn:
+            cur = self._conn.execute("DELETE FROM users WHERE username = ?", (username,))
+            return (cur.rowcount or 0) > 0
+
+    def users_count(self) -> int:
+        return self._conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
 
     # ------------------------------------------------------------------
     # Checkpoints (Этап 3)

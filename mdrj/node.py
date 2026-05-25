@@ -136,6 +136,8 @@ class Node:
         self._retention_stop = asyncio.Event()
         self._retention_stop.set()
         self._discovery = None  # type: ignore[assignment]
+        from .auth import SessionStore
+        self.session_store = SessionStore()
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -339,6 +341,40 @@ class Node:
         self._reload_peers_from_storage()
         self.metrics.update_peer_health(self.list_peers(), self._quorum())
         return peer
+
+    # ------------------------------------------------------------------
+    # User management (Этап 5)
+    def add_user(self, *, username: str, password: str, role: str) -> Dict[str, object]:
+        from .auth import hash_password, normalize_role
+        normalized = username.strip().lower()
+        if not normalized:
+            raise ValueError("username required")
+        normalized_role = normalize_role(role)
+        self.storage.upsert_user(
+            username=normalized,
+            password_hash=hash_password(password),
+            role=normalized_role,
+        )
+        return {"username": normalized, "role": normalized_role}
+
+    def remove_user(self, username: str) -> bool:
+        normalized = username.strip().lower()
+        removed = self.storage.delete_user(normalized)
+        if removed:
+            self.session_store.revoke_user(normalized)
+        return removed
+
+    def list_users(self) -> List[Dict[str, object]]:
+        return self.storage.list_users()
+
+    def authenticate(self, username: str, password: str) -> Optional[Dict[str, object]]:
+        from .auth import verify_password
+        record = self.storage.get_user(username.strip().lower())
+        if not record:
+            return None
+        if not verify_password(password, str(record["password_hash"])):
+            return None
+        return record
 
     # ------------------------------------------------------------------
     # Discovery (Этап 4)

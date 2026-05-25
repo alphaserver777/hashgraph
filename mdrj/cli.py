@@ -186,6 +186,56 @@ checkpoint_app = typer.Typer(help="Checkpoint operations")
 app.add_typer(checkpoint_app, name="checkpoint")
 archive_app = typer.Typer(help="Cold archive operations")
 app.add_typer(archive_app, name="archive")
+users_app = typer.Typer(help="User management for Web UI")
+app.add_typer(users_app, name="users")
+
+
+@users_app.command("add")
+def users_add(
+    username: str = typer.Option(..., help="Username (lowercased)"),
+    role: str = typer.Option("viewer", help="Role: viewer or admin"),
+    config: Path = typer.Option(..., exists=True, help="Path to node YAML config"),
+    password: Optional[str] = typer.Option(None, hide_input=True, help="Password (prompted if omitted)"),
+) -> None:
+    """Add or update a user directly in the node's SQLite (offline, no HTTP)."""
+    from .auth import normalize_role, hash_password as _hash_password
+    cfg = load_config(config)
+    if password is None:
+        password = typer.prompt("Password", hide_input=True, confirmation_prompt=True)
+    from .storage import DAGStorage
+    storage = DAGStorage(cfg.storage.sqlite_path)
+    storage.upsert_user(
+        username=username.strip().lower(),
+        password_hash=_hash_password(password),
+        role=normalize_role(role),
+    )
+    storage.close()
+    typer.echo(f"User {username} added/updated with role={normalize_role(role)}")
+
+
+@users_app.command("list")
+def users_list(
+    config: Path = typer.Option(..., exists=True),
+) -> None:
+    cfg = load_config(config)
+    from .storage import DAGStorage
+    storage = DAGStorage(cfg.storage.sqlite_path)
+    rows = storage.list_users()
+    storage.close()
+    typer.echo(json.dumps(rows, indent=2, ensure_ascii=False))
+
+
+@users_app.command("remove")
+def users_remove(
+    username: str = typer.Option(..., help="Username to remove"),
+    config: Path = typer.Option(..., exists=True),
+) -> None:
+    cfg = load_config(config)
+    from .storage import DAGStorage
+    storage = DAGStorage(cfg.storage.sqlite_path)
+    removed = storage.delete_user(username.strip().lower())
+    storage.close()
+    typer.echo("removed" if removed else "not found")
 
 
 @checkpoint_app.command("propose")

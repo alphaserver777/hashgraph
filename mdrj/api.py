@@ -9,10 +9,17 @@ import json
 import logging
 import secrets
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from aiohttp import web
 
+from .auth import (
+    ROLE_ADMIN,
+    SESSION_COOKIE_NAME,
+    SESSION_TTL_SECONDS,
+    SessionRecord,
+    normalize_role,
+)
 from .event_catalog import event_class_for, is_known_event_kind
 from .models import Envelope, EventClass
 from .simulation import SCENARIOS, scenario_payload
@@ -22,12 +29,52 @@ HMAC_PROTECTED_METHODS = {"POST", "PUT", "DELETE", "PATCH"}
 
 _auth_logger = logging.getLogger("mdrj.api.auth")
 
+# Endpoints that ALWAYS bypass session auth (login form itself, static assets,
+# inter-node gossip, internal health probes). Everything else requires either
+# a valid session cookie OR no users configured (open-access prototype mode).
+AUTH_PUBLIC_PATHS = {
+    "/auth/login",
+    "/auth/logout",  # logout is idempotent — safe to expose
+    "/status",  # for k3s liveness/readiness probes
+    "/event/batch",  # inter-node gossip, protected by HMAC instead
+}
+# Methods needed in role checks for write operations.
+WRITE_METHODS = {"POST", "PUT", "DELETE", "PATCH"}
+# Read-only paths that a viewer is allowed to GET even with users configured.
+VIEWER_READ_PATHS = {
+    "/dag",
+    "/dag/frontier",
+    "/metrics",
+    "/metrics/prometheus",
+    "/metrics/history",
+    "/metrics/dashboard",
+    "/peers",
+    "/incidents",
+    "/viz",
+    "/viz/graph",
+    "/viz/stream",
+    "/checkpoint/list",
+    "/checkpoint/verify",
+    "/auth/me",
+}
+
 
 @web.middleware
 async def hmac_auth_middleware(request: web.Request, handler):
     """Verify HMAC-SHA256 signature of state-changing requests when key is set."""
     hmac_key = request.app.get("hmac_key")
     if not hmac_key or request.method not in HMAC_PROTECTED_METHODS:
+        return await handler(request)
+
+    # Login endpoint MUST be reachable without HMAC — user has no shared key.
+    # Logout is idempotent and benign without HMAC.
+    if request.path in AUTH_PUBLIC_PATHS:
+        return await handler(request)
+
+    # If the request carries a valid session cookie, treat the human user as
+    # authenticated via UI auth and skip HMAC requirement. HMAC remains the
+    # gate for inter-node and CLI traffic (which has no session).
+    if _resolve_session(request) is not None:
         return await handler(request)
 
     provided = request.headers.get(HMAC_HEADER, "")
@@ -39,6 +86,48 @@ async def hmac_auth_middleware(request: web.Request, handler):
     if not hmac_lib.compare_digest(provided, expected):
         _auth_logger.warning("HMAC verification failed for %s %s", request.method, request.path)
         raise web.HTTPUnauthorized(text="invalid signature")
+    return await handler(request)
+
+
+def _resolve_session(request: web.Request) -> Optional["SessionRecord"]:
+    """Look up the current session from cookie. Returns None if not present/expired."""
+    node = request.app.get("node")
+    if node is None:
+        return None
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    if not token:
+        return None
+    return node.session_store.get(token)
+
+
+@web.middleware
+async def session_auth_middleware(request: web.Request, handler):
+    """Gate UI endpoints behind session auth, but only if users exist."""
+    node = request.app.get("node")
+    if node is None:
+        return await handler(request)
+    # Inter-node gossip carries HMAC; static auth endpoints are public.
+    if request.path in AUTH_PUBLIC_PATHS:
+        return await handler(request)
+    # No users in DB → open-access prototype mode (skip session auth).
+    if node.storage.users_count() == 0:
+        return await handler(request)
+    session = _resolve_session(request)
+    if session is None:
+        # Browser UI expects HTML redirect, API clients expect JSON 401.
+        accept = request.headers.get("Accept", "")
+        if "text/html" in accept and request.method == "GET":
+            return web.HTTPFound("/auth/login")
+        raise web.HTTPUnauthorized(text="login required")
+    # Role check: viewers cannot do write operations except logout.
+    if session.role != ROLE_ADMIN and request.method in WRITE_METHODS:
+        if request.path != "/auth/logout":
+            raise web.HTTPForbidden(text="admin role required")
+    # Viewer + GET: only allowed for VIEWER_READ_PATHS.
+    if session.role != ROLE_ADMIN and request.method == "GET":
+        if request.path not in VIEWER_READ_PATHS and not request.path.startswith("/static/"):
+            raise web.HTTPForbidden(text="not permitted for viewer role")
+    request["session"] = session
     return await handler(request)
 
 VIZ_HTML = """
@@ -6916,6 +7005,127 @@ async def handle_checkpoint_list(request: web.Request) -> web.Response:
     return web.json_response({"items": items})
 
 
+LOGIN_HTML = """<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <title>MDRJ-DAG — Вход</title>
+  <style>
+    body { display:flex; align-items:center; justify-content:center; min-height:100vh;
+           font-family:system-ui, sans-serif; background:#0e1320; color:#e6e9ef; margin:0; }
+    form { background:#161c2c; padding:32px 36px; border-radius:8px; min-width:320px;
+           border:1px solid #243049; }
+    h1 { margin:0 0 18px 0; font-size:18px; color:#4fc3f7; }
+    label { display:block; font-size:12px; color:#8892a6; margin:14px 0 4px 0; }
+    input[type=text], input[type=password] { width:100%; padding:8px 10px; background:#0c1322;
+           color:#e6e9ef; border:1px solid #2c3650; border-radius:4px; font-size:14px; }
+    button { width:100%; margin-top:20px; padding:9px; background:#4fc3f7; color:#06121f;
+           border:none; border-radius:4px; font-weight:600; cursor:pointer; }
+    button:hover { background:#7cd3fa; }
+    .err { color:#ef5350; font-size:13px; margin-top:14px; min-height:18px; }
+  </style>
+</head>
+<body>
+  <form id="login" action="/auth/login" method="post">
+    <h1>MDRJ-DAG · Вход</h1>
+    <label for="u">Пользователь</label>
+    <input id="u" name="username" type="text" autocomplete="username" required />
+    <label for="p">Пароль</label>
+    <input id="p" name="password" type="password" autocomplete="current-password" required />
+    <button type="submit">Войти</button>
+    <div class="err" id="err"></div>
+  </form>
+  <script>
+    document.getElementById("login").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const body = JSON.stringify({username: fd.get("username"), password: fd.get("password")});
+      const r = await fetch("/auth/login", {method:"POST", headers:{"Content-Type":"application/json"}, body});
+      if (r.ok) { window.location.href = "/viz"; }
+      else { document.getElementById("err").textContent = "Неверные логин или пароль"; }
+    });
+  </script>
+</body></html>"""
+
+
+async def handle_login_page(request: web.Request) -> web.Response:
+    return web.Response(text=LOGIN_HTML, content_type="text/html")
+
+
+async def handle_login(request: web.Request) -> web.Response:
+    node = request.app["node"]
+    try:
+        payload = await request.json()
+    except json.JSONDecodeError:
+        raise web.HTTPBadRequest(text="invalid json")
+    username = str(payload.get("username") or "").strip()
+    password = str(payload.get("password") or "")
+    if not username or not password:
+        raise web.HTTPBadRequest(text="username and password required")
+    user = await asyncio.to_thread(node.authenticate, username, password)
+    if user is None:
+        raise web.HTTPUnauthorized(text="invalid credentials")
+    record = node.session_store.create(username=username, role=str(user["role"]))
+    response = web.json_response({"status": "ok", "username": username, "role": str(user["role"])})
+    response.set_cookie(
+        SESSION_COOKIE_NAME,
+        record.token,
+        max_age=SESSION_TTL_SECONDS,
+        httponly=True,
+        samesite="Lax",
+    )
+    return response
+
+
+async def handle_logout(request: web.Request) -> web.Response:
+    node = request.app["node"]
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    if token:
+        node.session_store.revoke(token)
+    response = web.json_response({"status": "ok"})
+    response.del_cookie(SESSION_COOKIE_NAME)
+    return response
+
+
+async def handle_me(request: web.Request) -> web.Response:
+    session = _resolve_session(request)
+    if session is None:
+        raise web.HTTPUnauthorized(text="no session")
+    return web.json_response({
+        "username": session.username,
+        "role": session.role,
+        "expires_at": session.expires_at,
+    })
+
+
+async def handle_users_list(request: web.Request) -> web.Response:
+    node = request.app["node"]
+    items = await asyncio.to_thread(node.list_users)
+    return web.json_response({"items": items})
+
+
+async def handle_users_add(request: web.Request) -> web.Response:
+    node = request.app["node"]
+    payload = await request.json()
+    username = str(payload.get("username") or "").strip()
+    password = str(payload.get("password") or "")
+    role = str(payload.get("role") or "viewer")
+    if not username or not password:
+        raise web.HTTPBadRequest(text="username and password required")
+    result = await asyncio.to_thread(node.add_user, username=username, password=password, role=role)
+    return web.json_response({"status": "ok", "user": result})
+
+
+async def handle_users_remove(request: web.Request) -> web.Response:
+    node = request.app["node"]
+    payload = await request.json()
+    username = str(payload.get("username") or "").strip()
+    if not username:
+        raise web.HTTPBadRequest(text="username required")
+    removed = await asyncio.to_thread(node.remove_user, username)
+    return web.json_response({"status": "ok" if removed else "not_found"})
+
+
 async def handle_peer_approve(request: web.Request) -> web.Response:
     node = request.app["node"]
     payload = await request.json()
@@ -7068,7 +7278,9 @@ async def handle_viz_stream(request: web.Request) -> web.StreamResponse:
     return response
 
 def build_app(node) -> web.Application:
-    app = web.Application(middlewares=[hmac_auth_middleware])
+    # Order matters: session middleware runs FIRST (outermost). If a valid
+    # session is present, hmac middleware skips the HMAC check.
+    app = web.Application(middlewares=[session_auth_middleware, hmac_auth_middleware])
     app["node"] = node
     app["hmac_key"] = getattr(getattr(node.config, "security", None), "hmac_key", None) if hasattr(node, "config") else None
     if not app["hmac_key"]:
@@ -7092,6 +7304,13 @@ def build_app(node) -> web.Application:
             web.get("/checkpoint/verify", handle_checkpoint_verify),
             web.post("/peers/approve", handle_peer_approve),
             web.post("/peers/reject", handle_peer_reject),
+            web.get("/auth/login", handle_login_page),
+            web.post("/auth/login", handle_login),
+            web.post("/auth/logout", handle_logout),
+            web.get("/auth/me", handle_me),
+            web.get("/users", handle_users_list),
+            web.post("/users/add", handle_users_add),
+            web.post("/users/remove", handle_users_remove),
             web.post("/peers/register", handle_register_peer),
             web.post("/peers/update", handle_update_peer),
             web.post("/peers/remove", handle_remove_peer),
