@@ -1,9 +1,82 @@
-"""Executable mirror of the event classification policy document."""
+"""Executable mirror of the event classification policy document.
+
+Источник правды — `data/event_catalog.json` (читается при импорте).
+Если JSON-файл недоступен, используется встроенный fallback ниже
+(сохранён для обратной совместимости и для контекстов где файл
+не пробрасывается, например при сборке колеса для PyPI).
+"""
 from __future__ import annotations
 
-from typing import Dict, Mapping
+import json
+import logging
+from pathlib import Path
+from typing import Dict, List, Mapping, Optional
 
 from .models import EventClass
+
+logger = logging.getLogger(__name__)
+
+# Метаданные с обоснованиями (rationale, linked_threats, added_by)
+# загружаются из JSON и доступны через event_metadata().
+_CATALOG_METADATA: Dict[str, Dict[str, object]] = {}
+
+
+def _candidate_json_paths() -> List[Path]:
+    """Возможные расположения data/event_catalog.json."""
+    here = Path(__file__).resolve()
+    return [
+        here.parent.parent / "data" / "event_catalog.json",  # development repo
+        Path("/etc/mdrj/event_catalog.json"),  # системный конфиг
+        Path("/opt/mdrj/data/event_catalog.json"),  # production install
+    ]
+
+
+def _load_from_json() -> Optional[Dict[str, Dict[str, object]]]:
+    """Прочитать каталог из JSON. None если файл не найден или невалиден."""
+    for path in _candidate_json_paths():
+        if not path.exists():
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            logger.exception("failed to read event catalog from %s", path)
+            continue
+        events_section = data.get("events") if isinstance(data, dict) else None
+        if not isinstance(events_section, dict):
+            logger.warning("event catalog at %s has no 'events' section", path)
+            continue
+        runtime: Dict[str, Dict[str, object]] = {}
+        for kind, descriptor in events_section.items():
+            if not isinstance(descriptor, dict):
+                continue
+            try:
+                cls = EventClass.from_str(str(descriptor.get("class", "")))
+            except ValueError:
+                logger.warning("event '%s' in catalog has invalid class; skipped", kind)
+                continue
+            title = str(descriptor.get("title", kind))
+            category = str(descriptor.get("category", "other"))
+            runtime[kind] = {
+                "class": cls,
+                "title": title,
+                "payload": {
+                    "category": category,
+                },
+            }
+            # Сохраняем расширенные метаданные отдельно — payload остаётся
+            # лёгким для эмиссии, а описание/обоснование доступно через API.
+            _CATALOG_METADATA[kind] = {
+                "class": cls.value,
+                "title": title,
+                "category": category,
+                "rationale": str(descriptor.get("rationale", "")),
+                "linked_threats": list(descriptor.get("linked_threats", []) or []),
+                "added_by": str(descriptor.get("added_by", "")),
+            }
+        if runtime:
+            logger.info("loaded %d event kinds from %s", len(runtime), path)
+            return runtime
+    return None
 
 
 # Keep this file synchronized with docs/event-classification.md.
@@ -201,3 +274,26 @@ def event_class_for(kind: str) -> EventClass:
 
 def catalog_title_for(kind: str) -> str:
     return str(EVENT_CATALOG[kind].get("title", kind))
+
+
+def event_metadata(kind: str) -> Optional[Dict[str, object]]:
+    """Return full metadata (rationale, linked_threats, added_by) для типа события.
+
+    Возвращает None если тип неизвестен или каталог загружен из встроенного
+    fallback без расширенных метаданных.
+    """
+    return _CATALOG_METADATA.get(kind)
+
+
+def all_event_metadata() -> Dict[str, Dict[str, object]]:
+    """Return метаданные для всех известных типов событий."""
+    return dict(_CATALOG_METADATA)
+
+
+# Применяем JSON-каталог при импорте, если он найден.
+# Это даёт «горячую» точку правды: правка JSON + перезапуск узла = новый
+# каталог, без правки Python-кода. Если JSON не найден или некорректен —
+# остаётся встроенный EVENT_CATALOG из dict выше.
+_json_catalog = _load_from_json()
+if _json_catalog is not None:
+    EVENT_CATALOG = _json_catalog

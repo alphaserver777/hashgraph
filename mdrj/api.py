@@ -56,6 +56,7 @@ VIEWER_READ_PATHS = {
     "/checkpoint/verify",
     "/auth/me",
     "/notifier/status",
+    "/catalog",
 }
 
 
@@ -7049,6 +7050,43 @@ async def handle_notifier_status(request: web.Request) -> web.Response:
     return web.json_response(node.notifier.status())
 
 
+async def handle_catalog(request: web.Request) -> web.Response:
+    """Return the full event catalog: классификация + обоснования.
+
+    Безопасно для viewer-роли (read-only справочник). Может фильтроваться
+    по классу через ?class=A и по угрозе через ?threat=UBI.124.
+    """
+    from .event_catalog import all_event_metadata, EVENT_CATALOG
+
+    metadata = all_event_metadata()
+    cls_filter = (request.query.get("class") or "").upper().strip() or None
+    threat_filter = (request.query.get("threat") or "").strip() or None
+    items: List[Dict[str, object]] = []
+    # Если расширенных метаданных нет (fallback встроенный каталог) —
+    # отдаём то что есть.
+    for kind, descriptor in EVENT_CATALOG.items():
+        cls_val = descriptor["class"].value if hasattr(descriptor["class"], "value") else str(descriptor["class"])
+        meta = metadata.get(kind, {})
+        if cls_filter and cls_val != cls_filter:
+            continue
+        if threat_filter:
+            linked = meta.get("linked_threats") or []
+            if not any(threat_filter in str(t) for t in linked):
+                continue
+        item: Dict[str, object] = {
+            "event_kind": kind,
+            "class": cls_val,
+            "title": str(descriptor.get("title", kind)),
+            "category": meta.get("category") or descriptor.get("payload", {}).get("category", "other"),
+            "rationale": meta.get("rationale", ""),
+            "linked_threats": meta.get("linked_threats", []),
+            "added_by": meta.get("added_by", ""),
+        }
+        items.append(item)
+    items.sort(key=lambda i: (str(i["class"]), str(i["event_kind"])))
+    return web.json_response({"version": 1, "count": len(items), "events": items})
+
+
 async def handle_users_list(request: web.Request) -> web.Response:
     node = request.app["node"]
     items = await asyncio.to_thread(node.list_users)
@@ -7262,6 +7300,7 @@ def build_app(node) -> web.Application:
             web.post("/users/add", handle_users_add),
             web.post("/users/remove", handle_users_remove),
             web.get("/notifier/status", handle_notifier_status),
+            web.get("/catalog", handle_catalog),
             web.post("/peers/register", handle_register_peer),
             web.post("/peers/update", handle_update_peer),
             web.post("/peers/remove", handle_remove_peer),

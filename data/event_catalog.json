@@ -1,0 +1,175 @@
+{
+  "version": 1,
+  "schema_url": "https://github.com/alphaserver777/hashgraph/blob/main/docs/event-catalog-schema.md",
+  "comment": "Единый источник правды для классификации событий ИБ в реестре MDRJ-DAG. Этот файл может править человек или LLM. При изменении класса события обязательно обновлять поле rationale.",
+  "events": {
+    "virus": {
+      "class": "A",
+      "title": "Обнаружен вирус на узле",
+      "category": "malware",
+      "rationale": "Обнаружение известного вредоносного файла — критический сигнал об активной компрометации хоста. Без своевременной реакции ведёт к latрral movement и заражению соседних узлов.",
+      "linked_threats": ["MITRE T1059", "УБИ.084"],
+      "added_by": "Этап 0, ADR-0001"
+    },
+    "admin_login": {
+      "class": "B",
+      "title": "Удалённый вход администратора",
+      "category": "authentication",
+      "rationale": "Сам по себе вход не критичен (может быть штатная работа), но в связке с другими сигналами (изменение конфигов, новые процессы) формирует контекст инцидента.",
+      "linked_threats": ["УБИ.071"],
+      "added_by": "Этап 0, ADR-0001"
+    },
+    "admin_ssh_login_success": {
+      "class": "A",
+      "title": "Успешный административный SSH-вход",
+      "category": "authentication",
+      "rationale": "Любой успешный вход с административными правами — обязательная точка интереса для атрибуции инцидента. Без этой записи невозможно установить кто, когда и откуда получил доступ.",
+      "linked_threats": ["УБИ.071", "MITRE T1078"],
+      "added_by": "Этап 0, ADR-0001"
+    },
+    "admin_login_failure": {
+      "class": "A",
+      "title": "Неудачная попытка входа администратора",
+      "category": "authentication",
+      "rationale": "Одиночная неудачная попытка часто опечатка, но используется как signal в системе. Burst-форма (failed_login_burst) точно показывает подбор пароля.",
+      "linked_threats": ["УБИ.072"],
+      "added_by": "Этап 0, ADR-0001"
+    },
+    "failed_login_burst": {
+      "class": "A",
+      "title": "Серия неудачных попыток входа",
+      "category": "authentication",
+      "rationale": "≥10 неудачных попыток за окно 60 сек = автоматизированный подбор пароля. Прямое начало атаки на аутентификацию.",
+      "linked_threats": ["УБИ.072", "MITRE T1110"],
+      "added_by": "Этап 0, ADR-0001"
+    },
+    "remote_login_rdp": {
+      "class": "B",
+      "title": "Удалённый вход через RDP",
+      "category": "authentication",
+      "rationale": "Аналог admin_login для Windows-окружений.",
+      "linked_threats": ["УБИ.071"],
+      "added_by": "Этап 0, ADR-0001"
+    },
+    "critical_file_modified": {
+      "class": "A",
+      "title": "Изменение критического системного файла",
+      "category": "integrity",
+      "rationale": "Изменение /etc/passwd, /etc/shadow, /etc/ssh/sshd_config и т.п. — классический пост-эксплуатационный приём (добавление SSH-ключа, изменение разрешений входа). Каждое такое изменение требует ручной проверки.",
+      "linked_threats": ["УБИ.124", "MITRE T1098", "MITRE T1556"],
+      "added_by": "Этап 0, ADR-0001"
+    },
+    "windows_registry_modified": {
+      "class": "A",
+      "title": "Изменение критического ключа реестра Windows",
+      "category": "integrity",
+      "rationale": "Аналог critical_file_modified для Windows. Persistence-механизмы атакующих опираются на ключи реестра.",
+      "linked_threats": ["MITRE T1547"],
+      "added_by": "Этап 0, ADR-0001"
+    },
+    "privileged_process_started": {
+      "class": "B",
+      "title": "Запуск процесса с повышенными привилегиями",
+      "category": "process",
+      "rationale": "Любой новый процесс с EUID=0 или административным токеном. На активной системе этих событий десятки в час (systemd, cron), поэтому класс B а не A — без корреляции с другими сигналами они не критичны.",
+      "linked_threats": ["MITRE T1078"],
+      "added_by": "Этап 0, ADR-0001"
+    },
+    "known_malicious_process": {
+      "class": "A",
+      "title": "Запуск известного вредоносного процесса",
+      "category": "malware",
+      "rationale": "Срабатывание сигнатуры из чёрного списка (xmrig, minerd, kdevtmpfsi и т.п.) — почти всегда это пост-эксплуатационная нагрузка после удалённого взлома. Шанс ложного срабатывания минимальный.",
+      "linked_threats": ["MITRE T1496"],
+      "added_by": "Этап 0, ADR-0001"
+    },
+    "firewall_rule_changed": {
+      "class": "A",
+      "title": "Изменение правил межсетевого экрана",
+      "category": "network",
+      "rationale": "Атакующий часто меняет правила firewall для обеспечения постоянного доступа или открытия C2-канала.",
+      "linked_threats": ["MITRE T1562.004"],
+      "added_by": "Этап 0, ADR-0001"
+    },
+    "iptables_rule_changed": {
+      "class": "A",
+      "title": "Изменение правил iptables/nftables",
+      "category": "network",
+      "rationale": "Linux-вариант firewall_rule_changed. Изменение ruleset — точно индикатор работы с сетевым стеком.",
+      "linked_threats": ["MITRE T1562.004"],
+      "added_by": "Этап 0, ADR-0001"
+    },
+    "critical_security_error": {
+      "class": "A",
+      "title": "Критическая ошибка подсистемы безопасности",
+      "category": "system",
+      "rationale": "Критическая ошибка kernel/audit/antivirus — может быть DoS-атакой или попыткой отключить защиту перед эксплуатацией.",
+      "linked_threats": ["УБИ.140"],
+      "added_by": "Этап 0, ADR-0001"
+    },
+    "mac_spoof": {
+      "class": "A",
+      "title": "Попытка MAC-spoofing",
+      "category": "network",
+      "rationale": "Подмена MAC-адреса — часто часть атаки ARP-spoofing для перехвата трафика.",
+      "linked_threats": ["MITRE T1557"],
+      "added_by": "Этап 0, ADR-0001"
+    },
+    "portscan": {
+      "class": "B",
+      "title": "Аномальный порт-скан",
+      "category": "network",
+      "rationale": "Внешний порт-скан часто разведка перед атакой. Класс B, потому что сам по себе порт-скан не эксплуатация.",
+      "linked_threats": ["MITRE T1046"],
+      "added_by": "Этап 0, ADR-0001"
+    },
+    "heartbeat": {
+      "class": "C",
+      "title": "Сигнал жизни узла",
+      "category": "diagnostic",
+      "rationale": "Регулярная отметка работы узла (каждые heartbeat.interval_sec, обычно 5 минут). Пропуски в потоке heartbeat за подозрительный период — улика принудительной остановки сбора (см. защиту от УБИ.124 через прерывание службы).",
+      "linked_threats": ["УБИ.124 (косвенно)"],
+      "added_by": "Этап «сигнал жизни», после ADR-0006"
+    },
+    "mdrj_service_start": {
+      "class": "B",
+      "title": "Запуск службы реестра MDRJ-DAG",
+      "category": "service_lifecycle",
+      "rationale": "Узел эмитит при штатном старте. В паре с mdrj_service_stop формирует трассу непрерывной работы узла.",
+      "linked_threats": ["УБИ.124 (косвенно)"],
+      "added_by": "Этап «service lifecycle»"
+    },
+    "mdrj_service_stop": {
+      "class": "B",
+      "title": "Корректная остановка службы реестра MDRJ-DAG",
+      "category": "service_lifecycle",
+      "rationale": "Узел эмитит сам перед штатной остановкой. Отсутствие пары stop/start в реестре = улика принудительного прерывания (kill -9, OOM, аварийный crash).",
+      "linked_threats": ["УБИ.124"],
+      "added_by": "Этап «service lifecycle»"
+    },
+    "mdrj_service_killed": {
+      "class": "A",
+      "title": "Подозрительное прерывание службы реестра",
+      "category": "service_lifecycle",
+      "rationale": "Эмитится при следующем старте, если в реестре найден mdrj_service_start без mdrj_service_stop. Прямой признак: предыдущий процесс был убит, а не остановлен штатно. Критическая улика атаки типа УБИ.124.",
+      "linked_threats": ["УБИ.124", "MITRE T1562.001"],
+      "added_by": "Этап «service lifecycle»"
+    },
+    "host_boot": {
+      "class": "C",
+      "title": "Загрузка операционной системы хоста",
+      "category": "system_lifecycle",
+      "rationale": "Узел фиксирует загрузку ОС сразу после старта. Каждая загрузка должна оставлять запись — её отсутствие в подозрительный период есть улика подмены unit-файла или скрытого ребута.",
+      "linked_threats": ["УБИ.124 (косвенно)"],
+      "added_by": "Этап «host lifecycle»"
+    },
+    "host_reboot": {
+      "class": "C",
+      "title": "Перезагрузка операционной системы хоста",
+      "category": "system_lifecycle",
+      "rationale": "Эмитится когда коллектор фиксирует резкое обнуление uptime — между двумя соседними poll boot_time изменился. На практике редкое событие.",
+      "linked_threats": ["УБИ.124 (косвенно)"],
+      "added_by": "Этап «host lifecycle»"
+    }
+  }
+}
