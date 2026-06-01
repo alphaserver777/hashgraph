@@ -135,6 +135,10 @@ class Node:
         self._retention_task: Optional[asyncio.Task] = None
         self._retention_stop = asyncio.Event()
         self._retention_stop.set()
+        self._heartbeat_task: Optional[asyncio.Task] = None
+        self._heartbeat_stop = asyncio.Event()
+        self._heartbeat_stop.set()
+        self._heartbeat_emitted = 0
         self._discovery = None  # type: ignore[assignment]
         from .auth import SessionStore
         self.session_store = SessionStore()
@@ -189,6 +193,8 @@ class Node:
         self._start_metrics_history()
         if self.config.retention.enabled:
             self._start_retention()
+        if self.config.heartbeat.enabled:
+            self._start_heartbeat()
         await self._start_discovery()
 
     async def stop(self) -> None:
@@ -200,6 +206,13 @@ class Node:
             except Exception:
                 logger.exception("Error while stopping discovery")
             self._discovery = None
+        if self._heartbeat_task:
+            self._heartbeat_stop.set()
+            try:
+                await self._heartbeat_task
+            except Exception:
+                logger.exception("Error while stopping heartbeat loop")
+            self._heartbeat_task = None
         if self._retention_task:
             self._retention_stop.set()
             try:
@@ -896,12 +909,17 @@ class Node:
         anchors: List[str] = []
         self_identities = [
             identity for identity in self._known_node_identities()
-            if str(identity.get("node_id") or "") == self.config.node_id
+            if identity.get("identity_scope") == "self"
         ]
         if not self_identities:
-            # Fallback: если в реестре self ещё не отражён, создаём минимальную
-            # запись о себе чтобы было хотя бы одно событие в локальной истории.
-            self_identities = [{"node_id": self.config.node_id, "address": self.config.listen}]
+            # Fallback (защита от неожиданного формата identity-записей):
+            # создаём минимальную identity о себе, сохраняя ключевые поля,
+            # которые тесты и UI ожидают увидеть в anchor-payload.
+            self_identities = [{
+                "subject_node_id": self.config.node_id,
+                "listen": self.config.listen,
+                "identity_scope": "self",
+            }]
         for index, identity in enumerate(self_identities):
             payload = {
                 "anchor": index,
@@ -1039,6 +1057,48 @@ class Node:
 
     def list_metrics_history(self, *, limit: int = 1000, since_ts: float = 0.0) -> List[Dict[str, object]]:
         return self.storage.list_metrics_history(limit=limit, since_ts=since_ts)
+
+    # ------------------------------------------------------------------
+    # Heartbeat (liveness signal) — Этап «сигнал жизни», после ADR-0006.
+    # Каждый узел сам публикует событие класса C event_kind=heartbeat
+    # с фиксированным интервалом. Пропуск ожидаемых heartbeat — улика
+    # о выключении или принудительной остановке сбора (закрывает
+    # обход УБИ.124 через прерывание службы).
+    def _start_heartbeat(self) -> None:
+        if self._heartbeat_task and not self._heartbeat_task.done():
+            return
+        self._heartbeat_stop.clear()
+        self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+
+    async def _heartbeat_loop(self) -> None:
+        interval = max(0.05, float(self.config.heartbeat.interval_sec))
+        while not self._heartbeat_stop.is_set():
+            try:
+                await self.emit_event(
+                    EventClass.C,
+                    {
+                        "event_kind": "heartbeat",
+                        "host_id": self.config.linux_ingest.host_id or self.config.node_id,
+                        "node_id": self.config.node_id,
+                        "interval_sec": interval,
+                        "purpose": "liveness",
+                    },
+                )
+                self._heartbeat_emitted += 1
+            except Exception:
+                logger.exception("heartbeat emit failed")
+            try:
+                await asyncio.wait_for(self._heartbeat_stop.wait(), timeout=interval)
+            except asyncio.TimeoutError:
+                continue
+
+    def heartbeat_status(self) -> Dict[str, object]:
+        return {
+            "enabled": self.config.heartbeat.enabled,
+            "interval_sec": self.config.heartbeat.interval_sec,
+            "emitted_count": self._heartbeat_emitted,
+            "running": self._heartbeat_task is not None and not self._heartbeat_task.done(),
+        }
 
     # ------------------------------------------------------------------
     # Checkpoints (Этап 3.a): propose, ingest, verify

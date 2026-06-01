@@ -80,6 +80,21 @@ class RetentionConfig:
 
 
 @dataclass(slots=True)
+class HeartbeatConfig:
+    """Periodic liveness signal (Этап «сигнал жизни», после ADR-0006).
+
+    Each node emits a class C event_kind=heartbeat once per interval_sec,
+    irrespective of real security events. The gap between consecutive
+    heartbeats from a given node is a witness of that node's continuous
+    operation. Missing heartbeats during a suspicious period are a clue
+    that the collection pipeline was interrupted — closing the gap that
+    UBI.124 would otherwise exploit through service shutdown.
+    """
+    enabled: bool = False
+    interval_sec: float = 300.0  # 5 minutes
+
+
+@dataclass(slots=True)
 class NodeConfig:
     node_id: str
     listen: str
@@ -95,6 +110,7 @@ class NodeConfig:
     discovery: DiscoveryConfig = field(default_factory=DiscoveryConfig)
     notifier: NotifierConfig = field(default_factory=NotifierConfig)
     agent_relay: AgentRelayConfig = field(default_factory=AgentRelayConfig)
+    heartbeat: HeartbeatConfig = field(default_factory=HeartbeatConfig)
 
     @property
     def host(self) -> str:
@@ -170,6 +186,7 @@ def load_config(path: str | Path) -> NodeConfig:
     discovery = _parse_discovery(raw.get("discovery", {}) or {})
     notifier = _parse_notifier(raw.get("notifier", {}) or {})
     agent_relay = _parse_agent_relay(raw.get("agent_relay", {}) or {})
+    heartbeat = _parse_heartbeat(raw.get("heartbeat", {}) or {})
     return NodeConfig(
         node_id=raw["node_id"],
         listen=raw["listen"],
@@ -185,6 +202,14 @@ def load_config(path: str | Path) -> NodeConfig:
         discovery=discovery,
         notifier=notifier,
         agent_relay=agent_relay,
+        heartbeat=heartbeat,
+    )
+
+
+def _parse_heartbeat(raw: dict) -> HeartbeatConfig:
+    return HeartbeatConfig(
+        enabled=bool(raw.get("enabled", False)),
+        interval_sec=float(raw.get("interval_sec", 300.0)),
     )
 
 
