@@ -196,8 +196,18 @@ class Node:
         if self.config.heartbeat.enabled:
             self._start_heartbeat()
         await self._start_discovery()
+        # Перед эмиссией service_start проверяем, был ли предыдущий процесс
+        # завершён штатно (есть mdrj_service_stop) или убит без него.
+        await self._maybe_emit_service_killed()
+        await self._emit_service_start()
 
     async def stop(self) -> None:
+        # Эмитим service_stop ДО остановки gossip, чтобы запись успела
+        # реплицироваться на соседей до выхода процесса.
+        try:
+            await self._emit_service_stop()
+        except Exception:
+            logger.exception("failed to emit mdrj_service_stop on shutdown")
         if self.simulation_running():
             await self.stop_simulation()
         if self._discovery is not None:
@@ -1099,6 +1109,78 @@ class Node:
             "emitted_count": self._heartbeat_emitted,
             "running": self._heartbeat_task is not None and not self._heartbeat_task.done(),
         }
+
+    # ------------------------------------------------------------------
+    # Service lifecycle: start / stop / detected_killed
+    # Совместно с heartbeat и Merkle-проверкой формируют защиту против УБИ.124
+    # через прерывание сбора. Каждый штатный цикл работы оставляет пару
+    # start↔stop в реестре. Отсутствие stop перед следующим start = улика.
+    SERVICE_LIFECYCLE_KINDS = ("mdrj_service_start", "mdrj_service_stop", "mdrj_service_killed")
+
+    def _last_own_service_event(self) -> Optional[Event]:
+        """Найти последнее событие жизненного цикла, эмитированное этим узлом."""
+        events = self.storage.all_events()
+        own = [
+            e for e in events
+            if e.creator == self.config.node_id
+            and (e.payload or {}).get("event_kind") in self.SERVICE_LIFECYCLE_KINDS
+        ]
+        if not own:
+            return None
+        own.sort(key=lambda e: e.ts_local)
+        return own[-1]
+
+    async def _maybe_emit_service_killed(self) -> None:
+        """Если в реестре последняя запись — start без stop, эмитим killed."""
+        last = self._last_own_service_event()
+        if last is None:
+            return  # самый первый запуск, история пуста
+        last_kind = (last.payload or {}).get("event_kind")
+        if last_kind == "mdrj_service_start":
+            try:
+                await self.emit_event(
+                    EventClass.A,
+                    {
+                        "event_kind": "mdrj_service_killed",
+                        "node_id": self.config.node_id,
+                        "host_id": self.config.linux_ingest.host_id or self.config.node_id,
+                        "previous_start_id": last.id,
+                        "previous_start_ts": last.ts_local,
+                        "detected_at": utc_timestamp(),
+                    },
+                )
+                logger.warning(
+                    "detected unclean previous shutdown: previous start_id=%s ts=%s",
+                    last.id[:12],
+                    last.ts_local,
+                )
+            except Exception:
+                logger.exception("failed to emit mdrj_service_killed")
+
+    async def _emit_service_start(self) -> None:
+        try:
+            await self.emit_event(
+                EventClass.B,
+                {
+                    "event_kind": "mdrj_service_start",
+                    "node_id": self.config.node_id,
+                    "host_id": self.config.linux_ingest.host_id or self.config.node_id,
+                    "ts": utc_timestamp(),
+                },
+            )
+        except Exception:
+            logger.exception("failed to emit mdrj_service_start")
+
+    async def _emit_service_stop(self) -> None:
+        await self.emit_event(
+            EventClass.B,
+            {
+                "event_kind": "mdrj_service_stop",
+                "node_id": self.config.node_id,
+                "host_id": self.config.linux_ingest.host_id or self.config.node_id,
+                "ts": utc_timestamp(),
+            },
+        )
 
     # ------------------------------------------------------------------
     # Checkpoints (Этап 3.a): propose, ingest, verify

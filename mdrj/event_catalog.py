@@ -140,6 +140,30 @@ EVENT_CATALOG: Dict[str, Dict[str, object]] = {
             "description": "Плановый heartbeat от панели мониторинга",
         },
     },
+    "mdrj_service_start": {
+        "class": EventClass.B,
+        "title": "Запуск службы реестра MDRJ-DAG",
+        "payload": {
+            "category": "service_lifecycle",
+            "description": "Узел эмитит это событие при штатном старте службы. Используется в паре с mdrj_service_stop для трассировки непрерывности работы.",
+        },
+    },
+    "mdrj_service_stop": {
+        "class": EventClass.B,
+        "title": "Корректная остановка службы реестра MDRJ-DAG",
+        "payload": {
+            "category": "service_lifecycle",
+            "description": "Узел эмитит это событие сам перед штатной остановкой. Отсутствие пары stop/start в реестре — улика принудительного прерывания сбора (атака УБИ.124 через kill -9).",
+        },
+    },
+    "mdrj_service_killed": {
+        "class": EventClass.A,
+        "title": "Подозрительное прерывание службы реестра",
+        "payload": {
+            "category": "service_lifecycle",
+            "description": "Эмитится при следующем старте, если в реестре найден mdrj_service_start без соответствующего mdrj_service_stop. Прямой признак того, что предыдущий процесс был убит (kill -9, OOM, аварийный crash), а не остановлен штатно.",
+        },
+    },
 }
 
 
