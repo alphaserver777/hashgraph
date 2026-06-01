@@ -19,7 +19,7 @@
 set -euo pipefail
 
 REPO_URL="${REPO_URL:-https://github.com/alphaserver777/hashgraph.git}"
-BRANCH="${BRANCH:-protocol/hashgraph-consensus-alignment}"
+BRANCH="${BRANCH:-main}"
 PEERS=""
 HMAC_KEY=""
 
