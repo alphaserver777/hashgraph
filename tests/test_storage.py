@@ -203,23 +203,15 @@ def test_bootstrap_genesis_contains_node_identity_for_known_nodes(tmp_path):
     events = node.storage.all_events()
     payloads = [event.payload for event in events if event.payload.get("genesis")]
 
-    assert len(payloads) == 3
-    assert any(
-        payload.get("identity_scope") == "self"
-        and payload.get("subject_node_id") == "node-1"
-        and payload.get("listen") == "0.0.0.0:9001"
-        for payload in payloads
-    )
-    assert any(
-        payload.get("identity_scope") == "known_peer"
-        and payload.get("configured_peer_address") == "node2.example.net:9002"
-        for payload in payloads
-    )
-    assert any(
-        payload.get("identity_scope") == "known_peer"
-        and payload.get("configured_peer_address") == "node3.example.net:9003"
-        for payload in payloads
-    )
+    # После коммита c3aeed8 каждый узел при bootstrap создаёт ТОЛЬКО свой
+    # собственный genesis. Идентичности peer-ов приходят через gossip,
+    # когда они сами стартуют и публикуют свой anchor. Это даёт N anchor
+    # в DAG вместо N*N, что правильно для одноранговой сети.
+    assert len(payloads) == 1
+    payload = payloads[0]
+    assert payload.get("identity_scope") == "self"
+    assert payload.get("subject_node_id") == "node-1"
+    assert payload.get("listen") == "0.0.0.0:9001"
     node.storage.close()
 
 
