@@ -4615,6 +4615,7 @@ VIZ_HTML = """
           peerNode: payload.peer_node || payload.peer,
           error: payload.error || null,
           pending: !!payload.pending,
+          reasons: Array.isArray(payload.mismatch_reasons) ? payload.mismatch_reasons : [],
           localCount: payload.local && typeof payload.local.event_count === 'number' ? payload.local.event_count : null,
           peerCount: payload.peer_state && typeof payload.peer_state.event_count === 'number' ? payload.peer_state.event_count : null
         };
@@ -4654,11 +4655,15 @@ VIZ_HTML = """
           } else {
             stateText = 'рассогласован';
           }
+          var reasonText = peerState.reasons && peerState.reasons.length
+            ? ' · причина: ' + peerState.reasons.join(', ')
+            : '';
           item.innerHTML =
             '<strong>' + label + '</strong><br>' +
             'Состояние: ' + stateText +
             ' · локально ' + valueOr(peerState.localCount, '—') +
-            ' / у соседа ' + valueOr(peerState.peerCount, '—');
+            ' / у соседа ' + valueOr(peerState.peerCount, '—') +
+            reasonText;
           consensusPeerSummaryEl.appendChild(item);
         }
       }
@@ -5442,16 +5447,16 @@ VIZ_HTML = """
             if (state.error || !state.match) { mismatched += 1; }
           });
           if (peerKeys.length === 0) {
-            heroSpotSyncEl.textContent = 'Синхронность: ожидание';
+            heroSpotSyncEl.textContent = 'Согласованность: ожидание';
             heroSpotSyncEl.className = 'hero-spot-pill';
           } else if (mismatched > 0) {
-            heroSpotSyncEl.textContent = 'Синхронность: есть разрывы';
+            heroSpotSyncEl.textContent = 'Согласованность: рассогласование';
             heroSpotSyncEl.className = 'hero-spot-pill alert';
           } else if (pendingCount > 0) {
-            heroSpotSyncEl.textContent = 'Синхронность: обновляется';
+            heroSpotSyncEl.textContent = 'Согласованность: проверка';
             heroSpotSyncEl.className = 'hero-spot-pill warn';
           } else {
-            heroSpotSyncEl.textContent = 'Синхронность: стабильно';
+            heroSpotSyncEl.textContent = 'Согласованность: стабильно';
             heroSpotSyncEl.className = 'hero-spot-pill ok';
           }
         }

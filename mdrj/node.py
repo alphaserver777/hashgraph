@@ -594,11 +594,15 @@ class Node:
         order_ids = self.storage.toposort()
         by_id = {event.id: event for event in events}
         ordered_events = [by_id[event_id] for event_id in order_ids if event_id in by_id]
-        states = self.consensus.recompute(
-            ordered_events,
-            membership,
-            path_meta_by_event=path_meta_by_event,
-        )
+        try:
+            states = self.consensus.recompute(
+                ordered_events,
+                membership,
+                path_meta_by_event=path_meta_by_event,
+            )
+        except Exception:
+            logger.exception("Consensus recompute failed; keeping event ingest path alive")
+            return
         self.storage.replace_consensus_state(
             [
                 {
@@ -1352,8 +1356,10 @@ class Node:
                             local_snapshot=local_snapshot,
                             peer_snapshot=None,
                             error="unreachable",
+                            mismatch_reasons=["unreachable"],
                         )
                         continue
+                    mismatch_reasons = self._consensus_mismatch_reasons(local_snapshot, peer_snapshot)
                     match = (
                         peer_snapshot.get("hash") == local_snapshot.get("hash")
                         and peer_snapshot.get("event_count") == local_snapshot.get("event_count")
@@ -1366,6 +1372,7 @@ class Node:
                         local_snapshot=local_snapshot,
                         peer_snapshot=peer_snapshot,
                         error=None,
+                        mismatch_reasons=mismatch_reasons,
                     )
             except Exception:
                 logger.exception("Error during consensus monitoring")
@@ -1403,6 +1410,7 @@ class Node:
         local_snapshot: Dict[str, object],
         peer_snapshot: Optional[Dict[str, object]],
         error: Optional[str],
+        mismatch_reasons: Optional[List[str]] = None,
     ) -> None:
         peer_key = peer_address or (peer_snapshot or {}).get("node_id") or "unknown"
         mismatch = error is not None or not match
@@ -1428,6 +1436,7 @@ class Node:
             },
             "timestamp": utc_timestamp(),
             "pending": pending,
+            "mismatch_reasons": list(mismatch_reasons or []),
         }
         if peer_snapshot:
             payload["peer_state"] = {
@@ -1441,6 +1450,22 @@ class Node:
         if error:
             payload["error"] = error
         self._broadcast_viz(payload)
+
+    def _consensus_mismatch_reasons(
+        self,
+        local_snapshot: Dict[str, object],
+        peer_snapshot: Dict[str, object],
+    ) -> List[str]:
+        reasons: List[str] = []
+        if peer_snapshot.get("event_count") != local_snapshot.get("event_count"):
+            reasons.append("event_count")
+        if peer_snapshot.get("hash") != local_snapshot.get("hash"):
+            reasons.append("hash")
+        if peer_snapshot.get("consensus_epoch") != local_snapshot.get("consensus_epoch"):
+            reasons.append("epoch")
+        if peer_snapshot.get("membership_snapshot_hash") != local_snapshot.get("membership_snapshot_hash"):
+            reasons.append("membership")
+        return reasons
 
     async def _propagate_simulation(
         self,

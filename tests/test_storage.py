@@ -57,6 +57,22 @@ def test_storage_append_and_query(tmp_path):
     storage.close()
 
 
+def test_toposort_ignores_dangling_parent_edges(tmp_path):
+    db_path = tmp_path / "dangling-edge.db"
+    storage = DAGStorage(str(db_path))
+    anchor = make_anchor(1)
+    storage.store_envelope(anchor, anchor.event.ts_local)
+
+    with storage._conn:
+        storage._conn.execute(
+            "INSERT OR IGNORE INTO edges(parent_id, child_id) VALUES (?, ?)",
+            ("missing-parent", anchor.event.id),
+        )
+
+    assert storage.toposort() == [anchor.event.id]
+    storage.close()
+
+
 def test_storage_persists_fame_vote_trace_fields(tmp_path):
     db_path = tmp_path / "consensus-trace.db"
     storage = DAGStorage(str(db_path))

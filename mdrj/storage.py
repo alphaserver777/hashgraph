@@ -454,7 +454,7 @@ class DAGStorage:
         indegree = {node: 0 for node in graph}
         edge_rows = self._conn.execute("SELECT parent_id, child_id FROM edges").fetchall()
         for parent, child in edge_rows:
-            if child in graph:
+            if parent in graph and child in graph:
                 graph[parent].append(child)
                 indegree[child] += 1
         queue = [node for node, deg in indegree.items() if deg == 0]
