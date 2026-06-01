@@ -45,6 +45,8 @@ def _sign(body: bytes, key: str) -> str:
 async def test_post_without_signature_when_key_configured_returns_401(tmp_path, aiohttp_client):
     cfg = _make_config(tmp_path, hmac_key=HMAC_KEY)
     node = Node(cfg)
+    # Once users exist, the open-access fallback disappears and HMAC becomes mandatory.
+    node.add_user(username="admin", password="pw", role="admin")
     await node.start()
     try:
         client = await aiohttp_client(build_app(node))
@@ -77,6 +79,7 @@ async def test_post_with_valid_signature_passes(tmp_path, aiohttp_client):
 async def test_post_with_wrong_signature_returns_401(tmp_path, aiohttp_client):
     cfg = _make_config(tmp_path, hmac_key=HMAC_KEY)
     node = Node(cfg)
+    node.add_user(username="admin", password="pw", role="admin")  # enable strict HMAC mode
     await node.start()
     try:
         client = await aiohttp_client(build_app(node))

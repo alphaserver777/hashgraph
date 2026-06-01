@@ -77,6 +77,15 @@ async def hmac_auth_middleware(request: web.Request, handler):
     if _resolve_session(request) is not None:
         return await handler(request)
 
+    # Open-access prototype mode (no users configured): UI buttons can call
+    # state-changing endpoints from the browser without knowing the HMAC key.
+    # The session middleware running above already let the request through
+    # for the same reason. As soon as the operator creates the first user,
+    # this fallback disappears and HMAC becomes mandatory again.
+    node = request.app.get("node")
+    if node is not None and node.storage.users_count() == 0:
+        return await handler(request)
+
     provided = request.headers.get(HMAC_HEADER, "")
     if not provided:
         raise web.HTTPUnauthorized(text=f"missing {HMAC_HEADER} header")
