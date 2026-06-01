@@ -229,9 +229,10 @@ class DAGStorage:
             self._conn.execute("DELETE FROM incidents")
 
     def list_incidents(self) -> List[Dict]:
-        rows = self._conn.execute(
-            "SELECT payload FROM incidents ORDER BY updated_at DESC, created_at DESC"
-        ).fetchall()
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT payload FROM incidents ORDER BY updated_at DESC, created_at DESC"
+            ).fetchall()
         items: List[Dict] = []
         for row in rows:
             try:
@@ -379,38 +380,42 @@ class DAGStorage:
                 )
 
     def get_event(self, event_id: str) -> Optional[Event]:
-        cur = self._conn.execute("SELECT * FROM events WHERE id = ?", (event_id,))
-        row = cur.fetchone()
+        with self._lock:
+            cur = self._conn.execute("SELECT * FROM events WHERE id = ?", (event_id,))
+            row = cur.fetchone()
         if not row:
             return None
         return Event.from_record(row)
 
     def latest_event_by_source(self, source: str) -> Optional[Event]:
-        row = self._conn.execute(
-            "SELECT * FROM events WHERE source = ? ORDER BY created_at DESC LIMIT 1",
-            (source,),
-        ).fetchone()
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM events WHERE source = ? ORDER BY created_at DESC LIMIT 1",
+                (source,),
+            ).fetchone()
         if not row:
             return None
         return Event.from_record(row)
 
     def list_recent_events(self, limit: int = 256) -> List[Event]:
-        rows = self._conn.execute(
-            "SELECT * FROM events ORDER BY created_at DESC LIMIT ?",
-            (limit,),
-        ).fetchall()
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM events ORDER BY created_at DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
         return [Event.from_record(row) for row in rows]
 
     def get_envelope(self, event_id: str) -> Optional[Envelope]:
-        event = self.get_event(event_id)
-        if not event:
-            return None
-        meta_row = self._conn.execute(
-            "SELECT path_meta FROM envelopes WHERE event_id = ?", (event_id,)
-        ).fetchone()
-        path_meta = []
-        if meta_row:
-            path_meta = json.loads(meta_row["path_meta"] or "[]")
+        with self._lock:
+            event = self.get_event(event_id)
+            if not event:
+                return None
+            meta_row = self._conn.execute(
+                "SELECT path_meta FROM envelopes WHERE event_id = ?", (event_id,)
+            ).fetchone()
+            path_meta = []
+            if meta_row:
+                path_meta = json.loads(meta_row["path_meta"] or "[]")
         return Envelope(event=event, path_meta=path_meta)
 
     def list_events(self, limit: int = 100, newer_than: Optional[float] = None) -> List[Event]:
@@ -421,15 +426,18 @@ class DAGStorage:
             params = (newer_than,)
         query += " ORDER BY created_at ASC LIMIT ?"
         params = params + (limit,)
-        rows = self._conn.execute(query, params).fetchall()
+        with self._lock:
+            rows = self._conn.execute(query, params).fetchall()
         return [Event.from_record(row) for row in rows]
 
     def all_events(self) -> List[Event]:
-        rows = self._conn.execute("SELECT * FROM events ORDER BY created_at ASC").fetchall()
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM events ORDER BY created_at ASC").fetchall()
         return [Event.from_record(row) for row in rows]
 
     def all_edges(self) -> List[Tuple[str, str]]:
-        rows = self._conn.execute("SELECT parent_id, child_id FROM edges").fetchall()
+        with self._lock:
+            rows = self._conn.execute("SELECT parent_id, child_id FROM edges").fetchall()
         return [(row["parent_id"], row["child_id"]) for row in rows]
 
     def get_frontier(self) -> List[Tuple[str, Dict[str, int]]]:
@@ -438,21 +446,24 @@ class DAGStorage:
         LEFT JOIN edges ed ON e.id = ed.parent_id
         WHERE ed.parent_id IS NULL
         """
-        rows = self._conn.execute(sql).fetchall()
+        with self._lock:
+            rows = self._conn.execute(sql).fetchall()
         return [(row["id"], json.loads(row["vclock"])) for row in rows]
 
     def subdag_since(self, ts: float) -> List[Event]:
-        rows = self._conn.execute(
-            "SELECT * FROM events WHERE COALESCE(consensus_ts, ts_local) >= ?",
-            (ts,),
-        ).fetchall()
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM events WHERE COALESCE(consensus_ts, ts_local) >= ?",
+                (ts,),
+            ).fetchall()
         return [Event.from_record(row) for row in rows]
 
     def toposort(self) -> List[str]:
-        rows = self._conn.execute("SELECT id FROM events").fetchall()
+        with self._lock:
+            rows = self._conn.execute("SELECT id FROM events").fetchall()
+            edge_rows = self._conn.execute("SELECT parent_id, child_id FROM edges").fetchall()
         graph = {row["id"]: [] for row in rows}
         indegree = {node: 0 for node in graph}
-        edge_rows = self._conn.execute("SELECT parent_id, child_id FROM edges").fetchall()
         for parent, child in edge_rows:
             if parent in graph and child in graph:
                 graph[parent].append(child)
@@ -494,20 +505,20 @@ class DAGStorage:
         are removed from hot storage.
         """
         age_threshold = now - max_age_seconds
-        rows = self._conn.execute(
-            "SELECT id, cls, source, creator, ts_local, vclock, parents, "
-            "self_parent_id, other_parent_id, payload, sig, consensus_ts, "
-            "lamport_ts, round, round_received, created_at "
-            "FROM events "
-            "WHERE round_received IS NOT NULL "
-            "  AND round_received <= ? "
-            "  AND created_at < ? "
-            + ("  AND cls != 'A' " if keep_class_a else "")
-            + "ORDER BY round_received ASC",
-            (int(confirmed_round), float(age_threshold)),
-        ).fetchall()
         pruned: List[Dict[str, object]] = []
         with self._lock, self._conn:
+            rows = self._conn.execute(
+                "SELECT id, cls, source, creator, ts_local, vclock, parents, "
+                "self_parent_id, other_parent_id, payload, sig, consensus_ts, "
+                "lamport_ts, round, round_received, created_at "
+                "FROM events "
+                "WHERE round_received IS NOT NULL "
+                "  AND round_received <= ? "
+                "  AND created_at < ? "
+                + ("  AND cls != 'A' " if keep_class_a else "")
+                + "ORDER BY round_received ASC",
+                (int(confirmed_round), float(age_threshold)),
+            ).fetchall()
             for row in rows:
                 payload_text = row["payload"]
                 payload_hash = hashlib.sha256(payload_text.encode("utf-8")).hexdigest()
@@ -553,25 +564,25 @@ class DAGStorage:
     def gc_by_quota(self, memory_mb: int) -> int:
         """Apply best-effort garbage collection. Returns number of events removed."""
         target_bytes = memory_mb * 1024 * 1024
-        cur = self._conn.execute("SELECT SUM(LENGTH(payload)) FROM events")
-        current = cur.fetchone()[0] or 0
-        if current <= target_bytes:
-            return 0
-        to_delete = []
-        rows = self._conn.execute(
-            "SELECT id FROM events ORDER BY created_at ASC"
-        ).fetchall()
-        total = current
-        for row in rows:
-            if total <= target_bytes:
-                break
-            to_delete.append(row["id"])
-            payload_len = self._conn.execute(
-                "SELECT LENGTH(payload) FROM events WHERE id = ?",
-                (row["id"],),
-            ).fetchone()[0]
-            total -= payload_len
-        with self._conn:
+        with self._lock, self._conn:
+            cur = self._conn.execute("SELECT SUM(LENGTH(payload)) FROM events")
+            current = cur.fetchone()[0] or 0
+            if current <= target_bytes:
+                return 0
+            to_delete = []
+            rows = self._conn.execute(
+                "SELECT id FROM events ORDER BY created_at ASC"
+            ).fetchall()
+            total = current
+            for row in rows:
+                if total <= target_bytes:
+                    break
+                to_delete.append(row["id"])
+                payload_len = self._conn.execute(
+                    "SELECT LENGTH(payload) FROM events WHERE id = ?",
+                    (row["id"],),
+                ).fetchone()[0]
+                total -= payload_len
             for event_id in to_delete:
                 self._conn.execute("DELETE FROM events WHERE id = ?", (event_id,))
                 self._conn.execute("DELETE FROM envelopes WHERE event_id = ?", (event_id,))
@@ -580,16 +591,18 @@ class DAGStorage:
         return len(to_delete)
 
     def storage_usage_bytes(self) -> int:
-        cur = self._conn.execute(
-            "SELECT SUM(LENGTH(payload) + LENGTH(vclock) + LENGTH(parents)) FROM events"
-        )
-        return cur.fetchone()[0] or 0
+        with self._lock:
+            cur = self._conn.execute(
+                "SELECT SUM(LENGTH(payload) + LENGTH(vclock) + LENGTH(parents)) FROM events"
+            )
+            return cur.fetchone()[0] or 0
 
     def db_size_bytes(self) -> int:
         """Return current SQLite database file size including WAL pages."""
         try:
-            page_count = self._conn.execute("PRAGMA page_count").fetchone()[0]
-            page_size = self._conn.execute("PRAGMA page_size").fetchone()[0]
+            with self._lock:
+                page_count = self._conn.execute("PRAGMA page_count").fetchone()[0]
+                page_size = self._conn.execute("PRAGMA page_size").fetchone()[0]
             return int(page_count) * int(page_size)
         except Exception:
             return 0
@@ -602,10 +615,11 @@ class DAGStorage:
             )
 
     def list_metrics_history(self, *, limit: int = 1000, since_ts: float = 0.0) -> List[dict]:
-        rows = self._conn.execute(
-            "SELECT ts, snapshot_json FROM metrics_history WHERE ts >= ? ORDER BY ts ASC LIMIT ?",
-            (float(since_ts), int(limit)),
-        ).fetchall()
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT ts, snapshot_json FROM metrics_history WHERE ts >= ? ORDER BY ts ASC LIMIT ?",
+                (float(since_ts), int(limit)),
+            ).fetchall()
         return [{"ts": float(row["ts"]), "snapshot": json.loads(row["snapshot_json"])} for row in rows]
 
     def prune_metrics_history(self, *, keep_last: int) -> int:
@@ -631,10 +645,11 @@ class DAGStorage:
             )
 
     def get_user(self, username: str) -> Optional[Dict[str, object]]:
-        row = self._conn.execute(
-            "SELECT username, password_hash, role, created_at FROM users WHERE username = ?",
-            (username,),
-        ).fetchone()
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT username, password_hash, role, created_at FROM users WHERE username = ?",
+                (username,),
+            ).fetchone()
         if not row:
             return None
         return {
@@ -645,9 +660,10 @@ class DAGStorage:
         }
 
     def list_users(self) -> List[Dict[str, object]]:
-        rows = self._conn.execute(
-            "SELECT username, role, created_at FROM users ORDER BY username"
-        ).fetchall()
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT username, role, created_at FROM users ORDER BY username"
+            ).fetchall()
         return [
             {"username": row["username"], "role": row["role"], "created_at": float(row["created_at"])}
             for row in rows
@@ -659,7 +675,8 @@ class DAGStorage:
             return (cur.rowcount or 0) > 0
 
     def users_count(self) -> int:
-        return self._conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        with self._lock:
+            return self._conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
 
     # ------------------------------------------------------------------
     # Checkpoints (Этап 3)
@@ -695,35 +712,38 @@ class DAGStorage:
             )
 
     def get_checkpoint(self, round_received: int) -> Optional[Dict[str, object]]:
-        row = self._conn.execute(
-            "SELECT round_received, merkle_root, members_snapshot_hash, signatures_json, status, confirmed_at, created_at "
-            "FROM checkpoints WHERE round_received = ?",
-            (int(round_received),),
-        ).fetchone()
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT round_received, merkle_root, members_snapshot_hash, signatures_json, status, confirmed_at, created_at "
+                "FROM checkpoints WHERE round_received = ?",
+                (int(round_received),),
+            ).fetchone()
         if not row:
             return None
         return _row_to_checkpoint(row)
 
     def list_checkpoints(self, *, status: Optional[str] = None, limit: int = 100) -> List[Dict[str, object]]:
-        if status is not None:
-            rows = self._conn.execute(
-                "SELECT round_received, merkle_root, members_snapshot_hash, signatures_json, status, confirmed_at, created_at "
-                "FROM checkpoints WHERE status = ? ORDER BY round_received DESC LIMIT ?",
-                (status, int(limit)),
-            ).fetchall()
-        else:
-            rows = self._conn.execute(
-                "SELECT round_received, merkle_root, members_snapshot_hash, signatures_json, status, confirmed_at, created_at "
-                "FROM checkpoints ORDER BY round_received DESC LIMIT ?",
-                (int(limit),),
-            ).fetchall()
+        with self._lock:
+            if status is not None:
+                rows = self._conn.execute(
+                    "SELECT round_received, merkle_root, members_snapshot_hash, signatures_json, status, confirmed_at, created_at "
+                    "FROM checkpoints WHERE status = ? ORDER BY round_received DESC LIMIT ?",
+                    (status, int(limit)),
+                ).fetchall()
+            else:
+                rows = self._conn.execute(
+                    "SELECT round_received, merkle_root, members_snapshot_hash, signatures_json, status, confirmed_at, created_at "
+                    "FROM checkpoints ORDER BY round_received DESC LIMIT ?",
+                    (int(limit),),
+                ).fetchall()
         return [_row_to_checkpoint(row) for row in rows]
 
     def latest_confirmed_checkpoint(self) -> Optional[Dict[str, object]]:
-        row = self._conn.execute(
-            "SELECT round_received, merkle_root, members_snapshot_hash, signatures_json, status, confirmed_at, created_at "
-            "FROM checkpoints WHERE status = 'confirmed' ORDER BY round_received DESC LIMIT 1"
-        ).fetchone()
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT round_received, merkle_root, members_snapshot_hash, signatures_json, status, confirmed_at, created_at "
+                "FROM checkpoints WHERE status = 'confirmed' ORDER BY round_received DESC LIMIT 1"
+            ).fetchone()
         if not row:
             return None
         return _row_to_checkpoint(row)
@@ -752,10 +772,11 @@ class DAGStorage:
             )
 
     def list_event_skeletons(self, *, limit: int = 1000) -> List[Dict[str, object]]:
-        rows = self._conn.execute(
-            "SELECT id, cls, parent_ids, round_received, payload_hash, archived_at FROM event_skeletons ORDER BY archived_at ASC LIMIT ?",
-            (int(limit),),
-        ).fetchall()
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT id, cls, parent_ids, round_received, payload_hash, archived_at FROM event_skeletons ORDER BY archived_at ASC LIMIT ?",
+                (int(limit),),
+            ).fetchall()
         return [
             {
                 "id": row["id"],
@@ -769,11 +790,12 @@ class DAGStorage:
         ]
 
     def event_count(self) -> int:
-        row = self._conn.execute("SELECT COUNT(*) FROM events").fetchone()
+        with self._lock:
+            row = self._conn.execute("SELECT COUNT(*) FROM events").fetchone()
         return row[0]
 
     def upsert_peer(self, address: str, last_seen: float, healthy: bool) -> None:
-        with self._conn:
+        with self._lock, self._conn:
             self._conn.execute(
                 "INSERT INTO peers(address, node_id, last_seen, healthy, enabled, note, source, role) VALUES (?, '', ?, ?, 1, '', 'runtime', ?)\n                 ON CONFLICT(address) DO UPDATE SET last_seen = excluded.last_seen, healthy = excluded.healthy",
                 (address, last_seen, int(healthy), NODE_ROLE_NODE),
@@ -907,7 +929,8 @@ class DAGStorage:
             self._conn.execute("DELETE FROM peers WHERE address = ?", (address,))
 
     def list_peers(self) -> List[PeerInfo]:
-        rows = self._conn.execute("SELECT * FROM peers").fetchall()
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM peers").fetchall()
         peers: List[PeerInfo] = []
         for row in rows:
             source = (row["source"] if "source" in row.keys() else "runtime") or "runtime"
@@ -932,9 +955,10 @@ class DAGStorage:
         return peers
 
     def get_consensus_membership_snapshot(self) -> Optional[Dict[str, object]]:
-        row = self._conn.execute(
-            "SELECT value FROM consensus_state WHERE key = 'membership_snapshot'"
-        ).fetchone()
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT value FROM consensus_state WHERE key = 'membership_snapshot'"
+            ).fetchone()
         if not row:
             return None
         try:
