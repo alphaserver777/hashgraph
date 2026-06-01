@@ -8,7 +8,7 @@ def test_event_from_legacy_record_tolerates_null_json_fields():
             "cls": "C",
             "source": "legacy-node",
             "creator": None,
-            "ts_local": 1.0,
+            "ts_local": None,
             "vclock": None,
             "parents": None,
             "self_parent_id": None,
@@ -20,6 +20,7 @@ def test_event_from_legacy_record_tolerates_null_json_fields():
 
     assert event.id == "legacy-event"
     assert event.cls == EventClass.C
+    assert event.ts_local == 0.0
     assert event.vclock == {}
     assert event.parents == []
     assert event.payload == {}

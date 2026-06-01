@@ -168,11 +168,11 @@ class Event:
         if other_parent_id is None and len(parents) > 1:
             other_parent_id = parents[1]
         return cls(
-            id=record["id"],
-            cls=EventClass.from_str(record["cls"]),
-            source=record["source"],
-            creator=record["creator"] if "creator" in record.keys() and record["creator"] else record["source"],
-            ts_local=float(record["ts_local"]),
+            id=str(record["id"] or ""),
+            cls=EventClass.from_str(record["cls"] or EventClass.C.value),
+            source=str(record["source"] or "unknown"),
+            creator=record["creator"] if "creator" in record.keys() and record["creator"] else str(record["source"] or "unknown"),
+            ts_local=float(record["ts_local"] or 0.0),
             vclock=load_json_field("vclock", {}),
             parents=parents,
             self_parent_id=self_parent_id,

@@ -165,16 +165,16 @@ class ConsensusEngine:
         resolved: Optional[Mapping[str, tuple[Optional[int], Optional[float]]]] = None,
     ) -> List[Event]:
         decorated = []
-        for event in events:
+        for index, event in enumerate(events):
             round_received = event.round_received
             consensus_ts = event.consensus_ts
             if resolved and event.id in resolved:
                 round_received, consensus_ts = resolved[event.id]
             rr_key = round_received if round_received is not None else float("inf")
             ts_key = consensus_ts if consensus_ts is not None else float("inf")
-            decorated.append((rr_key, ts_key, event.id, event))
+            decorated.append((rr_key, ts_key, str(event.id or ""), index, event))
         decorated.sort()
-        return [event for _, _, _, event in decorated]
+        return [event for _, _, _, _, event in decorated]
 
     def membership_snapshot(
         self,
