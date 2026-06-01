@@ -111,12 +111,13 @@ if ! command -v git >/dev/null; then
   apt-get install -y -qq git
 fi
 
-# 2. Clone or update repo
+# 2. Clone or update repo (force-reset to drop any local junk from .venv/__pycache__)
 if [[ ! -d /opt/mdrj/.git ]]; then
   rm -rf /opt/mdrj
   git clone -b "$BRANCH" "$REPO_URL" /opt/mdrj
 else
-  cd /opt/mdrj && git fetch --all && git checkout "$BRANCH" && git pull --ff-only
+  cd /opt/mdrj && git fetch origin --quiet && git checkout "$BRANCH" 2>/dev/null \
+    && git reset --hard "origin/$BRANCH" --quiet
 fi
 
 # 3. Python virtual environment (always recreate to avoid stale shebangs)
