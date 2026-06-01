@@ -1,0 +1,26 @@
+[Unit]
+Description=MDRJ-DAG distributed peer-to-peer security event registry
+Documentation=https://github.com/alphaserver777/hashgraph
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/mdrj
+Environment="PYTHONUNBUFFERED=1"
+EnvironmentFile=-/etc/mdrj/node.env
+ExecStart=/opt/mdrj/.venv/bin/python -m mdrj.cli node --config /etc/mdrj/node.yaml
+Restart=always
+RestartSec=5
+TimeoutStopSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mdrj
+
+LimitNOFILE=4096
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target
