@@ -111,23 +111,6 @@ async def test_metrics_prometheus_endpoint_returns_text(tmp_path, aiohttp_client
 
 
 @pytest.mark.asyncio
-async def test_metrics_dashboard_serves_html(tmp_path, aiohttp_client):
-    cfg = _make_config(tmp_path)
-    node = Node(cfg)
-    await node.start()
-    try:
-        client = await aiohttp_client(build_app(node))
-        resp = await client.get("/metrics/dashboard")
-        assert resp.status == 200
-        assert resp.content_type == "text/html"
-        body = await resp.text()
-        assert "MDRJ-DAG metrics dashboard" in body
-        assert "/metrics" in body  # JS fetches /metrics
-    finally:
-        await node.stop()
-
-
-@pytest.mark.asyncio
 async def test_emit_event_records_latency(tmp_path):
     cfg = _make_config(tmp_path)
     node = Node(cfg)

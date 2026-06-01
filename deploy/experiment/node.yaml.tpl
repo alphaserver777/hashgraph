@@ -4,7 +4,9 @@ peers:
 __PEERS_BLOCK__
 
 profile:
-  role: node
+  # `responder` activates the incident workbench (kanban + checklist) in /viz.
+  # Functionally equivalent to `node` for gossip and consensus.
+  role: responder
   memory_mb: 128
   bw_kbps: 4096
   cpu_quota: 1.0
