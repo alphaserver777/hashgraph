@@ -595,7 +595,16 @@ class Node:
             for item in snapshot.get("members", [])
             if str(item.get("node_id") or "").strip()
         ]
-        order_ids = self.storage.toposort()
+        try:
+            order_ids = self.storage.toposort()
+        except KeyError:
+            # Topological sort can fail when an envelope arrives over gossip
+            # before its parent has been merged locally. This is a known
+            # artefact of the WIP consensus pipeline (task 014). The event
+            # is already stored; consensus_ts will be assigned on the next
+            # successful recompute. Keep the ingest path alive.
+            logger.warning("toposort skipped: parent envelope not yet present")
+            return
         by_id = {event.id: event for event in events}
         ordered_events = [by_id[event_id] for event_id in order_ids if event_id in by_id]
         try:
