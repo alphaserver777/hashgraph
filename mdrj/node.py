@@ -703,28 +703,41 @@ class Node:
         except Exception:
             logger.exception("notifier dispatch failed")
 
-    def _persist_envelope(self, envelope: Envelope, *, recompute: bool = True) -> bool:
+    def _persist_envelope(
+        self,
+        envelope: Envelope,
+        *,
+        recompute: bool = True,
+        notify: bool = True,
+    ) -> bool:
         stored = self.storage.store_envelope(envelope, envelope.event.consensus_ts)
         if recompute:
             self._recompute_consensus()
         self.vector_clock = self.vector_clock.merge(envelope.event.vclock)
         if stored:
-            self.metrics.record_merge_quality(self._reconstruction_ratio())
             if self._gossip:
                 self._gossip.add_pending(envelope.event.id)
-            self._schedule_fast_fanout(envelope.event.id)
-            snapshot = self.metrics_snapshot()
-            self._notify_viz(envelope.event, stored=True, metrics=snapshot)
+            if notify:
+                self.metrics.record_merge_quality(self._reconstruction_ratio())
+                self._schedule_fast_fanout(envelope.event.id)
+                snapshot = self.metrics_snapshot()
+                self._notify_viz(envelope.event, stored=True, metrics=snapshot)
         return stored
 
     def ingest_envelopes(self, envelopes: Iterable[Envelope]) -> List[str]:
+        latest_event: Optional[Event] = None
         new_ids: List[str] = []
         for envelope in envelopes:
-            stored = self._persist_envelope(envelope, recompute=False)
+            stored = self._persist_envelope(envelope, recompute=False, notify=False)
             if stored:
                 new_ids.append(envelope.event.id)
+                latest_event = envelope.event
         if new_ids:
             self._recompute_consensus()
+            self.metrics.record_merge_quality(self._reconstruction_ratio())
+            if latest_event is not None:
+                snapshot = self.metrics_snapshot()
+                self._notify_viz(latest_event, stored=True, metrics=snapshot)
         self.metrics.update_peer_health(self.list_peers(), self._quorum())
         return new_ids
 
