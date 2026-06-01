@@ -128,7 +128,12 @@ print(text.replace('__PEERS_BLOCK__', block.rstrip('\\n')))
 set -euo pipefail
 
 # 1. Install dependencies
-if ! command -v python3 >/dev/null; then
+# Always ensure python3-venv matches the system python version; the
+# generic python3-venv meta-package does not always pull in pythonX.Y-venv.
+PY_VER=\$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")' 2>/dev/null || echo "")
+if [[ -n "\$PY_VER" ]]; then
+  apt-get install -y -qq "python\${PY_VER}-venv" 2>/dev/null || apt-get install -y -qq python3-venv
+else
   apt-get update -qq && apt-get install -y -qq python3 python3-venv python3-pip git
 fi
 if ! command -v git >/dev/null; then
@@ -143,11 +148,10 @@ else
   cd /opt/mdrj && git fetch --all && git checkout "$BRANCH" && git pull --ff-only
 fi
 
-# 3. Python virtual environment
+# 3. Python virtual environment (always recreate to avoid stale shebangs)
 cd /opt/mdrj
-if [[ ! -d .venv ]]; then
-  python3 -m venv .venv
-fi
+rm -rf .venv
+python3 -m venv .venv
 .venv/bin/pip install --upgrade pip -q
 .venv/bin/pip install -e . -q
 
@@ -180,7 +184,7 @@ systemctl restart mdrj-scenario1.service
 systemctl restart mdrj-scenario2.service
 
 # 9. Brief health check
-sleep 3
+sleep 10
 echo "--- mdrj-scenario1 status ---"
 systemctl is-active mdrj-scenario1 || (journalctl -u mdrj-scenario1 -n 20 --no-pager; exit 1)
 echo "--- mdrj-scenario2 status ---"
