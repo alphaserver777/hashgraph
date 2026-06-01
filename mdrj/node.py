@@ -703,9 +703,10 @@ class Node:
         except Exception:
             logger.exception("notifier dispatch failed")
 
-    def _persist_envelope(self, envelope: Envelope) -> bool:
+    def _persist_envelope(self, envelope: Envelope, *, recompute: bool = True) -> bool:
         stored = self.storage.store_envelope(envelope, envelope.event.consensus_ts)
-        self._recompute_consensus()
+        if recompute:
+            self._recompute_consensus()
         self.vector_clock = self.vector_clock.merge(envelope.event.vclock)
         if stored:
             self.metrics.record_merge_quality(self._reconstruction_ratio())
@@ -719,9 +720,11 @@ class Node:
     def ingest_envelopes(self, envelopes: Iterable[Envelope]) -> List[str]:
         new_ids: List[str] = []
         for envelope in envelopes:
-            stored = self._persist_envelope(envelope)
+            stored = self._persist_envelope(envelope, recompute=False)
             if stored:
                 new_ids.append(envelope.event.id)
+        if new_ids:
+            self._recompute_consensus()
         self.metrics.update_peer_health(self.list_peers(), self._quorum())
         return new_ids
 
