@@ -889,8 +889,20 @@ class Node:
             # ensure anchors cached for restarts
             self._anchor_ids()
             return
+        # Каждый узел создаёт ТОЛЬКО свой собственный genesis-anchor.
+        # Genesis-anchor других участников приходят через gossip, когда они
+        # сами стартуют и публикуют свой. Это правильный одноранговый
+        # протокол: каждый отвечает за свою идентичность.
         anchors: List[str] = []
-        for index, identity in enumerate(self._known_node_identities()):
+        self_identities = [
+            identity for identity in self._known_node_identities()
+            if str(identity.get("node_id") or "") == self.config.node_id
+        ]
+        if not self_identities:
+            # Fallback: если в реестре self ещё не отражён, создаём минимальную
+            # запись о себе чтобы было хотя бы одно событие в локальной истории.
+            self_identities = [{"node_id": self.config.node_id, "address": self.config.listen}]
+        for index, identity in enumerate(self_identities):
             payload = {
                 "anchor": index,
                 "node": self.config.node_id,
