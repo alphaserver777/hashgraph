@@ -140,6 +140,11 @@ class Node:
         self.session_store = SessionStore()
         from .notifier import NotifierEngine
         self.notifier = NotifierEngine(config.notifier)
+        from .agent_relay import AgentRelayClient
+        self.agent_relay = AgentRelayClient(
+            config.agent_relay,
+            hmac_key=config.security.hmac_key,
+        )
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -935,7 +940,16 @@ class Node:
                         )
                         continue
                     cls = event_class_for(event.event_kind)
-                    await self.emit_event(cls, event.to_payload())
+                    payload = event.to_payload()
+                    if self.config.agent_relay.enabled:
+                        # Scenario 1 (A1): forward to centralized collector.
+                        # No local DAG, no gossip, no checkpoint.
+                        await self.agent_relay.send(
+                            event_kind=event.event_kind, cls=cls.value, payload=payload
+                        )
+                    else:
+                        # Scenario 2 (A4): emit into local DAG, gossip will replicate.
+                        await self.emit_event(cls, payload)
             except Exception:
                 logger.exception("Collector %s polling failed", collector.name)
             try:

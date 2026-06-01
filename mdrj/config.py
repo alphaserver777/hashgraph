@@ -15,6 +15,7 @@ from .collectors import (
     LinuxFirewallCollectorConfig,
     LinuxProcCollectorConfig,
 )
+from .agent_relay import AgentRelayConfig
 from .discovery import DiscoveryConfig
 from .models import NodeProfile, normalize_node_role
 from .notifier import EmailChannelConfig, NotifierConfig, TelegramChannelConfig
@@ -93,6 +94,7 @@ class NodeConfig:
     retention: RetentionConfig = field(default_factory=RetentionConfig)
     discovery: DiscoveryConfig = field(default_factory=DiscoveryConfig)
     notifier: NotifierConfig = field(default_factory=NotifierConfig)
+    agent_relay: AgentRelayConfig = field(default_factory=AgentRelayConfig)
 
     @property
     def host(self) -> str:
@@ -167,6 +169,7 @@ def load_config(path: str | Path) -> NodeConfig:
     retention = _parse_retention(raw.get("retention", {}) or {})
     discovery = _parse_discovery(raw.get("discovery", {}) or {})
     notifier = _parse_notifier(raw.get("notifier", {}) or {})
+    agent_relay = _parse_agent_relay(raw.get("agent_relay", {}) or {})
     return NodeConfig(
         node_id=raw["node_id"],
         listen=raw["listen"],
@@ -181,6 +184,17 @@ def load_config(path: str | Path) -> NodeConfig:
         retention=retention,
         discovery=discovery,
         notifier=notifier,
+        agent_relay=agent_relay,
+    )
+
+
+def _parse_agent_relay(raw: dict) -> AgentRelayConfig:
+    return AgentRelayConfig(
+        enabled=bool(raw.get("enabled", False)),
+        relay_url=str(raw.get("relay_url", "")),
+        timeout_sec=float(raw.get("timeout_sec", 5.0)),
+        max_retries=int(raw.get("max_retries", 3)),
+        retry_backoff_sec=float(raw.get("retry_backoff_sec", 1.0)),
     )
 
 
