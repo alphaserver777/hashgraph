@@ -10,6 +10,7 @@ from typing import List, Optional
 import yaml
 
 from .collectors import (
+    HostLifecycleCollectorConfig,
     JournaldCollectorConfig,
     LinuxAuditCollectorConfig,
     LinuxFirewallCollectorConfig,
@@ -62,6 +63,7 @@ class CollectorsConfig:
     audit: LinuxAuditCollectorConfig = field(default_factory=LinuxAuditCollectorConfig)
     firewall: LinuxFirewallCollectorConfig = field(default_factory=LinuxFirewallCollectorConfig)
     proc: LinuxProcCollectorConfig = field(default_factory=LinuxProcCollectorConfig)
+    host_lifecycle: HostLifecycleCollectorConfig = field(default_factory=HostLifecycleCollectorConfig)
 
 
 @dataclass(slots=True)
@@ -278,6 +280,7 @@ def _parse_collectors(raw: dict) -> CollectorsConfig:
     audit_raw = raw.get("audit", {}) or {}
     firewall_raw = raw.get("firewall", {}) or {}
     proc_raw = raw.get("proc", {}) or {}
+    host_raw = raw.get("host_lifecycle", {}) or {}
 
     journald = JournaldCollectorConfig(
         enabled=bool(journald_raw.get("enabled", False)),
@@ -304,4 +307,16 @@ def _parse_collectors(raw: dict) -> CollectorsConfig:
         poll_interval_sec=float(proc_raw.get("poll_interval_sec", 3.0)),
         proc_root=str(proc_raw.get("proc_root", "/proc")),
     )
-    return CollectorsConfig(journald=journald, audit=audit, firewall=firewall, proc=proc)
+    host_lifecycle = HostLifecycleCollectorConfig(
+        enabled=bool(host_raw.get("enabled", False)),
+        poll_interval_sec=float(host_raw.get("poll_interval_sec", 60.0)),
+        proc_uptime_path=str(host_raw.get("proc_uptime_path", "/proc/uptime")),
+        boot_time_drift_threshold_sec=float(host_raw.get("boot_time_drift_threshold_sec", 30.0)),
+    )
+    return CollectorsConfig(
+        journald=journald,
+        audit=audit,
+        firewall=firewall,
+        proc=proc,
+        host_lifecycle=host_lifecycle,
+    )

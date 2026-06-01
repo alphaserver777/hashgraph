@@ -12,6 +12,7 @@ from .base import BaseCollector, CollectedEvent, CollectorStatus
 from .linux_audit import LinuxAuditCollector, LinuxAuditCollectorConfig
 from .linux_firewall import LinuxFirewallCollector, LinuxFirewallCollectorConfig
 from .linux_journald import JournaldCollectorConfig, LinuxJournaldCollector
+from .host_lifecycle import HostLifecycleCollector, HostLifecycleCollectorConfig
 from .linux_proc import LinuxProcCollector, LinuxProcCollectorConfig
 
 # NOTE: LinuxAuthCollector intentionally NOT re-exported here. It wraps
@@ -32,4 +33,6 @@ __all__ = [
     "LinuxJournaldCollector",
     "LinuxProcCollector",
     "LinuxProcCollectorConfig",
+    "HostLifecycleCollector",
+    "HostLifecycleCollectorConfig",
 ]

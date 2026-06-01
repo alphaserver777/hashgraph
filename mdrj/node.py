@@ -18,6 +18,7 @@ from aiohttp import web
 from .config import NodeConfig
 from .collectors import (
     BaseCollector,
+    HostLifecycleCollector,
     LinuxAuditCollector,
     LinuxFirewallCollector,
     LinuxJournaldCollector,
@@ -992,6 +993,8 @@ class Node:
             built.append(LinuxFirewallCollector(config=cfg.firewall, node_id=node_id, host_id=host_id))
         if cfg.proc.enabled:
             built.append(LinuxProcCollector(config=cfg.proc, node_id=node_id, host_id=host_id))
+        if cfg.host_lifecycle.enabled:
+            built.append(HostLifecycleCollector(config=cfg.host_lifecycle, node_id=node_id, host_id=host_id))
         return built
 
     def _start_collectors(self) -> None:
