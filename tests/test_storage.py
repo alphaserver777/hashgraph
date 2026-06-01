@@ -73,6 +73,47 @@ def test_toposort_ignores_dangling_parent_edges(tmp_path):
     storage.close()
 
 
+def test_clear_events_resets_graph_artifacts_but_keeps_registry(tmp_path):
+    db_path = tmp_path / "clear-events.db"
+    storage = DAGStorage(str(db_path))
+    anchor = make_anchor(1)
+    storage.store_envelope(anchor, anchor.event.ts_local)
+    storage.append_metrics_snapshot(anchor.event.ts_local, "{}")
+    storage.upsert_checkpoint(
+        round_received=1,
+        merkle_root="root",
+        members_snapshot_hash="members",
+        signatures={},
+        status="confirmed",
+        confirmed_at=anchor.event.ts_local,
+    )
+    storage.add_event_skeleton(
+        event_id="archived",
+        cls="C",
+        parent_ids=[],
+        round_received=1,
+        payload_hash="hash",
+    )
+    storage.ensure_peer(
+        "127.0.0.1:9002",
+        node_id="peer",
+        last_seen=anchor.event.ts_local,
+        healthy=True,
+    )
+    storage.save_consensus_membership_snapshot({"epoch": 1, "members": ["peer"]})
+
+    storage.clear_events()
+
+    assert storage.event_count() == 0
+    assert storage.all_edges() == []
+    assert storage.list_metrics_history() == []
+    assert storage.list_checkpoints() == []
+    assert storage.list_event_skeletons() == []
+    assert storage.list_peers()
+    assert storage.get_consensus_membership_snapshot() == {"epoch": 1, "members": ["peer"]}
+    storage.close()
+
+
 def test_storage_persists_fame_vote_trace_fields(tmp_path):
     db_path = tmp_path / "consensus-trace.db"
     storage = DAGStorage(str(db_path))

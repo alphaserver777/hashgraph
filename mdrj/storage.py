@@ -221,12 +221,19 @@ class DAGStorage:
             )
 
     def clear_events(self) -> None:
-        """Remove all events, edges and envelopes from storage."""
+        """Remove graph, consensus artifacts and event-derived history.
+
+        Peer registry, users and the active membership snapshot are kept so a
+        cluster reset does not disconnect known nodes or lock operators out.
+        """
         with self._lock, self._conn:
             self._conn.execute("DELETE FROM events")
             self._conn.execute("DELETE FROM envelopes")
             self._conn.execute("DELETE FROM edges")
             self._conn.execute("DELETE FROM incidents")
+            self._conn.execute("DELETE FROM metrics_history")
+            self._conn.execute("DELETE FROM checkpoints")
+            self._conn.execute("DELETE FROM event_skeletons")
 
     def list_incidents(self) -> List[Dict]:
         with self._lock:

@@ -152,9 +152,9 @@ VIZ_HTML = """
     #graph { flex: 1 1 auto; min-height: calc(100vh - 88px); display: flex; }
     svg { width: 100%; height: 100%; background: radial-gradient(circle at top, rgba(255,255,255,0.06), transparent 60%); }
     .toolbar { font-size: 0.85rem; opacity: 0.75; }
-    #controls { display: flex; flex-direction: column; gap: 0.6rem; padding: 0.75rem 1.5rem; background: rgba(10, 16, 28, 0.92); border-top: 1px solid rgba(255,255,255,0.08); border-bottom: 1px solid rgba(255,255,255,0.08); }
-    #controls .controls-title { font-size: 0.9rem; color: rgba(233, 238, 255, 0.9); }
-    #controls .controls-buttons { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+    #controls, #reset-controls { display: flex; flex-direction: column; gap: 0.6rem; padding: 0.75rem 1.5rem; background: rgba(10, 16, 28, 0.92); border-top: 1px solid rgba(255,255,255,0.08); border-bottom: 1px solid rgba(255,255,255,0.08); }
+    #controls .controls-title, #reset-controls .controls-title { font-size: 0.9rem; color: rgba(233, 238, 255, 0.9); }
+    #controls .controls-buttons, #reset-controls .controls-buttons { display: flex; flex-wrap: wrap; gap: 0.6rem; }
     #filters { display: flex; flex-direction: column; gap: 0.45rem; background: rgba(9, 14, 24, 0.92); padding: 0.7rem 1.5rem; border-top: 1px solid rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.05); }
     #filters .filters-title { font-size: 0.88rem; color: rgba(233, 238, 255, 0.85); }
     #filters .filter-group { display: flex; flex-wrap: wrap; gap: 0.4rem; }
@@ -171,7 +171,7 @@ VIZ_HTML = """
     .sim-button.running:hover { background: rgba(94, 204, 135, 0.95); }
     .sim-button.danger { background: rgba(110, 36, 52, 0.85); border-color: rgba(255, 146, 146, 0.45); }
     .sim-button.danger:hover { background: rgba(142, 44, 63, 0.92); }
-    #controls-status { font-size: 0.8rem; color: rgba(198, 210, 255, 0.85); min-height: 1.1rem; }
+    #controls-status, #reset-controls-status { font-size: 0.8rem; color: rgba(198, 210, 255, 0.85); min-height: 1.1rem; }
     .link { stroke: rgba(150, 190, 255, 0.4); stroke-width: 1.6px; marker-end: url(#arrowhead); }
     .link-parent { stroke: rgba(255, 255, 255, 0.15); stroke-width: 1px; stroke-dasharray: 4 3; }
     .lane-line { stroke: rgba(240, 246, 255, 0.18); stroke-width: 1.6px; }
@@ -970,8 +970,8 @@ VIZ_HTML = """
     #workspace > .rail-stack > section.panel-surface {
       border-radius: 24px;
     }
-    #controls, #filters, #timeline, #legend { padding: 0; background: transparent; border: none; }
-    #controls-status {
+    #controls, #reset-controls, #filters, #timeline, #legend { padding: 0; background: transparent; border: none; }
+    #controls-status, #reset-controls-status {
       margin-top: 0.1rem;
       padding: 0.7rem 0.8rem;
       border-radius: 14px;
@@ -2053,6 +2053,13 @@ VIZ_HTML = """
     </div>
     <div id="controls-status">Готово к имитации.</div>
   </div>
+  <div id="reset-controls">
+    <div class="controls-title">Операции журнала:</div>
+    <div class="controls-buttons">
+      <button class="sim-button danger" id="cluster-reset-graph" type="button">Очистить логи на всех нодах</button>
+    </div>
+    <div id="reset-controls-status">Сброс очистит граф, события и артефакты консенсуса на кластере.</div>
+  </div>
   <div id="filters">
     <div class="filters-title">Фильтры визуализации:</div>
     <div class="filter-group" id="filter-classes">
@@ -2189,6 +2196,9 @@ VIZ_HTML = """
       var statusEl = document.getElementById('graph-status');
       var controlsRoot = document.getElementById('controls');
       var controlsStatus = document.getElementById('controls-status');
+      var resetControlsRoot = document.getElementById('reset-controls');
+      var resetControlsStatus = document.getElementById('reset-controls-status');
+      var clusterResetButton = document.getElementById('cluster-reset-graph');
       var filterClassesRoot = document.getElementById('filter-classes');
       var filterSourcesRoot = document.getElementById('filter-sources');
       var simulationButton = document.getElementById('simulation-toggle');
@@ -2219,7 +2229,7 @@ VIZ_HTML = """
       var lastActiveElement = null;
 
       function buildDashboardLayout() {
-        if (!headerEl || !controlsRoot || !filterClassesRoot || !graphEl || !statusEl) {
+        if (!headerEl || !controlsRoot || !resetControlsRoot || !filterClassesRoot || !graphEl || !statusEl) {
           return;
         }
         var body = document.body;
@@ -2262,6 +2272,7 @@ VIZ_HTML = """
                 '<a class="nav-item" href="#alert-window"><span class="nav-item-group"><span class="nav-icon">!</span><span class="nav-copy">Тревоги</span></span></a>' +
                 '<a class="nav-item" href="#source-summary"><span class="nav-item-group"><span class="nav-icon">◎</span><span class="nav-copy">Источники</span></span></a>' +
                 '<a class="nav-item" href="#controls"><span class="nav-item-group"><span class="nav-icon">▶</span><span class="nav-copy">Сценарии</span></span></a>' +
+                '<a class="nav-item" href="#reset-controls"><span class="nav-item-group"><span class="nav-icon">⟲</span><span class="nav-copy">Сброс журнала</span></span></a>' +
                 '<a class="nav-item" href="#filters"><span class="nav-item-group"><span class="nav-icon">≡</span><span class="nav-copy">Фильтры</span></span></a>' +
                 '<a class="nav-item" href="#network-workbench"><span class="nav-item-group"><span class="nav-icon">☷</span><span class="nav-copy">Участники сети</span></span></a>' +
                 '<a class="nav-item" id="incident-nav-item" href="#incident-workbench" style="display:none;"><span class="nav-item-group"><span class="nav-icon">▣</span><span class="nav-copy">Инциденты</span></span></a>' +
@@ -2400,6 +2411,7 @@ VIZ_HTML = """
         }
 
         leftRail.appendChild(wrapPanel(controlsRoot, null, null));
+        leftRail.appendChild(wrapPanel(resetControlsRoot, null, null));
         leftRail.appendChild(wrapPanel(filterClassesRoot.parentElement, null, null));
         leftRail.appendChild(wrapPanel(document.getElementById('legend'), 'Легенда', 'Как читать граф и классы событий'));
         var legendLabels = document.querySelectorAll('#legend .legend-item .label');
@@ -4002,6 +4014,14 @@ VIZ_HTML = """
         controlsStatus.style.color = isError ? '#ff8080' : 'rgba(198, 210, 255, 0.85)';
       }
 
+      function setResetControlsStatus(message, isError) {
+        if (!resetControlsStatus) {
+          return;
+        }
+        resetControlsStatus.textContent = message;
+        resetControlsStatus.style.color = isError ? '#ff8080' : 'rgba(198, 210, 255, 0.85)';
+      }
+
       function setControlsDisabled(disabled) {
         if (!controlsRoot) {
           return;
@@ -4010,6 +4030,12 @@ VIZ_HTML = """
         buttons.forEach(function (button) {
           button.disabled = disabled;
         });
+      }
+
+      function setResetControlsDisabled(disabled) {
+        if (clusterResetButton) {
+          clusterResetButton.disabled = disabled;
+        }
       }
 
       function setText(el, value) {
@@ -5677,20 +5703,23 @@ VIZ_HTML = """
       function triggerGraphClear() {
         var proceed = true;
         if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
-          proceed = window.confirm('Очистить известные события DAG на этом узле?');
+          proceed = window.confirm('Очистить логи, граф и артефакты консенсуса на всех нодах кластера? Новые события начнут записываться заново.');
         }
         if (!proceed) {
           return;
         }
         setControlsDisabled(true);
-        setControlsStatus('Очищаем DAG...', false);
-        markSyncPending('Выполняется очистка графа...');
+        setResetControlsDisabled(true);
+        setControlsStatus('Очищаем журнал на кластере...', false);
+        setResetControlsStatus('Выполняется сброс графа и consensus state на всех нодах...', false);
+        markSyncPending('Выполняется сброс графа...');
         var xhr = new XMLHttpRequest();
         xhr.open('POST', '/viz/clear', true);
         xhr.setRequestHeader('Content-Type', 'application/json');
         xhr.onreadystatechange = function () {
           if (xhr.readyState === 4) {
             setControlsDisabled(false);
+            setResetControlsDisabled(false);
             if (xhr.status >= 200 && xhr.status < 300) {
               var payload = null;
               if (xhr.responseText) {
@@ -5707,6 +5736,7 @@ VIZ_HTML = """
                 updateMetrics(payload.metrics);
               }
               setControlsStatus('Граф очищен, ждём новые события.', false);
+              setResetControlsStatus('Сброс отправлен на все известные ноды. Журнал принимает новые события.', false);
               markSyncPending('Получаем якорные события...');
               loadGraph(function (err) {
                 if (err) {
@@ -5725,13 +5755,16 @@ VIZ_HTML = """
                 message += ': ' + xhr.responseText;
               }
               setControlsStatus(message, true);
+              setResetControlsStatus(message, true);
               markError('Ошибка при очистке DAG.');
             }
           }
         };
         xhr.onerror = function () {
           setControlsDisabled(false);
+          setResetControlsDisabled(false);
           setControlsStatus('Ошибка сети при очистке DAG', true);
+          setResetControlsStatus('Ошибка сети при очистке журнала', true);
           markError('Ошибка сети при очистке DAG.');
         };
         xhr.send(JSON.stringify({ propagate: true }));
@@ -5758,6 +5791,11 @@ VIZ_HTML = """
             });
           }
         });
+        if (clusterResetButton) {
+          clusterResetButton.addEventListener('click', function () {
+            triggerGraphClear();
+          });
+        }
         if (filterClassesRoot) {
           var classButtons = filterClassesRoot.querySelectorAll('[data-filter-class]');
           classButtons.forEach(function (button) {
