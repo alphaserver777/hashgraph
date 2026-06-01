@@ -70,13 +70,18 @@ run_or_show() {
 #------------------------------------------------------------------
 provoke_failed_logins() {
   local target=$1
-  log "  [$target] провокация неудачных входов (15 попыток)"
-  local target_ip
-  target_ip=$(ssh -o ConnectTimeout=5 "$target" 'ip -4 addr show scope global | grep -oE "inet [0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+" | head -1 | awk "{print \$2}"')
-  for i in $(seq 1 15); do
-    run_or_show "ssh -o ConnectTimeout=3 -o BatchMode=yes -o StrictHostKeyChecking=no -o PreferredAuthentications=password -o PubkeyAuthentication=no nobody_exp_${EXPERIMENT_ID}@$target_ip true 2>/dev/null || true"
-  done
-  log "  [$target] неудачные входы провоцированы"
+  log "  [$target] провокация неудачных входов (15 попыток с несуществующим юзером)"
+  # Запускаем серию `ssh badname@127.0.0.1` ПРЯМО НА target.
+  # localhost обычно в ignoreip fail2ban — наш внешний IP не блокируется.
+  # sshd пишет "Invalid user" в journald независимо от PasswordAuthentication.
+  run_or_show "ssh '$target' bash -s <<REMOTE
+for i in \$(seq 1 15); do
+  ssh -o ConnectTimeout=3 -o BatchMode=yes -o StrictHostKeyChecking=no \\
+      -o NumberOfPasswordPrompts=0 \\
+      nobody_${EXPERIMENT_ID}_\$i@127.0.0.1 true 2>/dev/null || true
+done
+REMOTE"
+  log "  [$target] неудачные входы провоцированы (через 127.0.0.1)"
 }
 
 #------------------------------------------------------------------
@@ -98,16 +103,18 @@ provoke_remote_login() {
 #------------------------------------------------------------------
 provoke_file_modified() {
   local target=$1
-  log "  [$target] провокация изменения наблюдаемого файла"
+  log "  [$target] провокация изменения наблюдаемого файла (/etc/hosts)"
+  # /etc/hosts — один из путей в DEFAULT_WATCH_PATHS коллектора linux_audit.
+  # Реалистичный вектор атаки: подмена hosts для перехвата DNS.
   run_or_show "ssh '$target' bash -s <<'REMOTE'
-mkdir -p /var/lib/mdrj
-touch /var/lib/mdrj/watch_canary
-ORIG=\$(cat /var/lib/mdrj/watch_canary 2>/dev/null || true)
-echo \"# experiment=$EXPERIMENT_ID at \$(date -Is)\" > /var/lib/mdrj/watch_canary
-sleep 2
-echo -n \"\$ORIG\" > /var/lib/mdrj/watch_canary
+CANARY_LINE=\"# mdrj-experiment-$EXPERIMENT_ID at \$(date -Is)\"
+cp /etc/hosts /etc/hosts.mdrj-backup
+echo \"\$CANARY_LINE\" >> /etc/hosts
+sleep 6
+# восстановление: удаляем нашу строку, возвращаем оригинал
+mv /etc/hosts.mdrj-backup /etc/hosts
 REMOTE"
-  log "  [$target] изменение файла-приманки выполнено"
+  log "  [$target] /etc/hosts изменён и восстановлен"
 }
 
 #------------------------------------------------------------------
