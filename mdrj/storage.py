@@ -410,7 +410,7 @@ class DAGStorage:
         ).fetchone()
         path_meta = []
         if meta_row:
-            path_meta = json.loads(meta_row["path_meta"])
+            path_meta = json.loads(meta_row["path_meta"] or "[]")
         return Envelope(event=event, path_meta=path_meta)
 
     def list_events(self, limit: int = 100, newer_than: Optional[float] = None) -> List[Event]:

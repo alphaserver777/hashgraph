@@ -153,7 +153,14 @@ class Event:
         sig = record["sig"] if "sig" in record.keys() else None
         consensus_ts = record["consensus_ts"] if "consensus_ts" in record.keys() else None
         lamport_ts = record["lamport_ts"] if "lamport_ts" in record.keys() else None
-        parents = json.loads(record["parents"])
+
+        def load_json_field(name: str, default: Any) -> Any:
+            raw = record[name] if name in record.keys() else None
+            if raw is None or raw == "":
+                return default
+            return json.loads(raw)
+
+        parents = load_json_field("parents", [])
         self_parent_id = record["self_parent_id"] if "self_parent_id" in record.keys() else None
         other_parent_id = record["other_parent_id"] if "other_parent_id" in record.keys() else None
         if self_parent_id is None and parents:
@@ -166,11 +173,11 @@ class Event:
             source=record["source"],
             creator=record["creator"] if "creator" in record.keys() and record["creator"] else record["source"],
             ts_local=float(record["ts_local"]),
-            vclock=json.loads(record["vclock"]),
+            vclock=load_json_field("vclock", {}),
             parents=parents,
             self_parent_id=self_parent_id,
             other_parent_id=other_parent_id,
-            payload=json.loads(record["payload"]),
+            payload=load_json_field("payload", {}),
             sig=sig,
             consensus_ts=consensus_ts,
             lamport_ts=lamport_ts,

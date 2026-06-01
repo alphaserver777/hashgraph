@@ -578,7 +578,11 @@ class Node:
             return
         path_meta_by_event = {}
         for event in events:
-            envelope = self.storage.get_envelope(event.id)
+            try:
+                envelope = self.storage.get_envelope(event.id)
+            except Exception:
+                logger.exception("Failed to read envelope metadata for %s", event.id)
+                envelope = None
             path_meta_by_event[event.id] = envelope.path_meta if envelope else []
         snapshot = self.active_consensus_membership()
         membership = [
@@ -732,7 +736,11 @@ class Node:
                 if parent in cache:
                     exists = cache[parent]
                 else:
-                    exists = self.storage.get_event(parent) is not None
+                    try:
+                        exists = self.storage.get_event(parent) is not None
+                    except Exception:
+                        logger.exception("Failed to read parent %s while calculating reconstruction ratio", parent)
+                        exists = False
                     cache[parent] = exists
                 if not exists:
                     missing += 1
