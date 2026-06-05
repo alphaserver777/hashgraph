@@ -1,0 +1,34 @@
+# Конфиг scrape_configs для отдельного VDS, на котором крутится Прометеус.
+# Подставьте реальные IP узлов и порт (по умолчанию 9002 — см. node.yaml.tpl).
+#
+# Использование:
+#   1. Скопируйте этот файл в /etc/prometheus/conf.d/ (или включите через
+#      file_sd_configs основной конфигурации Прометеуса).
+#   2. Reload prometheus: `kill -HUP $(pidof prometheus)` или systemctl reload.
+#   3. В Grafana импортируйте deploy/grafana/mdrj-dashboard.json — borg
+#      покажет K_d / P_save / слои защиты УБИ.124 / K_res.
+#
+# Внимание: метрики отдаются без auth (HMAC применяется к state-changing
+# endpoint-ам, а не к /metrics/prometheus). Если стенд смотрит наружу —
+# закройте порт фаерволом на адрес VDS-скрапера или поставьте reverse proxy
+# с basic-auth.
+
+scrape_configs:
+  - job_name: mdrj
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    metrics_path: /metrics/prometheus
+    static_configs:
+      - targets:
+          - 'germany.example.com:9002'
+          - 'germany2.example.com:9002'
+          - 'germany3.example.com:9002'
+          # - 'zomro.example.com:9002'   # включить когда узел добавлен в кластер
+        labels:
+          cluster: mdrj-experiment
+    # Достаём node_id из метки самой метрики (он там есть на каждой серии).
+    # Это позволяет в Графане группировать панели по node_id, не доверяя
+    # совпадению с instance.
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance

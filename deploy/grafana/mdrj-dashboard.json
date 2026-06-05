@@ -1,0 +1,269 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {"type": "datasource", "uid": "grafana"},
+        "enable": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Мониторинг распределённого реестра MDRJ-DAG: K_d (полнота сбора), P_save (живучесть), 5 слоёв защиты УБИ.124, K_res (ресурсы). См. docs/dissertation/metric-mapping.md.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "type": "row",
+      "title": "K_d — полнота сбора событий ИБ",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+      "id": 100,
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 1,
+      "title": "Поток событий по классам (events/sec)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 1},
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"unit": "evt/s"}, "overrides": []},
+      "options": {"legend": {"displayMode": "list"}, "tooltip": {"mode": "multi"}},
+      "targets": [
+        {
+          "expr": "sum by (class) (rate(mdrj_events_total[1m]))",
+          "legendFormat": "class={{class}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Вклад коллекторов (K_d по источнику)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 1},
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"unit": "evt/s"}, "overrides": []},
+      "targets": [
+        {
+          "expr": "sum by (collector) (rate(mdrj_events_by_collector_total[5m]))",
+          "legendFormat": "{{collector}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "P_save — живучесть и связность кластера",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 9},
+      "id": 101,
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 3,
+      "title": "Heartbeat: секунд с последнего сигнала пира",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 10},
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"unit": "s", "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 60}, {"color": "red", "value": 300}]}}, "overrides": []},
+      "targets": [
+        {
+          "expr": "mdrj_heartbeat_last_seconds_ago",
+          "legendFormat": "{{node_id}} → {{peer}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Видимые пиры vs размер кворума 2/3",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 10},
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "targets": [
+        {
+          "expr": "max(mdrj_peers_reachable)",
+          "legendFormat": "reachable_max",
+          "refId": "A"
+        },
+        {
+          "expr": "min(mdrj_peers_reachable)",
+          "legendFormat": "reachable_min",
+          "refId": "B"
+        },
+        {
+          "expr": "max(mdrj_quorum_size)",
+          "legendFormat": "quorum",
+          "refId": "C"
+        },
+        {
+          "expr": "max(mdrj_consensus_membership_size)",
+          "legendFormat": "membership",
+          "refId": "D"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "5 слоёв защиты от УБИ.124",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 18},
+      "id": 102,
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 5,
+      "title": "Tamper evidence (Merkle/checkpoint mismatch)",
+      "type": "stat",
+      "gridPos": {"h": 6, "w": 6, "x": 0, "y": 19},
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}, "mappings": [{"options": {"0": {"color": "green", "text": "OK"}, "1": {"color": "red", "text": "TAMPER!"}}, "type": "value"}]}, "overrides": []},
+      "options": {"colorMode": "background", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "targets": [
+        {
+          "expr": "max(mdrj_tamper_evidence)",
+          "legendFormat": "tamper",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "service_killed (kill -9, OOM)",
+      "type": "stat",
+      "gridPos": {"h": 6, "w": 6, "x": 6, "y": 19},
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}}, "overrides": []},
+      "options": {"colorMode": "background", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "targets": [
+        {
+          "expr": "sum(increase(mdrj_service_killed_total[24h]))",
+          "legendFormat": "killed_24h",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "host_reboot за 24ч",
+      "type": "stat",
+      "gridPos": {"h": 6, "w": 6, "x": 12, "y": 19},
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 1}]}}, "overrides": []},
+      "options": {"colorMode": "background", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "targets": [
+        {
+          "expr": "sum(increase(mdrj_host_reboot_total[24h]))",
+          "legendFormat": "reboot_24h",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Возраст последнего checkpoint",
+      "type": "stat",
+      "gridPos": {"h": 6, "w": 6, "x": 18, "y": 19},
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"unit": "s", "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 300}, {"color": "red", "value": 1800}]}}, "overrides": []},
+      "options": {"colorMode": "background", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "targets": [
+        {
+          "expr": "min(mdrj_checkpoint_last_age_seconds)",
+          "legendFormat": "checkpoint_age",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "K_res — ресурсы узла",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 25},
+      "id": 103,
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 9,
+      "title": "RSS памяти по узлам",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 26},
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []},
+      "targets": [
+        {
+          "expr": "mdrj_rss_bytes",
+          "legendFormat": "{{node_id}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Размер SQLite",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 26},
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []},
+      "targets": [
+        {
+          "expr": "mdrj_db_size_bytes",
+          "legendFormat": "{{node_id}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Сетевая стоимость на событие (bytes/event)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 26},
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []},
+      "targets": [
+        {
+          "expr": "mdrj_bytes_per_event",
+          "legendFormat": "{{node_id}}",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "refresh": "15s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["mdrj", "dissertation"],
+  "templating": {
+    "list": [
+      {
+        "current": {"selected": false, "text": "Prometheus", "value": "Prometheus"},
+        "hide": 0,
+        "includeAll": false,
+        "label": "Datasource",
+        "multi": false,
+        "name": "DS_PROMETHEUS",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      }
+    ]
+  },
+  "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {},
+  "timezone": "",
+  "title": "MDRJ-DAG: K_d / P_save / УБИ.124 / K_res",
+  "uid": "mdrj-experiment",
+  "version": 1,
+  "weekStart": ""
+}
