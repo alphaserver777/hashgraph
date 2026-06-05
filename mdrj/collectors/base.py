@@ -30,6 +30,8 @@ class CollectorStatus:
     last_event_at: Optional[float] = None
     last_error: Optional[str] = None
     emitted_count: int = 0
+    dropped_count: int = 0
+    last_drop_reason: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -39,7 +41,13 @@ class CollectorStatus:
             "last_event_at": self.last_event_at,
             "last_error": self.last_error,
             "emitted_count": self.emitted_count,
+            "dropped_count": self.dropped_count,
+            "last_drop_reason": self.last_drop_reason,
         }
+
+    def record_drop(self, reason: str) -> None:
+        self.dropped_count += 1
+        self.last_drop_reason = reason
 
 
 class BaseCollector:

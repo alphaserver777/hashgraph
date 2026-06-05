@@ -6878,6 +6878,8 @@ PROMETHEUS_METRIC_TYPES = {
 
 
 async def handle_metrics_prometheus(request: web.Request) -> web.Response:
+    from .prometheus_extras import build_extras, render_series
+
     node = request.app["node"]
     snap = node.metrics_snapshot()
     node_id = getattr(getattr(node, "config", None), "node_id", "unknown")
@@ -6885,14 +6887,15 @@ async def handle_metrics_prometheus(request: web.Request) -> web.Response:
     for key, value in snap.items():
         metric_name = f"mdrj_{key.lower()}"
         metric_type = PROMETHEUS_METRIC_TYPES.get(key, "gauge")
-        lines.append(f"# TYPE {metric_name} {metric_type}")
         try:
             numeric = float(value)
         except (TypeError, ValueError):
             continue
+        lines.append(f"# TYPE {metric_name} {metric_type}")
         lines.append(f'{metric_name}{{node_id="{node_id}"}} {numeric}')
-    body = "\n".join(lines) + "\n"
-    return web.Response(text=body, content_type="text/plain")
+    base = "\n".join(lines) + ("\n" if lines else "")
+    extras = render_series(build_extras(node), common_labels={"node_id": node_id})
+    return web.Response(text=base + extras, content_type="text/plain")
 
 
 async def handle_metrics_history(request: web.Request) -> web.Response:

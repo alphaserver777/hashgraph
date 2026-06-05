@@ -10,7 +10,7 @@ import socket
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, Iterable, List, Mapping, Optional
+from typing import Dict, Iterable, List, Mapping, Optional, Tuple
 
 import aiohttp
 from aiohttp import web
@@ -140,6 +140,17 @@ class Node:
         self._heartbeat_stop = asyncio.Event()
         self._heartbeat_stop.set()
         self._heartbeat_emitted = 0
+        # Prometheus-счётчики для диссертационных метрик (K_d / P_save / УБИ.124).
+        # Инициализируются нулями при старте процесса; не персистятся —
+        # Prometheus сам пересчитает `rate()` после рестарта.
+        self._events_by_class_kind: Dict[Tuple[str, str], int] = {}
+        self._service_started_count = 0
+        self._service_stopped_count = 0
+        self._service_killed_count = 0
+        self._host_boot_count = 0
+        self._host_reboot_count = 0
+        self._checkpoint_confirmed_count = 0
+        self._tamper_evidence = False
         self._discovery = None  # type: ignore[assignment]
         from .auth import SessionStore
         self.session_store = SessionStore()
@@ -713,11 +724,26 @@ class Node:
         self.metrics.record_emit_to_consensus_latency(time.perf_counter() - emit_start)
         self.vector_clock = local_clock.merge(event.vclock)
         self.metrics.update_peer_health(self.list_peers(), self._quorum())
+        if stored:
+            self._increment_event_counters(event.cls.value, str(payload.get("event_kind", "")))
         if stored and event.cls in (EventClass.A, EventClass.B):
             await self._broadcast_event(event.id)
         if stored and self.notifier.should_trigger(event.cls.value):
             asyncio.create_task(self._notify_event(event))
         return EventEmission(event=event, stored=stored)
+
+    def _increment_event_counters(self, cls: str, kind: str) -> None:
+        """Накапливать счётчики для /metrics/prometheus (диссертационная задача)."""
+        if not kind:
+            kind = "_unspecified"
+        key = (cls, kind)
+        self._events_by_class_kind[key] = self._events_by_class_kind.get(key, 0) + 1
+        if kind == "host_boot":
+            self._host_boot_count += 1
+        elif kind == "host_reboot":
+            self._host_reboot_count += 1
+        # service_start/stop/killed считаем в местах их эмиссии, чтобы не
+        # учитывать репликации события от других узлов через gossip.
 
     async def _notify_event(self, event: Event) -> None:
         from .notifier import NotificationPayload
@@ -1152,6 +1178,7 @@ class Node:
                         "detected_at": utc_timestamp(),
                     },
                 )
+                self._service_killed_count += 1
                 logger.warning(
                     "detected unclean previous shutdown: previous start_id=%s ts=%s",
                     last.id[:12],
@@ -1171,6 +1198,7 @@ class Node:
                     "ts": utc_timestamp(),
                 },
             )
+            self._service_started_count += 1
         except Exception:
             logger.exception("failed to emit mdrj_service_start")
 
@@ -1184,6 +1212,7 @@ class Node:
                 "ts": utc_timestamp(),
             },
         )
+        self._service_stopped_count += 1
 
     # ------------------------------------------------------------------
     # Checkpoints (Этап 3.a): propose, ingest, verify
@@ -1240,9 +1269,12 @@ class Node:
             return existing
         signatures[proposal.proposer_node_id] = proposal.signature
         members = self._membership_node_ids()
+        was_confirmed = bool(existing and existing.get("status") == "confirmed")
         if is_quorum_reached(signatures, members):
             status = "confirmed"
             confirmed_at = utc_timestamp()
+            if not was_confirmed:
+                self._checkpoint_confirmed_count += 1
         else:
             status = existing["status"] if existing and existing["status"] == "confirmed" else "pending"
             confirmed_at = existing["confirmed_at"] if existing and existing["confirmed_at"] else None
@@ -1348,6 +1380,10 @@ class Node:
             checkpoint_round=round_received,
             has_tamper_evidence=not matches and checkpoint["status"] == "confirmed",
         )
+        # Прокидываем результат в Prometheus-флаг: 1 = подделка обнаружена.
+        # Сбрасывается следующим успешным verify, что и нужно для Графаны
+        # (alert на mdrj_tamper_evidence == 1).
+        self._tamper_evidence = bool(report.has_tamper_evidence)
         if checkpoint["status"] != "confirmed":
             report.notes.append("checkpoint is not yet confirmed")
         if not events:
