@@ -9,7 +9,7 @@ description = "Minimal distributed security event DAG with gossip and virtual vo
 readme = "README.md"
 authors = [{name = "MDRJ Team"}]
 license = {text = "MIT"}
-requires-python = ">=3.10,<3.13"
+requires-python = ">=3.10,<3.14"
 dependencies = [
   "aiohttp>=3.9",
   "typer>=0.9",
