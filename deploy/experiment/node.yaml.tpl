@@ -46,6 +46,12 @@ retention:
   keep_class_a: true
   poll_interval_sec: 300.0
 
+# Дебаунс пересчёта консенсуса. На слабых хостах поставить 0.3-0.5 —
+# K событий в gossip-batch сольются в один пересчёт, экономия в x10
+# по CPU и RSS. Цена: total_order отстаёт на window_sec.
+runtime:
+  recompute_debounce_sec: 0.3
+
 discovery:
   mode: disabled
 

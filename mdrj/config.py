@@ -97,6 +97,16 @@ class HeartbeatConfig:
 
 
 @dataclass(slots=True)
+class RuntimeConfig:
+    """Параметры рантайма для слабых хостов (backpressure / дебаунс)."""
+    # Дебаунс пересчёта консенсуса: при 0 — recompute синхронно на каждый
+    # persist (как раньше). При >0 — N persist в окне coalesce в один
+    # фоновый пересчёт через asyncio.to_thread. Снижает CPU/RSS на
+    # gossip-burst в разы при N≥500 событий.
+    recompute_debounce_sec: float = 0.0
+
+
+@dataclass(slots=True)
 class NodeConfig:
     node_id: str
     listen: str
@@ -113,6 +123,7 @@ class NodeConfig:
     notifier: NotifierConfig = field(default_factory=NotifierConfig)
     agent_relay: AgentRelayConfig = field(default_factory=AgentRelayConfig)
     heartbeat: HeartbeatConfig = field(default_factory=HeartbeatConfig)
+    runtime: RuntimeConfig = field(default_factory=RuntimeConfig)
 
     @property
     def host(self) -> str:
@@ -189,6 +200,7 @@ def load_config(path: str | Path) -> NodeConfig:
     notifier = _parse_notifier(raw.get("notifier", {}) or {})
     agent_relay = _parse_agent_relay(raw.get("agent_relay", {}) or {})
     heartbeat = _parse_heartbeat(raw.get("heartbeat", {}) or {})
+    runtime = _parse_runtime(raw.get("runtime", {}) or {})
     return NodeConfig(
         node_id=raw["node_id"],
         listen=raw["listen"],
@@ -205,6 +217,13 @@ def load_config(path: str | Path) -> NodeConfig:
         notifier=notifier,
         agent_relay=agent_relay,
         heartbeat=heartbeat,
+        runtime=runtime,
+    )
+
+
+def _parse_runtime(raw: dict) -> RuntimeConfig:
+    return RuntimeConfig(
+        recompute_debounce_sec=float(raw.get("recompute_debounce_sec", 0.0)),
     )
 
 

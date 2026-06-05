@@ -140,6 +140,9 @@ class Node:
         self._heartbeat_stop = asyncio.Event()
         self._heartbeat_stop.set()
         self._heartbeat_emitted = 0
+        # Состояние дебаунса _recompute_consensus (см. _request_recompute).
+        self._recompute_dirty: bool = False
+        self._recompute_debounce_task: Optional[asyncio.Task] = None
         # Prometheus-счётчики для диссертационных метрик (K_d / P_save / УБИ.124).
         # Инициализируются нулями при старте процесса; не персистятся —
         # Prometheus сам пересчитает `rate()` после рестарта.
@@ -235,6 +238,13 @@ class Node:
             except Exception:
                 logger.exception("Error while stopping heartbeat loop")
             self._heartbeat_task = None
+        if self._recompute_debounce_task and not self._recompute_debounce_task.done():
+            self._recompute_debounce_task.cancel()
+            try:
+                await self._recompute_debounce_task
+            except (asyncio.CancelledError, Exception):
+                pass
+            self._recompute_debounce_task = None
         if self._retention_task:
             self._retention_stop.set()
             try:
@@ -678,6 +688,51 @@ class Node:
         )
 
     # ------------------------------------------------------------------
+    # Дебаунс пересчёта консенсуса
+    #
+    # Hashgraph-recompute стоит O(N·log N) на toposort + O(R²·M²) на
+    # fame-голосование. При gossip-batch из K событий K последовательных
+    # вызовов = K-кратное удорожание. Если debounce_sec > 0 — собираем
+    # все запросы в окне и пересчитываем один раз. Это плата за
+    # 100–300мс задержки в total_order, но даёт x10–x100 экономию CPU
+    # и RSS на слабых узлах. Подробности — docs/dissertation/memory-profile.md.
+    def _request_recompute(self) -> None:
+        debounce = float(getattr(self.config, "runtime", None).recompute_debounce_sec) \
+            if getattr(self.config, "runtime", None) is not None else 0.0
+        if debounce <= 0.0:
+            self._recompute_consensus()
+            return
+        # async-режим: запросить отложенный recompute. Если задача уже
+        # летит — просто проставить флаг, она подхватит изменения.
+        self._recompute_dirty = True
+        loop = self._loop
+        if loop is None or not loop.is_running():
+            # Нет event loop (например, тест без asyncio) — синхронно.
+            self._recompute_consensus()
+            self._recompute_dirty = False
+            return
+        if self._recompute_debounce_task is None or self._recompute_debounce_task.done():
+            self._recompute_debounce_task = loop.create_task(self._debounced_recompute(debounce))
+
+    async def _debounced_recompute(self, window_sec: float) -> None:
+        """Подождать окно, потом один раз вызвать пересчёт.
+
+        Если за время окна пришёл ещё запрос — флаг dirty останется
+        выставленным и мы пересчитаем уже все накопления.
+        """
+        try:
+            await asyncio.sleep(max(0.0, window_sec))
+            if not self._recompute_dirty:
+                return
+            self._recompute_dirty = False
+            try:
+                await asyncio.to_thread(self._recompute_consensus)
+            except Exception:
+                logger.exception("debounced recompute failed")
+        except asyncio.CancelledError:
+            pass
+
+    # ------------------------------------------------------------------
     # Events
     async def emit_event(self, cls_name: EventClass, payload: Mapping[str, object]) -> EventEmission:
         emit_start = time.perf_counter()
@@ -771,7 +826,7 @@ class Node:
     ) -> bool:
         stored = self.storage.store_envelope(envelope, envelope.event.consensus_ts)
         if recompute:
-            self._recompute_consensus()
+            self._request_recompute()
         self.vector_clock = self.vector_clock.merge(envelope.event.vclock)
         if stored:
             if self._gossip:
@@ -792,7 +847,7 @@ class Node:
                 new_ids.append(envelope.event.id)
                 latest_event = envelope.event
         if new_ids:
-            self._recompute_consensus()
+            self._request_recompute()
             self.metrics.record_merge_quality(self._reconstruction_ratio())
             if latest_event is not None:
                 snapshot = self.metrics_snapshot()
