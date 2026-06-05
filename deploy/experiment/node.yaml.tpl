@@ -33,12 +33,22 @@ collectors:
   audit:
     enabled: true
     poll_interval_sec: 5.0
+  # firewall и proc генерят шум (iptables-save диффы, привилегированные
+  # процессы systemd/cron) — десятки событий в минуту, /viz перегружается.
+  # Включать только при целевых сценариях расследования.
   firewall:
-    enabled: true
+    enabled: false
     poll_interval_sec: 10.0
   proc:
-    enabled: true
+    enabled: false
     poll_interval_sec: 5.0
+
+heartbeat:
+  # Сигнал жизни класса C. На стенде даёт ~12 events/час/узел —
+  # /viz «пульсирует», но граф не перегружен. Защита УБИ.124 через
+  # детект пропусков heartbeat (слой 2).
+  enabled: true
+  interval_sec: 300.0
 
 retention:
   enabled: true
