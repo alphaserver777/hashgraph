@@ -20,7 +20,11 @@ StandardError=journal
 SyslogIdentifier=mdrj
 
 LimitNOFILE=4096
-MemoryMax=512M
+# Hashgraph-консенсус требует держать весь видимый DAG в памяти для
+# пересчёта famous-witness голосования (O(R²·M²) на recompute). На
+# 4 пирах и N~3000 событий пик ~600M, поэтому лимит с запасом 3×.
+# Если узел слабый — поднять retention в node.yaml.tpl, чтобы N не рос.
+MemoryMax=2G
 
 [Install]
 WantedBy=multi-user.target

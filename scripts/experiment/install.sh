@@ -149,9 +149,14 @@ fi
 systemctl enable mdrj.service >/dev/null 2>&1
 systemctl restart mdrj.service
 
-# 9. Health check
-sleep 10
+# 9. Health check с ретраями: aiohttp слушает не сразу
 echo "--- mdrj status ---"
+for i in 1 2 3 4 5 6 7 8 9 10; do
+  if systemctl is-active mdrj >/dev/null && curl -fsS -m 3 http://localhost:9002/status >/dev/null 2>&1; then
+    break
+  fi
+  sleep 2
+done
 systemctl is-active mdrj || (journalctl -u mdrj -n 20 --no-pager; exit 1)
 curl -fsS http://localhost:9002/status | python3 -c "import json,sys; d=json.load(sys.stdin); print('  node_id=', d['node_id'], 'state=', d['state'], 'peers=', len([p for p in d['peers'] if not p['is_self']]))"
 echo "  $host: OK"
