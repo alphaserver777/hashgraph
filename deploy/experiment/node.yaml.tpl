@@ -56,11 +56,36 @@ retention:
   keep_class_a: true
   poll_interval_sec: 300.0
 
-# Дебаунс пересчёта консенсуса. На слабых хостах поставить 0.3-0.5 —
-# K событий в gossip-batch сольются в один пересчёт, экономия в x10
-# по CPU и RSS. Цена: total_order отстаёт на window_sec.
+# Параметры рантайма.
 runtime:
+  # Дебаунс пересчёта консенсуса. На слабых хостах 0.3-0.5 — K событий
+  # в gossip-batch сольются в один пересчёт, x10 экономия по CPU и RSS.
   recompute_debounce_sec: 0.3
+
+  # Слой 1 — auto-propose checkpoint каждые 10 мин. Без этого retention
+  # никогда не сработает (checkpoint остаётся pending) и RSS растёт
+  # линейно во времени до OOM.
+  checkpoint_propose_interval_sec: 600
+  checkpoint_propose_margin: 5
+
+  # Слой 2 — ACK-fanout для класса A. При эмиссии события класса A
+  # ждать ACK от ≥ 2/3 пиров за 10 секунд (3 повтора с backoff).
+  # Если не собрали — эмитим mdrj_event_replication_failed (класс B)
+  # и оставляем оригинал в _pending для долгого догона.
+  class_a_fanout_quorum_ratio: 0.666
+  class_a_fanout_timeout_sec: 10
+  class_a_fanout_max_retries: 3
+
+  # Слой 3 — frontier anti-entropy в стиле Hedera. Каждые 30 сек
+  # сравниваем frontier (последний event_id на creator) со случайным
+  # пиром и догоняем недостающее. Это делает удаление события на одном
+  # узле физически невозможным при ≥ 1 честном пире.
+  frontier_sync_interval_sec: 30
+
+  # Слой 4 — фон-verify последнего confirmed checkpoint каждые 2 мин.
+  # При обнаружении подделки эмитим класс A mdrj_tamper_detected,
+  # который через Слой 2 гарантированно дойдёт до всех соседей.
+  tamper_verify_interval_sec: 120
 
 discovery:
   mode: disabled
