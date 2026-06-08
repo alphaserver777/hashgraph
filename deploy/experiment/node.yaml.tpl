@@ -26,8 +26,16 @@ security:
 storage:
   sqlite_path: /var/lib/mdrj/node.db
 
+# Legacy парсер /var/log/auth.log: эмитит admin_ssh_login_success (класс A)
+# при каждом успешном SSH-входе. Это главный демонстрационный сигнал для
+# диссертационного стенда. Реализован в mdrj/linux_ingest.py +
+# mdrj/collectors/linux_auth.py. Через Слой 2 (ACK-fanout 2/3) событие
+# гарантированно дойдёт до всех узлов.
 linux_ingest:
-  enabled: false
+  enabled: true
+  source_type: auth_log_file
+  auth_log_path: /var/log/auth.log
+  poll_interval_sec: 2.0
 
 collectors:
   audit:
