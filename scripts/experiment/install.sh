@@ -145,6 +145,25 @@ if command -v ufw >/dev/null && ufw status | grep -q "Status: active"; then
   ufw allow 9002/tcp || true
 fi
 
+# 7a. Гарантировать что /var/log/auth.log заполняется. На Debian 13 (trixie)
+# в дефолтном конфиге rsyslog не пишет auth-фасет в этот файл — наш
+# LinuxAuthLogIngestor видит пустой auth.log и не эмитит SSH-логины.
+# Идемпотентно кладём правило, перезапускаем rsyslog только при изменении.
+if command -v rsyslogd >/dev/null 2>&1; then
+  RSYSLOG_DROPIN=/etc/rsyslog.d/50-mdrj-auth.conf
+  RSYSLOG_NEW="auth,authpriv.*    /var/log/auth.log"
+  if [[ ! -f "\$RSYSLOG_DROPIN" ]] || ! grep -qF "\$RSYSLOG_NEW" "\$RSYSLOG_DROPIN"; then
+    cat > "\$RSYSLOG_DROPIN" <<RSYSLOG_EOF
+# Включить запись авторизационных событий в /var/log/auth.log.
+# Debian 13 (trixie) убрал это из дефолта; mdrj LinuxAuthLogIngestor
+# читает auth.log как источник класса A admin_ssh_login_success.
+\$RSYSLOG_NEW
+RSYSLOG_EOF
+    systemctl restart rsyslog 2>/dev/null || true
+    echo "  rsyslog: правило записи auth.log применено"
+  fi
+fi
+
 # 8. Enable and start
 systemctl enable mdrj.service >/dev/null 2>&1
 systemctl restart mdrj.service
