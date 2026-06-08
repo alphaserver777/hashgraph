@@ -1,0 +1,41 @@
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  external_labels:
+    cluster: mdrj-experiment
+    environment: production
+
+scrape_configs:
+  - job_name: mdrj-cluster
+    metrics_path: /metrics/prometheus
+    static_configs:
+      - targets:
+          - "64.188.64.23:9002"
+          - "144.31.165.145:9002"
+          - "46.21.250.147:9002"
+          - "88.99.60.94:9002"
+        labels:
+          cluster: mdrj-experiment
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+      - source_labels: [__address__]
+        regex: "64.188.64.23:.*"
+        target_label: host
+        replacement: Germany
+      - source_labels: [__address__]
+        regex: "144.31.165.145:.*"
+        target_label: host
+        replacement: Germany2
+      - source_labels: [__address__]
+        regex: "46.21.250.147:.*"
+        target_label: host
+        replacement: Zomro
+      - source_labels: [__address__]
+        regex: "88.99.60.94:.*"
+        target_label: host
+        replacement: dev1-robots
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

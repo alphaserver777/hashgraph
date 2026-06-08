@@ -1,0 +1,415 @@
+{
+  "title": "MDRJ-DAG — Распределённый журнал ИБ",
+  "uid": "mdrj-cluster-main",
+  "tags": ["mdrj", "dissertation", "ub124"],
+  "schemaVersion": 39,
+  "version": 1,
+  "timezone": "browser",
+  "refresh": "15s",
+  "time": {"from": "now-1h", "to": "now"},
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "type": "row",
+      "id": 100,
+      "title": "Жизнь кластера (общая сводка)",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Узлы живы",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 1},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "red", "value": null},
+            {"color": "yellow", "value": 2},
+            {"color": "green", "value": 3}
+          ]}
+        }
+      },
+      "options": {"colorMode": "background", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "targets": [{"expr": "count(up{job=\"mdrj-cluster\"} == 1)", "refId": "A"}]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Кворум 2/3",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 1},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "red", "value": null},
+            {"color": "green", "value": 2}
+          ]}
+        }
+      },
+      "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "targets": [{"expr": "max(mdrj_quorum_size)", "refId": "A"}]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Всего событий в реестре",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 1},
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0}},
+      "options": {"colorMode": "value", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "targets": [{"expr": "max(mdrj_event_count)", "refId": "A"}]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Tamper-evidence",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 1},
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "green", "value": null},
+            {"color": "red", "value": 1}
+          ]},
+          "mappings": [
+            {"type": "value", "options": {"0": {"text": "OK", "color": "green"}, "1": {"text": "ПОДДЕЛКА", "color": "red"}}}
+          ]
+        }
+      },
+      "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "targets": [{"expr": "max(mdrj_tamper_evidence)", "refId": "A"}]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Confirmed checkpoints",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 4, "w": 4, "x": 16, "y": 1},
+      "fieldConfig": {"defaults": {"unit": "short"}},
+      "options": {"colorMode": "value", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "targets": [{"expr": "max(mdrj_checkpoint_confirmed_total)", "refId": "A"}]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Класс A durable / total",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 4, "w": 4, "x": 20, "y": 1},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "red", "value": null},
+            {"color": "yellow", "value": 0.7},
+            {"color": "green", "value": 0.95}
+          ]}
+        }
+      },
+      "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "targets": [{
+        "expr": "sum(mdrj_class_a_durable_total) / clamp_min(sum(mdrj_class_a_durable_total) + sum(mdrj_class_a_local_only_total), 1)",
+        "refId": "A"
+      }]
+    },
+
+    {
+      "type": "row",
+      "id": 101,
+      "title": "K_d — полнота сбора событий ИБ",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 5},
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Поток событий по классам (events/min)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6},
+      "fieldConfig": {"defaults": {"unit": "evt/min", "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 20}}},
+      "targets": [{
+        "expr": "sum by (class) (rate(mdrj_events_total[5m])) * 60",
+        "legendFormat": "class={{class}}",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "По типам событий (top-10, events/min)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6},
+      "fieldConfig": {"defaults": {"unit": "evt/min", "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 15, "stacking": {"mode": "normal"}}}},
+      "targets": [{
+        "expr": "topk(10, sum by (kind) (rate(mdrj_events_total[5m])) * 60)",
+        "legendFormat": "{{kind}}",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 12,
+      "type": "table",
+      "title": "Коллекторы: статус и last_poll",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 14},
+      "fieldConfig": {
+        "defaults": {"unit": "short"},
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "Value #status"}, "properties": [
+            {"id": "mappings", "value": [{"type": "value", "options": {"0": {"text": "ВЫКЛ", "color": "red"}, "1": {"text": "OK", "color": "green"}}}]},
+            {"id": "custom.cellOptions", "value": {"type": "color-background"}}
+          ]},
+          {"matcher": {"id": "byName", "options": "Value #last_poll_sec"}, "properties": [
+            {"id": "unit", "value": "s"}
+          ]}
+        ]
+      },
+      "options": {"showHeader": true},
+      "targets": [
+        {"expr": "mdrj_collector_enabled", "refId": "status", "format": "table", "instant": true},
+        {"expr": "mdrj_collector_last_poll_seconds_ago", "refId": "last_poll_sec", "format": "table", "instant": true}
+      ],
+      "transformations": [
+        {"id": "joinByField", "options": {"byField": "collector", "mode": "outer"}},
+        {"id": "organize", "options": {"excludeByName": {"Time": true, "Time 1": true, "Time 2": true, "__name__": true, "__name__ 1": true, "__name__ 2": true, "job": true, "job 1": true, "job 2": true, "instance": true, "instance 1": true, "instance 2": true, "cluster": true, "cluster 1": true, "cluster 2": true}}}
+      ]
+    },
+    {
+      "id": 13,
+      "type": "piechart",
+      "title": "Распределение по классам (24ч)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 14},
+      "options": {"legend": {"showLegend": true, "displayMode": "table", "values": ["value", "percent"]}, "pieType": "donut"},
+      "targets": [{
+        "expr": "sum by (class) (increase(mdrj_events_total[24h]))",
+        "legendFormat": "{{class}}",
+        "refId": "A"
+      }]
+    },
+
+    {
+      "type": "row",
+      "id": 102,
+      "title": "P_сохр — живучесть и связность",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 22},
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "Heartbeat: секунд с последнего сигнала пира",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 23},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "fillOpacity": 10},
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "green", "value": null},
+            {"color": "yellow", "value": 60},
+            {"color": "red", "value": 300}
+          ]}
+        }
+      },
+      "targets": [{
+        "expr": "mdrj_heartbeat_last_seconds_ago",
+        "legendFormat": "{{node_id}} → {{peer}}",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "Видимость пиров vs кворум",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 23},
+      "fieldConfig": {"defaults": {"unit": "short", "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "fillOpacity": 10}}},
+      "targets": [
+        {"expr": "max(mdrj_peers_reachable)", "legendFormat": "reachable max", "refId": "A"},
+        {"expr": "min(mdrj_peers_reachable)", "legendFormat": "reachable min", "refId": "B"},
+        {"expr": "max(mdrj_quorum_size)", "legendFormat": "quorum 2/3", "refId": "C"},
+        {"expr": "max(mdrj_consensus_membership_size)", "legendFormat": "membership", "refId": "D"}
+      ]
+    },
+    {
+      "id": 22,
+      "type": "timeseries",
+      "title": "Latency emit → consensus (p50/p95)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 31},
+      "fieldConfig": {"defaults": {"unit": "ms", "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 15}}},
+      "targets": [
+        {"expr": "max by (host) (mdrj_emit_to_consensus_latency_p50_ms)", "legendFormat": "{{host}} p50", "refId": "A"},
+        {"expr": "max by (host) (mdrj_emit_to_consensus_latency_p95_ms)", "legendFormat": "{{host}} p95", "refId": "B"}
+      ]
+    },
+    {
+      "id": 23,
+      "type": "timeseries",
+      "title": "Frontier sync (события притянутые от пиров)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 31},
+      "fieldConfig": {"defaults": {"unit": "short", "custom": {"drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 25, "stacking": {"mode": "normal"}}}},
+      "targets": [{
+        "expr": "rate(mdrj_frontier_sync_pulls_total[5m]) * 60",
+        "legendFormat": "{{host}}",
+        "refId": "A"
+      }]
+    },
+
+    {
+      "type": "row",
+      "id": 103,
+      "title": "5 слоёв защиты от УБИ.124",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 39},
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 30,
+      "type": "stat",
+      "title": "service_killed за 24ч",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 5, "w": 6, "x": 0, "y": 40},
+      "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [
+        {"color": "green", "value": null},
+        {"color": "red", "value": 1}
+      ]}}},
+      "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "targets": [{"expr": "sum(increase(mdrj_service_killed_total[24h]))", "refId": "A"}]
+    },
+    {
+      "id": 31,
+      "type": "stat",
+      "title": "host_reboot за 24ч",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 5, "w": 6, "x": 6, "y": 40},
+      "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [
+        {"color": "green", "value": null},
+        {"color": "yellow", "value": 1}
+      ]}}},
+      "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "targets": [{"expr": "sum(increase(mdrj_host_reboot_total[24h]))", "refId": "A"}]
+    },
+    {
+      "id": 32,
+      "type": "stat",
+      "title": "tamper alerts за 24ч",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 5, "w": 6, "x": 12, "y": 40},
+      "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [
+        {"color": "green", "value": null},
+        {"color": "red", "value": 1}
+      ]}}},
+      "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "targets": [{"expr": "sum(increase(mdrj_tamper_alerts_total[24h]))", "refId": "A"}]
+    },
+    {
+      "id": 33,
+      "type": "stat",
+      "title": "Возраст последнего checkpoint",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 5, "w": 6, "x": 18, "y": 40},
+      "fieldConfig": {"defaults": {"unit": "s", "thresholds": {"mode": "absolute", "steps": [
+        {"color": "green", "value": null},
+        {"color": "yellow", "value": 900},
+        {"color": "red", "value": 1800}
+      ]}}},
+      "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "targets": [{"expr": "min(mdrj_checkpoint_last_age_seconds > 0)", "refId": "A"}]
+    },
+    {
+      "id": 34,
+      "type": "timeseries",
+      "title": "Heartbeat-эмиссия по узлам",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 45},
+      "fieldConfig": {"defaults": {"unit": "evt/min", "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 15}}},
+      "targets": [{
+        "expr": "rate(mdrj_heartbeat_emitted_total[5m]) * 60",
+        "legendFormat": "{{host}}",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 35,
+      "type": "timeseries",
+      "title": "service_lifecycle (start / stop / killed)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 45},
+      "fieldConfig": {"defaults": {"unit": "short", "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "fillOpacity": 25}}},
+      "targets": [
+        {"expr": "sum(increase(mdrj_service_started_total[5m]))", "legendFormat": "started", "refId": "A"},
+        {"expr": "sum(increase(mdrj_service_stopped_total[5m]))", "legendFormat": "stopped", "refId": "B"},
+        {"expr": "sum(increase(mdrj_service_killed_total[5m]))", "legendFormat": "killed", "refId": "C"}
+      ]
+    },
+
+    {
+      "type": "row",
+      "id": 104,
+      "title": "K_рес — ресурсы узлов",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 53},
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 40,
+      "type": "timeseries",
+      "title": "RSS памяти по узлам",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 54},
+      "fieldConfig": {"defaults": {"unit": "bytes", "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 20}}},
+      "targets": [{
+        "expr": "mdrj_rss_bytes",
+        "legendFormat": "{{host}}",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 41,
+      "type": "timeseries",
+      "title": "CPU %",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 54},
+      "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "max": 100, "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 15}}},
+      "targets": [{
+        "expr": "mdrj_cpu_percent",
+        "legendFormat": "{{host}}",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 42,
+      "type": "timeseries",
+      "title": "Размер SQLite (events + edges + checkpoints)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 62},
+      "fieldConfig": {"defaults": {"unit": "bytes", "custom": {"drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 15}}},
+      "targets": [{
+        "expr": "mdrj_db_size_bytes",
+        "legendFormat": "{{host}}",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 43,
+      "type": "timeseries",
+      "title": "Сетевая стоимость на событие (gossip in+out)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 62},
+      "fieldConfig": {"defaults": {"unit": "bytes", "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 15}}},
+      "targets": [
+        {"expr": "max by (host) (mdrj_bytes_per_event)", "legendFormat": "{{host}} bytes/event", "refId": "A"},
+        {"expr": "rate(mdrj_gossip_bytes_in_total[5m]) + rate(mdrj_gossip_bytes_out_total[5m])", "legendFormat": "{{host}} bytes/sec", "refId": "B"}
+      ]
+    }
+  ]
+}
