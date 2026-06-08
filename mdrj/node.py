@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 import logging
+import math
 import random
 import secrets
 import socket
@@ -55,6 +57,13 @@ class NodeState(str, Enum):
 class EventEmission:
     event: Event
     stored: bool
+    # Слой 2. Заполняется только при emit события класса A когда
+    # runtime.class_a_fanout_quorum_ratio > 0. Значения:
+    #   "durable"     — ACK от ≥ 2/3 пиров получен;
+    #   "local_only"  — не собрали кворум, событие в _pending для догона;
+    #   "best_effort" — слой 2 выключен, ничего не гарантируем;
+    #   None          — класс B/C или одиночный узел.
+    durability: Optional[str] = None
 
 
 logger = logging.getLogger(__name__)
@@ -143,6 +152,21 @@ class Node:
         # Состояние дебаунса _recompute_consensus (см. _request_recompute).
         self._recompute_dirty: bool = False
         self._recompute_debounce_task: Optional[asyncio.Task] = None
+        # Четыре новых фоновых цикла из плана «надёжное сохранение улик».
+        self._checkpoint_propose_task: Optional[asyncio.Task] = None
+        self._checkpoint_propose_stop = asyncio.Event()
+        self._checkpoint_propose_stop.set()
+        self._tamper_verify_task: Optional[asyncio.Task] = None
+        self._tamper_verify_stop = asyncio.Event()
+        self._tamper_verify_stop.set()
+        self._frontier_sync_task: Optional[asyncio.Task] = None
+        self._frontier_sync_stop = asyncio.Event()
+        self._frontier_sync_stop.set()
+        # Счётчики для Prometheus (Слои 2/3/4):
+        self._class_a_durable_count = 0
+        self._class_a_local_only_count = 0
+        self._frontier_sync_pulls_count = 0
+        self._tamper_alerts_count = 0
         # Prometheus-счётчики для диссертационных метрик (K_d / P_save / УБИ.124).
         # Инициализируются нулями при старте процесса; не персистятся —
         # Prometheus сам пересчитает `rate()` после рестарта.
@@ -210,6 +234,15 @@ class Node:
             self._start_retention()
         if self.config.heartbeat.enabled:
             self._start_heartbeat()
+        # Слои 1, 3, 4 — фоновые циклы. Включаются только если в конфиге
+        # выставлен соответствующий интервал > 0 (по умолчанию все 0 для
+        # обратной совместимости со старыми тестами).
+        if float(getattr(self.config.runtime, "checkpoint_propose_interval_sec", 0.0)) > 0:
+            self._start_checkpoint_propose()
+        if float(getattr(self.config.runtime, "frontier_sync_interval_sec", 0.0)) > 0:
+            self._start_frontier_sync()
+        if float(getattr(self.config.runtime, "tamper_verify_interval_sec", 0.0)) > 0:
+            self._start_tamper_verify()
         await self._start_discovery()
         # Перед эмиссией service_start проверяем, был ли предыдущий процесс
         # завершён штатно (есть mdrj_service_stop) или убит без него.
@@ -238,6 +271,19 @@ class Node:
             except Exception:
                 logger.exception("Error while stopping heartbeat loop")
             self._heartbeat_task = None
+        for task_attr, stop_attr, name in (
+            ("_checkpoint_propose_task", "_checkpoint_propose_stop", "checkpoint_propose"),
+            ("_frontier_sync_task", "_frontier_sync_stop", "frontier_sync"),
+            ("_tamper_verify_task", "_tamper_verify_stop", "tamper_verify"),
+        ):
+            task = getattr(self, task_attr)
+            if task:
+                getattr(self, stop_attr).set()
+                try:
+                    await task
+                except Exception:
+                    logger.exception("Error while stopping %s loop", name)
+                setattr(self, task_attr, None)
         if self._recompute_debounce_task and not self._recompute_debounce_task.done():
             self._recompute_debounce_task.cancel()
             try:
@@ -781,11 +827,15 @@ class Node:
         self.metrics.update_peer_health(self.list_peers(), self._quorum())
         if stored:
             self._increment_event_counters(event.cls.value, str(payload.get("event_kind", "")))
-        if stored and event.cls in (EventClass.A, EventClass.B):
+        durability: Optional[str] = None
+        if stored and event.cls == EventClass.A:
+            # Слой 2: ACK ≥ 2/3, либо best-effort если выключен.
+            durability = await self._broadcast_with_quorum_ack(event.id)
+        elif stored and event.cls == EventClass.B:
             await self._broadcast_event(event.id)
         if stored and self.notifier.should_trigger(event.cls.value):
             asyncio.create_task(self._notify_event(event))
-        return EventEmission(event=event, stored=stored)
+        return EventEmission(event=event, stored=stored, durability=durability)
 
     def _increment_event_counters(self, cls: str, kind: str) -> None:
         """Накапливать счётчики для /metrics/prometheus (диссертационная задача)."""
@@ -1195,6 +1245,241 @@ class Node:
         }
 
     # ------------------------------------------------------------------
+    # Слой 1. Auto-propose checkpoint loop.
+    #
+    # Каждые runtime.checkpoint_propose_interval_sec узел сам предлагает
+    # checkpoint и рассылает proposal соседям. Когда 2/3 пиров подпишут —
+    # _record_proposal_signature переводит в confirmed, после чего
+    # retention начинает реальную чистку B/C → RSS перестаёт расти.
+    def _start_checkpoint_propose(self) -> None:
+        if self._checkpoint_propose_task and not self._checkpoint_propose_task.done():
+            return
+        self._checkpoint_propose_stop.clear()
+        self._checkpoint_propose_task = asyncio.create_task(self._checkpoint_propose_loop())
+
+    async def _checkpoint_propose_loop(self) -> None:
+        rt = self.config.runtime
+        interval = max(10.0, float(rt.checkpoint_propose_interval_sec))
+        margin = max(0, int(rt.checkpoint_propose_margin))
+        while not self._checkpoint_propose_stop.is_set():
+            try:
+                await asyncio.wait_for(self._checkpoint_propose_stop.wait(), timeout=interval)
+                break  # был cancel
+            except asyncio.TimeoutError:
+                pass
+            try:
+                await self._propose_one_checkpoint(margin)
+            except Exception:
+                logger.exception("checkpoint propose iteration failed")
+
+    async def _propose_one_checkpoint(self, margin: int) -> Optional[Dict[str, object]]:
+        """Один шаг auto-propose: предложить и разослать соседям."""
+        if not self.config.security.hmac_key:
+            return None  # без HMAC checkpoint подписать нельзя
+        events = self.storage.all_events()
+        rounds = [int(e.round_received) for e in events if e.round_received is not None]
+        if not rounds:
+            return None
+        target_round = max(rounds) - margin
+        if target_round < 0:
+            return None
+        try:
+            proposal = await asyncio.to_thread(self.propose_local_checkpoint, target_round)
+        except Exception as exc:
+            # Типично: нет событий до target_round (margin > max_round).
+            # Это норма на старте, не лог.exception.
+            logger.debug("propose_local_checkpoint skipped: %s", exc)
+            return None
+        await self._broadcast_checkpoint_proposal(proposal)
+        return proposal
+
+    async def _broadcast_checkpoint_proposal(self, proposal: Dict[str, object]) -> None:
+        """Разослать proposal всем approved-пирам через POST /checkpoint/propose.
+
+        Реиспользует self._session (aiohttp.ClientSession). HMAC-подпись
+        уже есть в самом proposal — отдельная X-MDRJ-Sig не нужна для
+        этого endpoint (он сам проверяет signature через verify_proposal).
+        """
+        peers = self.list_peers()
+        if not peers or self._session is None:
+            return
+        body = json.dumps(proposal).encode("utf-8")
+        for peer in peers:
+            url = f"http://{peer.address}/checkpoint/propose"
+            try:
+                async with self._session.post(url, data=body,
+                                              headers={"Content-Type": "application/json"},
+                                              timeout=5.0) as resp:
+                    if resp.status != 200:
+                        logger.debug("checkpoint propose to %s returned %s", peer.address, resp.status)
+            except Exception:
+                logger.debug("checkpoint propose to %s failed", peer.address, exc_info=True)
+
+    # ------------------------------------------------------------------
+    # Слой 4. Tamper-verify loop.
+    #
+    # Раз в runtime.tamper_verify_interval_sec вызываем verify_checkpoint
+    # на последнем confirmed checkpoint. Если merkle не совпадает — эмитим
+    # событие класса A mdrj_tamper_detected. Оно проходит через слой 2
+    # (ACK-fanout) и приходит всем соседям за секунды.
+    def _start_tamper_verify(self) -> None:
+        if self._tamper_verify_task and not self._tamper_verify_task.done():
+            return
+        self._tamper_verify_stop.clear()
+        self._tamper_verify_task = asyncio.create_task(self._tamper_verify_loop())
+
+    async def _tamper_verify_loop(self) -> None:
+        interval = max(10.0, float(self.config.runtime.tamper_verify_interval_sec))
+        while not self._tamper_verify_stop.is_set():
+            try:
+                await asyncio.wait_for(self._tamper_verify_stop.wait(), timeout=interval)
+                break
+            except asyncio.TimeoutError:
+                pass
+            try:
+                await self._verify_once_and_alert()
+            except Exception:
+                logger.exception("tamper-verify iteration failed")
+
+    async def _verify_once_and_alert(self) -> Optional[Dict[str, object]]:
+        latest = await asyncio.to_thread(self.storage.latest_confirmed_checkpoint)
+        if not latest:
+            return None
+        round_received = int(latest.get("round_received") or 0)
+        try:
+            report = await asyncio.to_thread(self.verify_checkpoint, round_received)
+        except KeyError:
+            return None
+        if not report.get("has_tamper_evidence"):
+            return report
+        # Эмитим alert. Чтобы не спамить — проверяем что в реестре уже нет
+        # mdrj_tamper_detected для этого же round_received за последний час.
+        if self._tamper_alert_recently_emitted(round_received):
+            return report
+        await self.emit_event(
+            EventClass.A,
+            {
+                "event_kind": "mdrj_tamper_detected",
+                "node_id": self.config.node_id,
+                "host_id": self.config.linux_ingest.host_id or self.config.node_id,
+                "round_received": round_received,
+                "local_merkle_root": report.get("local_merkle_root", ""),
+                "confirmed_merkle_root": report.get("confirmed_merkle_root", ""),
+                "detected_at": utc_timestamp(),
+            },
+        )
+        self._tamper_alerts_count += 1
+        return report
+
+    def _tamper_alert_recently_emitted(self, round_received: int) -> bool:
+        cutoff = utc_timestamp() - 3600
+        for e in self.storage.all_events():
+            payload = e.payload or {}
+            if payload.get("event_kind") != "mdrj_tamper_detected":
+                continue
+            if int(payload.get("round_received", -1)) != round_received:
+                continue
+            if float(e.ts_local or 0.0) >= cutoff:
+                return True
+        return False
+
+    # ------------------------------------------------------------------
+    # Слой 3. Frontier-based anti-entropy (Hedera-стиль).
+    #
+    # Раз в runtime.frontier_sync_interval_sec выбирает случайного пира,
+    # запрашивает у него frontier (последний event_id на каждого creator),
+    # сравнивает с локальным и тянет недостающее через /events/{id}/ancestry.
+    def _start_frontier_sync(self) -> None:
+        if self._frontier_sync_task and not self._frontier_sync_task.done():
+            return
+        self._frontier_sync_stop.clear()
+        self._frontier_sync_task = asyncio.create_task(self._frontier_sync_loop())
+
+    async def _frontier_sync_loop(self) -> None:
+        interval = max(5.0, float(self.config.runtime.frontier_sync_interval_sec))
+        while not self._frontier_sync_stop.is_set():
+            try:
+                await asyncio.wait_for(self._frontier_sync_stop.wait(), timeout=interval)
+                break
+            except asyncio.TimeoutError:
+                pass
+            try:
+                await self._frontier_sync_once()
+            except Exception:
+                logger.exception("frontier sync iteration failed")
+
+    def local_frontier(self) -> Dict[str, str]:
+        """Возвращает {creator_node_id: last_event_id} по всем известным авторам.
+
+        Это компактный дайджест для frontier-handshake: на 4 узлах ≤ 200 байт.
+        """
+        latest: Dict[str, tuple] = {}  # creator -> (ts_local, event_id)
+        for event in self.storage.all_events():
+            creator = event.creator or event.source or ""
+            if not creator:
+                continue
+            ts = float(event.ts_local or 0.0)
+            if creator not in latest or ts > latest[creator][0]:
+                latest[creator] = (ts, event.id)
+        return {creator: ev_id for creator, (_, ev_id) in latest.items()}
+
+    async def _frontier_sync_once(self) -> Optional[Dict[str, object]]:
+        peers = self.list_peers()
+        if not peers or self._session is None:
+            return None
+        peer = random.choice(peers)
+        url = f"http://{peer.address}/gossip/frontier"
+        try:
+            async with self._session.get(url, timeout=5.0) as resp:
+                if resp.status != 200:
+                    return None
+                payload = await resp.json()
+        except Exception:
+            return None
+        peer_frontier = payload.get("frontier") or {}
+        local_frontier = self.local_frontier()
+        missing_ids: List[str] = []
+        for _creator, peer_event_id in peer_frontier.items():
+            if not peer_event_id:
+                continue
+            if self.storage.get_event(peer_event_id) is None:
+                missing_ids.append(peer_event_id)
+        # Push: что есть у нас и нет у пира — добавляем в pending.
+        for _creator, local_event_id in local_frontier.items():
+            if local_event_id and peer_frontier.get(_creator) != local_event_id:
+                if self._gossip is not None:
+                    self._gossip.add_pending(local_event_id)
+        # Pull: тянем недостающее.
+        pulled = 0
+        for event_id in missing_ids:
+            envs = await self._pull_ancestry(peer.address, event_id, depth=64)
+            if envs:
+                self.ingest_envelopes(envs)
+                pulled += len(envs)
+        self._frontier_sync_pulls_count += pulled
+        return {"peer": peer.address, "pulled": pulled, "missing_ids": missing_ids}
+
+    async def _pull_ancestry(self, address: str, event_id: str, *, depth: int = 64) -> List[Envelope]:
+        if self._session is None:
+            return []
+        url = f"http://{address}/events/{event_id}/ancestry?depth={depth}"
+        try:
+            async with self._session.get(url, timeout=5.0) as resp:
+                if resp.status != 200:
+                    return []
+                payload = await resp.json()
+        except Exception:
+            return []
+        envelopes: List[Envelope] = []
+        for item in payload.get("events", []):
+            try:
+                event = Event.from_dict(item["event"])
+                envelopes.append(Envelope(event=event, path_meta=item.get("path_meta") or []))
+            except Exception:
+                logger.exception("malformed envelope from ancestry")
+        return envelopes
+
+    # ------------------------------------------------------------------
     # Service lifecycle: start / stop / detected_killed
     # Совместно с heartbeat и Merkle-проверкой формируют защиту против УБИ.124
     # через прерывание сбора. Каждый штатный цикл работы оставляет пару
@@ -1523,6 +1808,86 @@ class Node:
                     self._gossip.add_pending(event_id)
             except Exception:
                 self._gossip.add_pending(event_id)
+
+    async def _broadcast_with_quorum_ack(self, event_id: str) -> str:
+        """Слой 2. Шлёт событие класса A всем пирам, ждёт ACK ≥ 2/3.
+
+        Возвращает "durable" если кворум собран, иначе "local_only".
+        При неудаче событие остаётся в _pending для длительного догона
+        через обычный gossip-tick.
+        """
+        rt = self.config.runtime
+        ratio = float(rt.class_a_fanout_quorum_ratio)
+        if ratio <= 0:
+            # Слой 2 выключен — старое best-effort поведение.
+            await self._broadcast_event(event_id)
+            return "best_effort"
+        peers = self.list_peers()
+        if not peers:
+            # Один в кластере — событие локально, ничего не реплицируем.
+            return "local_only"
+        envelope = self.storage.get_envelope(event_id)
+        if not envelope:
+            return "local_only"
+        required = max(1, math.ceil(ratio * len(peers)))
+        timeout = max(1.0, float(rt.class_a_fanout_timeout_sec))
+        max_retries = max(1, int(rt.class_a_fanout_max_retries))
+        backoff = 0.5
+        for attempt in range(max_retries):
+            ok_count = await self._fanout_count_ack(envelope, timeout)
+            if ok_count >= required:
+                self._class_a_durable_count += 1
+                return "durable"
+            # Не хватило — backoff и retry.
+            try:
+                await asyncio.wait_for(self._stop_event.wait(), timeout=backoff)
+                break  # узел останавливается
+            except asyncio.TimeoutError:
+                pass
+            backoff = min(backoff * 2, 4.0)
+        # Не собрали кворум за все ретраи.
+        if self._gossip is not None:
+            self._gossip.add_pending(event_id)
+        self._class_a_local_only_count += 1
+        # Эмитим вторичное событие, чтобы оператор знал. Без рекурсии
+        # (это класс B, не идёт через _broadcast_with_quorum_ack).
+        try:
+            await self.emit_event(
+                EventClass.B,
+                {
+                    "event_kind": "mdrj_event_replication_failed",
+                    "node_id": self.config.node_id,
+                    "host_id": self.config.linux_ingest.host_id or self.config.node_id,
+                    "original_event_id": event_id,
+                    "required_quorum": required,
+                    "peers_total": len(peers),
+                    "detected_at": utc_timestamp(),
+                },
+            )
+        except Exception:
+            logger.exception("failed to emit mdrj_event_replication_failed")
+        return "local_only"
+
+    async def _fanout_count_ack(self, envelope: Envelope, timeout: float) -> int:
+        """Параллельно шлёт envelope всем пирам, возвращает число True-ACK."""
+        if not self._gossip:
+            return 0
+        peers = self.list_peers()
+        if not peers:
+            return 0
+        async def _send(peer):
+            try:
+                return await self._gossip._send_to_peer(peer.address, [envelope])
+            except Exception:
+                return False
+        try:
+            results = await asyncio.wait_for(
+                asyncio.gather(*(_send(p) for p in peers), return_exceptions=True),
+                timeout=timeout,
+            )
+        except asyncio.TimeoutError:
+            return 0
+        return sum(1 for r in results if r is True)
 
     def _schedule_fast_fanout(self, event_id: str) -> None:
         if not self._loop:

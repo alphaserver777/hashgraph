@@ -253,6 +253,22 @@ EVENT_CATALOG: Dict[str, Dict[str, object]] = {
             "description": "Эмитится когда коллектор фиксирует резкое обнуление uptime — между двумя соседними poll boot_time изменился. На практике редкое событие: узел переживает перезагрузку только если процесс был перезапущен системным менеджером.",
         },
     },
+    "mdrj_tamper_detected": {
+        "class": EventClass.A,
+        "title": "Зафиксирована подделка реестра по checkpoint",
+        "payload": {
+            "category": "integrity",
+            "description": "Эмитится фоновым _tamper_verify_loop когда verify_checkpoint обнаруживает расхождение local_merkle_root с подтверждённым 2/3 кворумом. Распространяется через ACK-fanout 2/3.",
+        },
+    },
+    "mdrj_event_replication_failed": {
+        "class": EventClass.B,
+        "title": "Класс A не достиг 2/3 кворума при эмиссии",
+        "payload": {
+            "category": "replication",
+            "description": "Эмитится при неудаче ACK-fanout: класс A не подтверждён ≥ 2/3 пиров. Само событие остаётся в _pending для длинной gossip-синхронизации.",
+        },
+    },
 }
 
 

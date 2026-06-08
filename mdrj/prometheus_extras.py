@@ -217,6 +217,21 @@ def build_extras(node) -> List[MetricSeries]:
     out.append(counter("mdrj_checkpoint_confirmed_total",
                       "Сколько checkpoint достигли 2/3 кворума",
                       getattr(node, "_checkpoint_confirmed_count", 0)))
+    # Слой 2 — durability эмиссий класса A.
+    out.append(counter("mdrj_class_a_durable_total",
+                      "Класс A с ACK ≥ 2/3 пиров (Слой 2)",
+                      getattr(node, "_class_a_durable_count", 0)))
+    out.append(counter("mdrj_class_a_local_only_total",
+                      "Класс A без ACK 2/3 (упал в pending для догона)",
+                      getattr(node, "_class_a_local_only_count", 0)))
+    # Слой 3 — frontier anti-entropy.
+    out.append(counter("mdrj_frontier_sync_pulls_total",
+                      "События подтянутые через frontier-handshake",
+                      getattr(node, "_frontier_sync_pulls_count", 0)))
+    # Слой 4 — tamper alerts.
+    out.append(counter("mdrj_tamper_alerts_total",
+                      "Эмиссии mdrj_tamper_detected (улики подделки)",
+                      getattr(node, "_tamper_alerts_count", 0)))
 
     last_round, last_age = _latest_checkpoint_metrics(node, now)
     out.append(MetricSeries(

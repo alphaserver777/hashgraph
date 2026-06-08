@@ -37,6 +37,8 @@ AUTH_PUBLIC_PATHS = {
     "/auth/logout",  # logout is idempotent — safe to expose
     "/status",  # for k3s liveness/readiness probes
     "/event/batch",  # inter-node gossip, protected by HMAC instead
+    "/gossip/frontier",  # inter-node frontier handshake
+    "/checkpoint/propose",  # inter-node checkpoint proposal
 }
 # Methods needed in role checks for write operations.
 WRITE_METHODS = {"POST", "PUT", "DELETE", "PATCH"}
@@ -135,7 +137,13 @@ async def session_auth_middleware(request: web.Request, handler):
             raise web.HTTPForbidden(text="admin role required")
     # Viewer + GET: only allowed for VIEWER_READ_PATHS.
     if session.role != ROLE_ADMIN and request.method == "GET":
-        if request.path not in VIEWER_READ_PATHS and not request.path.startswith("/static/"):
+        is_read_path = (
+            request.path in VIEWER_READ_PATHS
+            or request.path.startswith("/static/")
+            or request.path == "/gossip/frontier"
+            or request.path.startswith("/events/")  # /events/{id}/ancestry
+        )
+        if not is_read_path:
             raise web.HTTPForbidden(text="not permitted for viewer role")
     request["session"] = session
     return await handler(request)
@@ -7053,6 +7061,49 @@ async def handle_notifier_status(request: web.Request) -> web.Response:
     return web.json_response(node.notifier.status())
 
 
+async def handle_gossip_frontier(request: web.Request) -> web.Response:
+    """Слой 3. Возвращает {creator_node_id: last_event_id} по всем
+    известным авторам. Используется для frontier-handshake между узлами:
+    receiver сравнивает с локальным и тянет недостающее через
+    /events/{id}/ancestry.
+    """
+    node = request.app["node"]
+    return web.json_response({"frontier": node.local_frontier()})
+
+
+async def handle_event_ancestry(request: web.Request) -> web.Response:
+    """Слой 3. Отдаёт предков события (BFS по self_parent / other_parent)
+    до глубины ?depth=N (по умолчанию 64). Включая сам event_id если он
+    есть локально. Запрашивается /gossip/frontier-получателем для догонки.
+    """
+    node = request.app["node"]
+    event_id = request.match_info["event_id"]
+    try:
+        depth = max(1, min(int(request.query.get("depth", "64")), 1024))
+    except ValueError:
+        depth = 64
+    visited = set()
+    queue = [event_id]
+    out: List[Dict[str, object]] = []
+    while queue and len(out) < depth:
+        eid = queue.pop(0)
+        if eid in visited:
+            continue
+        visited.add(eid)
+        envelope = node.storage.get_envelope(eid)
+        if envelope is None:
+            continue
+        ev = envelope.event
+        event_dict = ev.to_dict()
+        event_dict["consensus_ts"] = ev.consensus_ts
+        out.append({"event": event_dict, "path_meta": envelope.path_meta})
+        # Parents в очередь
+        for parent_id in ev.parents:
+            if parent_id and parent_id not in visited:
+                queue.append(parent_id)
+    return web.json_response({"events": out})
+
+
 async def handle_catalog(request: web.Request) -> web.Response:
     """Return the full event catalog: классификация + обоснования.
 
@@ -7304,6 +7355,8 @@ def build_app(node) -> web.Application:
             web.post("/users/remove", handle_users_remove),
             web.get("/notifier/status", handle_notifier_status),
             web.get("/catalog", handle_catalog),
+            web.get("/gossip/frontier", handle_gossip_frontier),
+            web.get("/events/{event_id}/ancestry", handle_event_ancestry),
             web.post("/peers/register", handle_register_peer),
             web.post("/peers/update", handle_update_peer),
             web.post("/peers/remove", handle_remove_peer),

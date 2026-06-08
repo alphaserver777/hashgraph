@@ -98,12 +98,33 @@ class HeartbeatConfig:
 
 @dataclass(slots=True)
 class RuntimeConfig:
-    """Параметры рантайма для слабых хостов (backpressure / дебаунс)."""
+    """Параметры рантайма для слабых хостов (backpressure / дебаунс)
+    и четырёх слоёв надёжного сохранения улик."""
     # Дебаунс пересчёта консенсуса: при 0 — recompute синхронно на каждый
-    # persist (как раньше). При >0 — N persist в окне coalesce в один
-    # фоновый пересчёт через asyncio.to_thread. Снижает CPU/RSS на
-    # gossip-burst в разы при N≥500 событий.
+    # persist. При >0 — N persist в окне coalesce в один фоновый
+    # пересчёт через asyncio.to_thread.
     recompute_debounce_sec: float = 0.0
+
+    # Слой 1. Автоматический propose checkpoint. При значении 0 цикл
+    # выключен и checkpoint никогда не подтвердится → retention не
+    # работает → RSS растёт линейно.
+    checkpoint_propose_interval_sec: float = 0.0
+    # Сколько раундов отступать от max(round_received), чтобы дать
+    # медленным пирам успеть.
+    checkpoint_propose_margin: int = 5
+
+    # Слой 2. ACK-fanout для класса A. При quorum_ratio=0 fast-fanout
+    # остаётся best-effort (старое поведение).
+    class_a_fanout_quorum_ratio: float = 0.0
+    class_a_fanout_timeout_sec: float = 10.0
+    class_a_fanout_max_retries: int = 3
+
+    # Слой 3. Frontier-based anti-entropy. При 0 цикл выключен.
+    frontier_sync_interval_sec: float = 0.0
+
+    # Слой 4. Фон-verify последнего confirmed checkpoint. При 0 цикл
+    # выключен (но on-demand /checkpoint/verify работает всегда).
+    tamper_verify_interval_sec: float = 0.0
 
 
 @dataclass(slots=True)
@@ -224,6 +245,13 @@ def load_config(path: str | Path) -> NodeConfig:
 def _parse_runtime(raw: dict) -> RuntimeConfig:
     return RuntimeConfig(
         recompute_debounce_sec=float(raw.get("recompute_debounce_sec", 0.0)),
+        checkpoint_propose_interval_sec=float(raw.get("checkpoint_propose_interval_sec", 0.0)),
+        checkpoint_propose_margin=int(raw.get("checkpoint_propose_margin", 5)),
+        class_a_fanout_quorum_ratio=float(raw.get("class_a_fanout_quorum_ratio", 0.0)),
+        class_a_fanout_timeout_sec=float(raw.get("class_a_fanout_timeout_sec", 10.0)),
+        class_a_fanout_max_retries=int(raw.get("class_a_fanout_max_retries", 3)),
+        frontier_sync_interval_sec=float(raw.get("frontier_sync_interval_sec", 0.0)),
+        tamper_verify_interval_sec=float(raw.get("tamper_verify_interval_sec", 0.0)),
     )
 
 

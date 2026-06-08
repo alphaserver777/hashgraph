@@ -170,6 +170,22 @@
       "rationale": "Эмитится когда коллектор фиксирует резкое обнуление uptime — между двумя соседними poll boot_time изменился. На практике редкое событие.",
       "linked_threats": ["УБИ.124 (косвенно)"],
       "added_by": "Этап «host lifecycle»"
+    },
+    "mdrj_tamper_detected": {
+      "class": "A",
+      "title": "Зафиксирована подделка реестра по checkpoint",
+      "category": "integrity",
+      "rationale": "Эмитится фон-loop _tamper_verify_loop когда verify_checkpoint обнаруживает что local_merkle_root не совпадает с подтверждённым 2/3 кворумом. Это прямая улика что кто-то изменил payload события задним числом. Распространяется через ACK-fanout 2/3 — все узлы узнают за секунды.",
+      "linked_threats": ["УБИ.124", "MITRE T1565.001"],
+      "added_by": "Слой 4 — фон-verify + tamper alert"
+    },
+    "mdrj_event_replication_failed": {
+      "class": "B",
+      "title": "Класс A не достиг 2/3 кворума при эмиссии",
+      "category": "replication",
+      "rationale": "Эмитится при неудаче ACK-fanout слоя 2: событие класса A не было подтверждено ≥ 2/3 пиров за timeout × retries. Само событие остаётся в _pending для долгой синхронизации через обычный gossip, но операторы должны узнать о факте недоставки.",
+      "linked_threats": ["УБИ.124 (косвенно)"],
+      "added_by": "Слой 2 — ACK-fanout с кворумом 2/3"
     }
   }
 }
