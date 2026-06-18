@@ -1936,6 +1936,8 @@ VIZ_HTML = """
     .incident-column-body::-webkit-scrollbar { width: 8px; }
     .incident-column-body::-webkit-scrollbar-thumb { background: rgba(150,190,255,0.25); border-radius: 4px; }
     .incident-column-head { position: sticky; top: 0; }
+    .cmap-leg-row { display: flex; align-items: center; gap: 8px; margin-bottom: 0.55rem; color: var(--text-2); }
+    .cmap-leg-ic { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 7px; border: 1.5px solid #888; background: rgba(255,255,255,0.04); font-size: 14px; }
     .incident-column.drag-over { border-color: rgba(106, 169, 255, 0.22); background: rgba(14, 25, 38, 0.92); }
     .incident-column-head { display: flex; justify-content: space-between; gap: 0.6rem; align-items: center; }
     .incident-column-head h4 { margin: 0; color: #ffffff; font-size: 0.9rem; }
@@ -2296,6 +2298,7 @@ VIZ_HTML = """
                 '<a class="nav-item" href="#controls"><span class="nav-item-group"><span class="nav-icon">▶</span><span class="nav-copy">Сценарии</span></span></a>' +
                 '<a class="nav-item" href="#reset-controls"><span class="nav-item-group"><span class="nav-icon">⟲</span><span class="nav-copy">Сброс журнала</span></span></a>' +
                 '<a class="nav-item" href="#filters"><span class="nav-item-group"><span class="nav-icon">≡</span><span class="nav-copy">Фильтры</span></span></a>' +
+                '<a class="nav-item" href="#cluster-map"><span class="nav-item-group"><span class="nav-icon">🌍</span><span class="nav-copy">Карта кластера</span></span></a>' +
                 '<a class="nav-item" href="#network-workbench"><span class="nav-item-group"><span class="nav-icon">☷</span><span class="nav-copy">Участники сети</span></span></a>' +
                 '<a class="nav-item" id="incident-nav-item" href="#incident-workbench" style="display:none;"><span class="nav-item-group"><span class="nav-icon">▣</span><span class="nav-copy">Инциденты</span></span></a>' +
                 '<a class="nav-item" href="#sib-policy"><span class="nav-item-group"><span class="nav-icon">⚙</span><span class="nav-copy">Настройка множества СИБ</span></span></a>' +
@@ -2557,6 +2560,41 @@ VIZ_HTML = """
             '</div>' +
           '</div>';
         main.appendChild(sibPolicy);
+
+        var clusterMap = document.createElement('section');
+        clusterMap.id = 'cluster-map';
+        clusterMap.className = 'panel-surface';
+        clusterMap.innerHTML =
+          '<div class="incident-shell">' +
+            '<div class="incident-toolbar">' +
+              '<div>' +
+                '<h2 style="margin:0;font-size:1.08rem;">Карта сети</h2>' +
+                '<div class="panel-hint">Логическая топология защищаемой инфраструктуры: узлы реестра, источники событий и пути атак. Красным — зафиксированные атакующие подключения (класс A).</div>' +
+              '</div>' +
+              '<div class="incident-badges">' +
+                '<span class="incident-badge primary" id="cmap-nodes">— узлов</span>' +
+                '<span class="incident-badge" id="cmap-attacks">— атак</span>' +
+              '</div>' +
+            '</div>' +
+            '<div style="display:flex;gap:1rem;align-items:stretch;">' +
+              '<div id="cmap-legend" style="flex:0 0 180px;padding:1rem;border-radius:14px;background:rgba(8,16,25,0.6);border:1px solid rgba(255,255,255,0.05);font-size:0.8rem;">' +
+                '<div style="font-weight:600;margin-bottom:0.7rem;opacity:0.9;">Легенда</div>' +
+                '<div class="cmap-leg-row"><span class="cmap-leg-ic" style="border-color:#ef5350;">👑</span> Домен-контроллер</div>' +
+                '<div class="cmap-leg-row"><span class="cmap-leg-ic" style="border-color:#ffa726;">🗄</span> Сервер реестра</div>' +
+                '<div class="cmap-leg-row"><span class="cmap-leg-ic" style="border-color:#42a5f5;">💻</span> Рабочая станция</div>' +
+                '<div class="cmap-leg-row"><span class="cmap-leg-ic" style="border-color:#ab47bc;">📟</span> Устройство / IoT</div>' +
+                '<div class="cmap-leg-row"><span class="cmap-leg-ic" style="border-color:#66bb6a;">🌐</span> Точка входа</div>' +
+                '<div style="margin-top:0.9rem;border-top:1px solid rgba(255,255,255,0.08);padding-top:0.7rem;">' +
+                  '<div class="cmap-leg-row"><span style="display:inline-block;width:22px;height:0;border-top:2px solid #6aa9ff;margin-right:6px;"></span> Соединение</div>' +
+                  '<div class="cmap-leg-row"><span style="display:inline-block;width:22px;height:0;border-top:2px dashed #ef5350;margin-right:6px;"></span> Путь атаки</div>' +
+                '</div>' +
+              '</div>' +
+              '<div id="cmap-wrap" style="position:relative;flex:1 1 auto;height:560px;border-radius:14px;overflow:hidden;background:radial-gradient(ellipse at 50% 35%, #0f1f31 0%, #0a131f 72%);border:1px solid rgba(255,255,255,0.06);">' +
+                '<svg id="cmap-svg" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"></svg>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+        main.appendChild(clusterMap);
 
         var incidentModal = document.createElement('div');
         incidentModal.id = 'incident-modal-shell';
@@ -3108,6 +3146,172 @@ VIZ_HTML = """
             xhr.send(JSON.stringify({ event_kind: kind, enabled: enabled }));
           });
         }
+      }
+
+      // ====== Карта сети (логическая топология + пути атак) ======
+      var CMAP_VIEW = { w: 1000, h: 560 };
+      var CMAP_TYPE_ICON = { server: '🗄', entry: '🌐', dc: '👑', ws: '💻', iot: '📟' };
+      var CMAP_TYPE_COLOR = { server: '#ffa726', entry: '#66bb6a', dc: '#ef5350', ws: '#42a5f5', iot: '#ab47bc' };
+      var cmapBoxes = {};  // id -> {x, y, type}
+      function cmapDrawNode(svg, ns, node) {
+        var color = CMAP_TYPE_COLOR[node.type] || '#90caf9';
+        var icon = CMAP_TYPE_ICON[node.type] || '🖥';
+        var bw = 56, bh = 56;
+        var g = ns('g'); g.setAttribute('data-cmap-node', node.id);
+        var rect = ns('rect');
+        rect.setAttribute('x', node.x - bw / 2); rect.setAttribute('y', node.y - bh / 2);
+        rect.setAttribute('width', bw); rect.setAttribute('height', bh); rect.setAttribute('rx', '12');
+        rect.setAttribute('fill', 'rgba(12,22,34,0.92)');
+        rect.setAttribute('stroke', node.online === false ? 'rgba(150,150,160,0.5)' : color);
+        rect.setAttribute('stroke-width', '2');
+        g.appendChild(rect);
+        var ic = ns('text');
+        ic.setAttribute('x', node.x); ic.setAttribute('y', node.y + 7);
+        ic.setAttribute('text-anchor', 'middle'); ic.setAttribute('font-size', '26');
+        ic.textContent = icon;
+        g.appendChild(ic);
+        var name = ns('text');
+        name.setAttribute('x', node.x); name.setAttribute('y', node.y + bh / 2 + 18);
+        name.setAttribute('text-anchor', 'middle'); name.setAttribute('fill', '#eff3ff');
+        name.setAttribute('font-size', '13'); name.setAttribute('font-weight', '600');
+        name.textContent = node.label || node.id;
+        g.appendChild(name);
+        if (node.ip) {
+          var ip = ns('text');
+          ip.setAttribute('x', node.x); ip.setAttribute('y', node.y + bh / 2 + 33);
+          ip.setAttribute('text-anchor', 'middle'); ip.setAttribute('fill', 'rgba(200,210,230,0.55)');
+          ip.setAttribute('font-size', '11');
+          ip.textContent = node.ip;
+          g.appendChild(ip);
+        }
+        svg.appendChild(g);
+      }
+      function renderNetworkMap(servers, attacks) {
+        var svg = document.getElementById('cmap-svg');
+        if (!svg) { return; }
+        var svgNS2 = 'http://www.w3.org/2000/svg';
+        function ns(tag) { return document.createElementNS(svgNS2, tag); }
+        svg.setAttribute('viewBox', '0 0 ' + CMAP_VIEW.w + ' ' + CMAP_VIEW.h);
+        svg.innerHTML = '';
+        cmapBoxes = {};
+        // defs: стрелка для пути атаки.
+        var defs = ns('defs');
+        var marker = ns('marker');
+        marker.setAttribute('id', 'cmap-arrow'); marker.setAttribute('markerWidth', '10');
+        marker.setAttribute('markerHeight', '8'); marker.setAttribute('refX', '8');
+        marker.setAttribute('refY', '4'); marker.setAttribute('orient', 'auto');
+        var ap = ns('path'); ap.setAttribute('d', 'M0,0 L10,4 L0,8 z'); ap.setAttribute('fill', '#ef5350');
+        marker.appendChild(ap); defs.appendChild(marker); svg.appendChild(defs);
+        // Раскладка серверов реестра — ряд по центру.
+        var sN = servers.length;
+        var sY = 360;
+        servers.forEach(function (s, i) {
+          var x = sN === 1 ? CMAP_VIEW.w / 2 : (CMAP_VIEW.w * 0.18 + i * (CMAP_VIEW.w * 0.64 / (sN - 1)));
+          cmapBoxes[s.id] = { x: x, y: sY, type: 'server' };
+        });
+        // Точки входа (атакующие IP) — ряд сверху.
+        var eN = attacks.length;
+        var eY = 110;
+        attacks.forEach(function (a, i) {
+          var x = eN === 1 ? CMAP_VIEW.w / 2 : (CMAP_VIEW.w * 0.15 + i * (CMAP_VIEW.w * 0.70 / Math.max(1, eN - 1)));
+          cmapBoxes['entry:' + a.from] = { x: x, y: eY, type: 'entry' };
+        });
+        // Соединения gossip (синие) между серверами.
+        for (var i = 0; i < servers.length; i += 1) {
+          for (var j = i + 1; j < servers.length; j += 1) {
+            var a2 = cmapBoxes[servers[i].id], b2 = cmapBoxes[servers[j].id];
+            var ln = ns('line');
+            ln.setAttribute('x1', a2.x); ln.setAttribute('y1', a2.y);
+            ln.setAttribute('x2', b2.x); ln.setAttribute('y2', b2.y);
+            var both = servers[i].online !== false && servers[j].online !== false;
+            ln.setAttribute('stroke', both ? 'rgba(106,169,255,0.5)' : 'rgba(120,120,140,0.2)');
+            ln.setAttribute('stroke-width', '2');
+            svg.appendChild(ln);
+          }
+        }
+        // Пути атаки (красный пунктир со стрелкой) — от точки входа к жертве.
+        attacks.forEach(function (a) {
+          var from = cmapBoxes['entry:' + a.from];
+          var to = cmapBoxes[a.to];
+          if (!from || !to) { return; }
+          var ln = ns('line');
+          ln.setAttribute('x1', from.x); ln.setAttribute('y1', from.y + 30);
+          ln.setAttribute('x2', to.x); ln.setAttribute('y2', to.y - 30);
+          ln.setAttribute('stroke', '#ef5350'); ln.setAttribute('stroke-width', '2');
+          ln.setAttribute('stroke-dasharray', '6 4'); ln.setAttribute('marker-end', 'url(#cmap-arrow)');
+          svg.appendChild(ln);
+        });
+        // Рисуем узлы поверх линий.
+        servers.forEach(function (s) {
+          var box = cmapBoxes[s.id];
+          cmapDrawNode(svg, ns, { id: s.id, label: s.id, ip: s.ip, type: 'server', online: s.online, x: box.x, y: box.y });
+        });
+        attacks.forEach(function (a) {
+          var box = cmapBoxes['entry:' + a.from];
+          cmapDrawNode(svg, ns, { id: 'entry:' + a.from, label: 'Внешний', ip: a.from, type: 'entry', x: box.x, y: box.y });
+        });
+        var cntEl = document.getElementById('cmap-nodes');
+        var atkEl = document.getElementById('cmap-attacks');
+        if (cntEl) { cntEl.textContent = servers.length + ' узлов'; }
+        if (atkEl) { atkEl.textContent = attacks.length + ' источн. атак'; }
+      }
+      function pulseClusterNode(nodeId) {
+        var svg = document.getElementById('cmap-svg');
+        if (!svg || !cmapBoxes[nodeId]) { return; }
+        var box = cmapBoxes[nodeId];
+        var ns = function (t) { return document.createElementNS('http://www.w3.org/2000/svg', t); };
+        var wave = ns('circle');
+        wave.setAttribute('cx', box.x); wave.setAttribute('cy', box.y); wave.setAttribute('r', '30');
+        wave.setAttribute('fill', 'none'); wave.setAttribute('stroke', '#ef5350'); wave.setAttribute('stroke-width', '3');
+        svg.appendChild(wave);
+        var a1 = ns('animate'); a1.setAttribute('attributeName', 'r'); a1.setAttribute('from', '30'); a1.setAttribute('to', '90');
+        a1.setAttribute('dur', '1s'); a1.setAttribute('fill', 'freeze'); wave.appendChild(a1);
+        var a2 = ns('animate'); a2.setAttribute('attributeName', 'opacity'); a2.setAttribute('from', '0.9'); a2.setAttribute('to', '0');
+        a2.setAttribute('dur', '1s'); a2.setAttribute('fill', 'freeze'); wave.appendChild(a2);
+        setTimeout(function () { if (wave.parentNode) { wave.parentNode.removeChild(wave); } }, 1100);
+      }
+      function loadClusterMap() {
+        var xhrS = new XMLHttpRequest();
+        xhrS.open('GET', '/status', true);
+        xhrS.onreadystatechange = function () {
+          if (xhrS.readyState !== 4 || xhrS.status < 200 || xhrS.status >= 300) { return; }
+          try {
+            var d = JSON.parse(xhrS.responseText);
+            var servers = [];
+            var now = Date.now() / 1000;
+            servers.push({ id: d.node_id, ip: '', online: true });
+            (d.peers || []).forEach(function (p) {
+              if (p.is_self) { return; }
+              servers.push({ id: p.node_id || p.address, ip: (p.address || '').split(':')[0], online: !!(p.last_seen && (now - p.last_seen) < 60) });
+            });
+            // Атаки: события класса A с source_ip за последнее время.
+            var xhrG = new XMLHttpRequest();
+            xhrG.open('GET', '/viz/graph', true);
+            xhrG.onreadystatechange = function () {
+              if (xhrG.readyState !== 4) { return; }
+              var attacks = [];
+              if (xhrG.status >= 200 && xhrG.status < 300) {
+                try {
+                  var g = JSON.parse(xhrG.responseText);
+                  var byIp = {};
+                  (g.nodes || []).forEach(function (n) {
+                    var p = n.payload || {};
+                    if (n.cls === 'A' && p.source_ip) {
+                      var key = p.source_ip;
+                      if (!byIp[key]) { byIp[key] = { from: key, to: n.creator || n.source, count: 0 }; }
+                      byIp[key].count += 1;
+                    }
+                  });
+                  attacks = Object.keys(byIp).map(function (k) { return byIp[k]; })
+                    .sort(function (a, b) { return b.count - a.count; }).slice(0, 8);
+                } catch (e) {}
+              }
+              renderNetworkMap(servers, attacks);
+            };
+            xhrG.send();
+          } catch (err) {}
+        };
+        xhrS.send();
       }
 
       function loadSibPolicy() {
@@ -6803,6 +7007,15 @@ VIZ_HTML = """
                 renderGraph();
                 if (data.event.cls === 'A') {
                   pushAlert('high', 'Зафиксировано критичное событие класса A', 'Источник: ' + valueOr(data.event.source, 'неизвестно') + '. Событие добавлено в распределённый журнал.', 'event:' + data.event.id);
+                  // Пульс на карте сети у узла-жертвы + при наличии source_ip
+                  // обновить карту (могла появиться новая точка входа).
+                  try {
+                    var victim = data.event.creator || data.event.source;
+                    if (victim) { pulseClusterNode(victim); }
+                    if (data.event.payload && data.event.payload.source_ip) {
+                      loadClusterMap();
+                    }
+                  } catch (e) {}
                 } else if (data.event.cls === 'B') {
                   pushAlert('medium', 'Поступило важное событие класса B', 'Источник: ' + valueOr(data.event.source, 'неизвестно') + '. Проверьте контекст и соседние записи.', 'event:' + data.event.id);
                 }
@@ -6853,11 +7066,15 @@ VIZ_HTML = """
       loadSibPolicy();
       setInterval(loadSibPolicy, 30000);
 
+      // Карта сети: первичная загрузка + периодическое обновление.
+      loadClusterMap();
+      setInterval(loadClusterMap, 30000);
+
       // Маршрутизация «отдельных страниц». Тяжёлые разделы (Участники сети,
       // Инциденты, Настройка множества СИБ) показываются как отдельные
       // страницы поверх дашборда, а не скроллом по одной длинной странице.
       // Работаем через getElementById — секции созданы в другом скоупе.
-      var PAGE_IDS = ['network-workbench', 'incident-workbench', 'sib-policy'];
+      var PAGE_IDS = ['network-workbench', 'incident-workbench', 'sib-policy', 'cluster-map'];
       var DASHBOARD_IDS = ['hero-analytics-grid', 'overview-grid', 'workspace'];
       function routeToPage() {
         var hash = (window.location.hash || '').replace('#', '');
