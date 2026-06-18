@@ -2065,18 +2065,39 @@ class Node:
             asyncio.create_task(self._fanout_critical(event_id))
         self._loop.call_soon_threadsafe(_task)
 
+    # Сколько последних раундов считать «нестабильным хвостом» и НЕ включать
+    # в digest согласованности. Fame этих событий ещё может измениться при
+    # поступлении новых — поэтому при живом потоке хвост у узлов всегда
+    # чуть разный. Сравнивать согласованность надо только по финализированному
+    # префиксу, иначе индикатор даёт ложный mismatch на любом ненулевом потоке.
+    CONSENSUS_FINALITY_MARGIN = 2
+
     def _consensus_snapshot_sync(self) -> Dict[str, object]:
         events = self.storage.all_events()
         ordered = self.consensus.total_order(events)
-        ids = [event.id for event in ordered]
+        # Финализированный префикс: события с известным round_received,
+        # отрезая последние CONSENSUS_FINALITY_MARGIN раундов.
+        rounds = [e.round_received for e in ordered if e.round_received is not None]
+        if rounds:
+            cutoff = max(rounds) - self.CONSENSUS_FINALITY_MARGIN
+            finalized = [
+                e for e in ordered
+                if e.round_received is not None and e.round_received <= cutoff
+            ]
+        else:
+            finalized = []
+        ids = [event.id for event in finalized]
         joined = "::".join(ids)
         digest = hashlib.sha256(joined.encode("utf-8")).hexdigest() if ids else hashlib.sha256(b"").hexdigest()
         membership = self.active_consensus_membership()
         return {
             "node_id": self.config.node_id,
             "hash": digest,
-            "event_count": len(ids),
+            "event_count": len(ids),            # финализированных (для сравнения)
+            "total_event_count": len(ordered),  # весь DAG, включая хвост (информативно)
             "latest_event": ids[-1] if ids else None,
+            "latest_total_event": ordered[-1].id if ordered else None,
+            "finality_margin": self.CONSENSUS_FINALITY_MARGIN,
             "consensus_epoch": membership.get("epoch"),
             "consensus_membership_size": membership.get("membership_size"),
             "membership_snapshot_hash": membership.get("membership_snapshot_hash"),
