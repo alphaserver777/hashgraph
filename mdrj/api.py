@@ -6847,34 +6847,36 @@ VIZ_HTML = """
       // Маршрутизация «отдельных страниц». Тяжёлые разделы (Участники сети,
       // Инциденты, Настройка множества СИБ) показываются как отдельные
       // страницы поверх дашборда, а не скроллом по одной длинной странице.
-      var PAGE_SECTIONS = {
-        'network-workbench': networkWorkbench,
-        'incident-workbench': incidentWorkbench,
-        'sib-policy': sibPolicy
-      };
-      var DASHBOARD_SECTIONS = [heroAnalytics, overview, workspace];
+      // Работаем через getElementById — секции созданы в другом скоупе.
+      var PAGE_IDS = ['network-workbench', 'incident-workbench', 'sib-policy'];
+      var DASHBOARD_IDS = ['hero-analytics-grid', 'overview-grid', 'workspace'];
       function routeToPage() {
         var hash = (window.location.hash || '').replace('#', '');
-        var pageEl = PAGE_SECTIONS[hash];
-        // incident-workbench доступен только когда включён (роль responder).
-        if (hash === 'incident-workbench' && !incidentEnabled) {
-          pageEl = null;
-          if (window.location.hash === '#incident-workbench') {
-            window.location.hash = '';
-          }
+        var isPage = PAGE_IDS.indexOf(hash) !== -1;
+        // incident-workbench доступен только при роли responder.
+        if (hash === 'incident-workbench' && typeof incidentEnabled !== 'undefined' && !incidentEnabled) {
+          isPage = false;
+          if (window.location.hash === '#incident-workbench') { window.location.hash = ''; }
+          hash = '';
         }
-        if (pageEl) {
-          DASHBOARD_SECTIONS.forEach(function (s) { if (s) { s.style.display = 'none'; } });
-          Object.keys(PAGE_SECTIONS).forEach(function (k) {
-            if (PAGE_SECTIONS[k]) {
-              PAGE_SECTIONS[k].style.display = (k === hash ? 'block' : 'none');
-            }
+        if (isPage) {
+          DASHBOARD_IDS.forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) { el.style.display = 'none'; }
+          });
+          PAGE_IDS.forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) { el.style.display = (id === hash ? 'block' : 'none'); }
           });
           window.scrollTo(0, 0);
         } else {
-          DASHBOARD_SECTIONS.forEach(function (s) { if (s) { s.style.display = ''; } });
-          Object.keys(PAGE_SECTIONS).forEach(function (k) {
-            if (PAGE_SECTIONS[k]) { PAGE_SECTIONS[k].style.display = 'none'; }
+          DASHBOARD_IDS.forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) { el.style.display = ''; }
+          });
+          PAGE_IDS.forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) { el.style.display = 'none'; }
           });
         }
         // Подсветка активного пункта навигации.
