@@ -6844,6 +6844,49 @@ VIZ_HTML = """
       loadSibPolicy();
       setInterval(loadSibPolicy, 30000);
 
+      // Маршрутизация «отдельных страниц». Тяжёлые разделы (Участники сети,
+      // Инциденты, Настройка множества СИБ) показываются как отдельные
+      // страницы поверх дашборда, а не скроллом по одной длинной странице.
+      var PAGE_SECTIONS = {
+        'network-workbench': networkWorkbench,
+        'incident-workbench': incidentWorkbench,
+        'sib-policy': sibPolicy
+      };
+      var DASHBOARD_SECTIONS = [heroAnalytics, overview, workspace];
+      function routeToPage() {
+        var hash = (window.location.hash || '').replace('#', '');
+        var pageEl = PAGE_SECTIONS[hash];
+        // incident-workbench доступен только когда включён (роль responder).
+        if (hash === 'incident-workbench' && !incidentEnabled) {
+          pageEl = null;
+          if (window.location.hash === '#incident-workbench') {
+            window.location.hash = '';
+          }
+        }
+        if (pageEl) {
+          DASHBOARD_SECTIONS.forEach(function (s) { if (s) { s.style.display = 'none'; } });
+          Object.keys(PAGE_SECTIONS).forEach(function (k) {
+            if (PAGE_SECTIONS[k]) {
+              PAGE_SECTIONS[k].style.display = (k === hash ? 'block' : 'none');
+            }
+          });
+          window.scrollTo(0, 0);
+        } else {
+          DASHBOARD_SECTIONS.forEach(function (s) { if (s) { s.style.display = ''; } });
+          Object.keys(PAGE_SECTIONS).forEach(function (k) {
+            if (PAGE_SECTIONS[k]) { PAGE_SECTIONS[k].style.display = 'none'; }
+          });
+        }
+        // Подсветка активного пункта навигации.
+        var navItems = document.querySelectorAll('.nav-item');
+        for (var i = 0; i < navItems.length; i += 1) {
+          var href = navItems[i].getAttribute('href') || '';
+          navItems[i].classList.toggle('active', href === '#' + hash && hash !== '');
+        }
+      }
+      window.addEventListener('hashchange', routeToPage);
+      routeToPage();
+
       window.addEventListener('resize', function () {
         renderGraph();
       });

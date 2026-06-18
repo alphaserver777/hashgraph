@@ -8,192 +8,342 @@
       "title": "Обнаружен вирус на узле",
       "category": "malware",
       "rationale": "Обнаружение известного вредоносного файла — критический сигнал об активной компрометации хоста. Без своевременной реакции ведёт к latрral movement и заражению соседних узлов.",
-      "linked_threats": ["MITRE T1059", "УБИ.084"],
-      "added_by": "Этап 0, ADR-0001"
+      "linked_threats": [
+        "MITRE T1059",
+        "УБИ.084"
+      ],
+      "added_by": "Этап 0, ADR-0001",
+      "npa": [
+        "ГОСТ Р 59548-2022 (РСБ)",
+        "Приказ ФСТЭК №17",
+        "Приказ ФСТЭК №239"
+      ]
     },
     "admin_login": {
       "class": "B",
       "title": "Удалённый вход администратора",
       "category": "authentication",
       "rationale": "Сам по себе вход не критичен (может быть штатная работа), но в связке с другими сигналами (изменение конфигов, новые процессы) формирует контекст инцидента.",
-      "linked_threats": ["УБИ.071"],
-      "added_by": "Этап 0, ADR-0001"
+      "linked_threats": [
+        "УБИ.071"
+      ],
+      "added_by": "Этап 0, ADR-0001",
+      "npa": [
+        "ГОСТ Р 59548-2022 (РСБ.1)",
+        "Приказ ФСТЭК №17",
+        "Приказ ФСТЭК №21"
+      ]
     },
     "admin_ssh_login_success": {
       "class": "A",
       "title": "Успешный административный SSH-вход",
       "category": "authentication",
       "rationale": "Любой успешный вход с административными правами — обязательная точка интереса для атрибуции инцидента. Без этой записи невозможно установить кто, когда и откуда получил доступ.",
-      "linked_threats": ["УБИ.071", "MITRE T1078"],
-      "added_by": "Этап 0, ADR-0001"
+      "linked_threats": [
+        "УБИ.071",
+        "MITRE T1078"
+      ],
+      "added_by": "Этап 0, ADR-0001",
+      "npa": [
+        "ГОСТ Р 59548-2022 (РСБ.1)",
+        "Приказ ФСТЭК №17",
+        "Приказ ФСТЭК №21"
+      ]
     },
     "admin_login_failure": {
       "class": "A",
       "title": "Неудачная попытка входа администратора",
       "category": "authentication",
       "rationale": "Одиночная неудачная попытка часто опечатка, но используется как signal в системе. Burst-форма (failed_login_burst) точно показывает подбор пароля.",
-      "linked_threats": ["УБИ.072"],
-      "added_by": "Этап 0, ADR-0001"
+      "linked_threats": [
+        "УБИ.072"
+      ],
+      "added_by": "Этап 0, ADR-0001",
+      "npa": [
+        "ГОСТ Р 59548-2022 (РСБ.1)",
+        "Приказ ФСТЭК №17"
+      ]
     },
     "failed_login_burst": {
       "class": "A",
       "title": "Серия неудачных попыток входа",
       "category": "authentication",
       "rationale": "≥10 неудачных попыток за окно 60 сек = автоматизированный подбор пароля. Прямое начало атаки на аутентификацию.",
-      "linked_threats": ["УБИ.072", "MITRE T1110"],
-      "added_by": "Этап 0, ADR-0001"
+      "linked_threats": [
+        "УБИ.072",
+        "MITRE T1110"
+      ],
+      "added_by": "Этап 0, ADR-0001",
+      "npa": [
+        "ГОСТ Р 59548-2022 (РСБ.1)",
+        "Приказ ФСТЭК №17"
+      ]
     },
     "remote_login_rdp": {
       "class": "B",
       "title": "Удалённый вход через RDP",
       "category": "authentication",
       "rationale": "Аналог admin_login для Windows-окружений.",
-      "linked_threats": ["УБИ.071"],
-      "added_by": "Этап 0, ADR-0001"
+      "linked_threats": [
+        "УБИ.071"
+      ],
+      "added_by": "Этап 0, ADR-0001",
+      "npa": [
+        "ГОСТ Р 59548-2022 (РСБ.1)",
+        "Приказ ФСТЭК №17"
+      ]
     },
     "critical_file_modified": {
       "class": "A",
       "title": "Изменение критического системного файла",
       "category": "integrity",
       "rationale": "Изменение /etc/passwd, /etc/shadow, /etc/ssh/sshd_config и т.п. — классический пост-эксплуатационный приём (добавление SSH-ключа, изменение разрешений входа). Каждое такое изменение требует ручной проверки.",
-      "linked_threats": ["УБИ.124", "MITRE T1098", "MITRE T1556"],
-      "added_by": "Этап 0, ADR-0001"
+      "linked_threats": [
+        "УБИ.124",
+        "MITRE T1098",
+        "MITRE T1556"
+      ],
+      "added_by": "Этап 0, ADR-0001",
+      "npa": [
+        "ГОСТ Р 59548-2022 (целостность)",
+        "Приказ ФСТЭК №17",
+        "Приказ ФСТЭК №239"
+      ]
     },
     "windows_registry_modified": {
       "class": "A",
       "title": "Изменение критического ключа реестра Windows",
       "category": "integrity",
       "rationale": "Аналог critical_file_modified для Windows. Persistence-механизмы атакующих опираются на ключи реестра.",
-      "linked_threats": ["MITRE T1547"],
-      "added_by": "Этап 0, ADR-0001"
+      "linked_threats": [
+        "MITRE T1547"
+      ],
+      "added_by": "Этап 0, ADR-0001",
+      "npa": [
+        "ГОСТ Р 59548-2022 (целостность)",
+        "Приказ ФСТЭК №17"
+      ]
     },
     "privileged_process_started": {
       "class": "B",
       "title": "Запуск процесса с повышенными привилегиями",
       "category": "process",
       "rationale": "Любой новый процесс с EUID=0 или административным токеном. На активной системе этих событий десятки в час (systemd, cron), поэтому класс B а не A — без корреляции с другими сигналами они не критичны.",
-      "linked_threats": ["MITRE T1078"],
-      "added_by": "Этап 0, ADR-0001"
+      "linked_threats": [
+        "MITRE T1078"
+      ],
+      "added_by": "Этап 0, ADR-0001",
+      "npa": [
+        "ГОСТ Р 59548-2022 (РСБ.4)",
+        "Приказ ФСТЭК №17"
+      ]
     },
     "known_malicious_process": {
       "class": "A",
       "title": "Запуск известного вредоносного процесса",
       "category": "malware",
       "rationale": "Срабатывание сигнатуры из чёрного списка (xmrig, minerd, kdevtmpfsi и т.п.) — почти всегда это пост-эксплуатационная нагрузка после удалённого взлома. Шанс ложного срабатывания минимальный.",
-      "linked_threats": ["MITRE T1496"],
-      "added_by": "Этап 0, ADR-0001"
+      "linked_threats": [
+        "MITRE T1496"
+      ],
+      "added_by": "Этап 0, ADR-0001",
+      "npa": [
+        "ГОСТ Р 59548-2022 (РСБ)",
+        "Приказ ФСТЭК №17",
+        "Приказ ФСТЭК №239"
+      ]
     },
     "firewall_rule_changed": {
       "class": "A",
       "title": "Изменение правил межсетевого экрана",
       "category": "network",
       "rationale": "Атакующий часто меняет правила firewall для обеспечения постоянного доступа или открытия C2-канала.",
-      "linked_threats": ["MITRE T1562.004"],
-      "added_by": "Этап 0, ADR-0001"
+      "linked_threats": [
+        "MITRE T1562.004"
+      ],
+      "added_by": "Этап 0, ADR-0001",
+      "npa": [
+        "ГОСТ Р 59548-2022 (РСБ)",
+        "Приказ ФСТЭК №17"
+      ]
     },
     "iptables_rule_changed": {
       "class": "A",
       "title": "Изменение правил iptables/nftables",
       "category": "network",
       "rationale": "Linux-вариант firewall_rule_changed. Изменение ruleset — точно индикатор работы с сетевым стеком.",
-      "linked_threats": ["MITRE T1562.004"],
-      "added_by": "Этап 0, ADR-0001"
+      "linked_threats": [
+        "MITRE T1562.004"
+      ],
+      "added_by": "Этап 0, ADR-0001",
+      "npa": [
+        "ГОСТ Р 59548-2022 (РСБ)",
+        "Приказ ФСТЭК №17"
+      ]
     },
     "critical_security_error": {
       "class": "A",
       "title": "Критическая ошибка подсистемы безопасности",
       "category": "system",
       "rationale": "Критическая ошибка kernel/audit/antivirus — может быть DoS-атакой или попыткой отключить защиту перед эксплуатацией.",
-      "linked_threats": ["УБИ.140"],
-      "added_by": "Этап 0, ADR-0001"
+      "linked_threats": [
+        "УБИ.140"
+      ],
+      "added_by": "Этап 0, ADR-0001",
+      "npa": [
+        "ГОСТ Р 59548-2022 (РСБ)",
+        "Приказ ФСТЭК №239"
+      ]
     },
     "mac_spoof": {
       "class": "A",
       "title": "Попытка MAC-spoofing",
       "category": "network",
       "rationale": "Подмена MAC-адреса — часто часть атаки ARP-spoofing для перехвата трафика.",
-      "linked_threats": ["MITRE T1557"],
-      "added_by": "Этап 0, ADR-0001"
+      "linked_threats": [
+        "MITRE T1557"
+      ],
+      "added_by": "Этап 0, ADR-0001",
+      "npa": [
+        "ГОСТ Р 59548-2022 (РСБ)",
+        "Приказ ФСТЭК №17"
+      ]
     },
     "portscan": {
       "class": "B",
       "title": "Аномальный порт-скан",
       "category": "network",
       "rationale": "Внешний порт-скан часто разведка перед атакой. Класс B, потому что сам по себе порт-скан не эксплуатация.",
-      "linked_threats": ["MITRE T1046"],
-      "added_by": "Этап 0, ADR-0001"
+      "linked_threats": [
+        "MITRE T1046"
+      ],
+      "added_by": "Этап 0, ADR-0001",
+      "npa": [
+        "ГОСТ Р 59548-2022 (РСБ)",
+        "Приказ ФСТЭК №17"
+      ]
     },
     "heartbeat": {
       "class": "C",
       "title": "Сигнал жизни узла",
       "category": "diagnostic",
       "rationale": "Регулярная отметка работы узла (каждые heartbeat.interval_sec, обычно 5 минут). Пропуски в потоке heartbeat за подозрительный период — улика принудительной остановки сбора (см. защиту от УБИ.124 через прерывание службы).",
-      "linked_threats": ["УБИ.124 (косвенно)"],
-      "added_by": "Этап «сигнал жизни», после ADR-0006"
+      "linked_threats": [
+        "УБИ.124 (косвенно)"
+      ],
+      "added_by": "Этап «сигнал жизни», после ADR-0006",
+      "npa": [
+        "ГОСТ Р 59548-2022 (непрерывность РСБ)"
+      ]
     },
     "mdrj_service_start": {
       "class": "B",
       "title": "Запуск службы реестра MDRJ-DAG",
       "category": "service_lifecycle",
       "rationale": "Узел эмитит при штатном старте. В паре с mdrj_service_stop формирует трассу непрерывной работы узла.",
-      "linked_threats": ["УБИ.124 (косвенно)"],
-      "added_by": "Этап «service lifecycle»"
+      "linked_threats": [
+        "УБИ.124 (косвенно)"
+      ],
+      "added_by": "Этап «service lifecycle»",
+      "npa": [
+        "ГОСТ Р 59548-2022 (защита РСБ)"
+      ]
     },
     "mdrj_service_stop": {
       "class": "B",
       "title": "Корректная остановка службы реестра MDRJ-DAG",
       "category": "service_lifecycle",
       "rationale": "Узел эмитит сам перед штатной остановкой. Отсутствие пары stop/start в реестре = улика принудительного прерывания (kill -9, OOM, аварийный crash).",
-      "linked_threats": ["УБИ.124"],
-      "added_by": "Этап «service lifecycle»"
+      "linked_threats": [
+        "УБИ.124"
+      ],
+      "added_by": "Этап «service lifecycle»",
+      "npa": [
+        "ГОСТ Р 59548-2022 (защита РСБ)"
+      ]
     },
     "mdrj_service_killed": {
       "class": "A",
       "title": "Подозрительное прерывание службы реестра",
       "category": "service_lifecycle",
       "rationale": "Эмитится при следующем старте, если в реестре найден mdrj_service_start без mdrj_service_stop. Прямой признак: предыдущий процесс был убит, а не остановлен штатно. Критическая улика атаки типа УБИ.124.",
-      "linked_threats": ["УБИ.124", "MITRE T1562.001"],
-      "added_by": "Этап «service lifecycle»"
+      "linked_threats": [
+        "УБИ.124",
+        "MITRE T1562.001"
+      ],
+      "added_by": "Этап «service lifecycle»",
+      "npa": [
+        "ГОСТ Р 59548-2022 (защита РСБ)",
+        "Приказ ФСТЭК №239"
+      ]
     },
     "host_boot": {
       "class": "C",
       "title": "Загрузка операционной системы хоста",
       "category": "system_lifecycle",
       "rationale": "Узел фиксирует загрузку ОС сразу после старта. Каждая загрузка должна оставлять запись — её отсутствие в подозрительный период есть улика подмены unit-файла или скрытого ребута.",
-      "linked_threats": ["УБИ.124 (косвенно)"],
-      "added_by": "Этап «host lifecycle»"
+      "linked_threats": [
+        "УБИ.124 (косвенно)"
+      ],
+      "added_by": "Этап «host lifecycle»",
+      "npa": [
+        "ГОСТ Р 59548-2022 (РСБ)"
+      ]
     },
     "host_reboot": {
       "class": "C",
       "title": "Перезагрузка операционной системы хоста",
       "category": "system_lifecycle",
       "rationale": "Эмитится когда коллектор фиксирует резкое обнуление uptime — между двумя соседними poll boot_time изменился. На практике редкое событие.",
-      "linked_threats": ["УБИ.124 (косвенно)"],
-      "added_by": "Этап «host lifecycle»"
+      "linked_threats": [
+        "УБИ.124 (косвенно)"
+      ],
+      "added_by": "Этап «host lifecycle»",
+      "npa": [
+        "ГОСТ Р 59548-2022 (РСБ)"
+      ]
     },
     "mdrj_tamper_detected": {
       "class": "A",
       "title": "Зафиксирована подделка реестра по checkpoint",
       "category": "integrity",
       "rationale": "Эмитится фон-loop _tamper_verify_loop когда verify_checkpoint обнаруживает что local_merkle_root не совпадает с подтверждённым 2/3 кворумом. Это прямая улика что кто-то изменил payload события задним числом. Распространяется через ACK-fanout 2/3 — все узлы узнают за секунды.",
-      "linked_threats": ["УБИ.124", "MITRE T1565.001"],
-      "added_by": "Слой 4 — фон-verify + tamper alert"
+      "linked_threats": [
+        "УБИ.124",
+        "MITRE T1565.001"
+      ],
+      "added_by": "Слой 4 — фон-verify + tamper alert",
+      "npa": [
+        "ГОСТ Р 59548-2022 (защита РСБ)",
+        "Приказ ФСТЭК №17",
+        "Приказ ФСТЭК №239"
+      ]
     },
     "mdrj_event_replication_failed": {
       "class": "B",
       "title": "Класс A не достиг 2/3 кворума при эмиссии",
       "category": "replication",
       "rationale": "Эмитится при неудаче ACK-fanout слоя 2: событие класса A не было подтверждено ≥ 2/3 пиров за timeout × retries. Само событие остаётся в _pending для долгой синхронизации через обычный gossip, но операторы должны узнать о факте недоставки.",
-      "linked_threats": ["УБИ.124 (косвенно)"],
-      "added_by": "Слой 2 — ACK-fanout с кворумом 2/3"
+      "linked_threats": [
+        "УБИ.124 (косвенно)"
+      ],
+      "added_by": "Слой 2 — ACK-fanout с кворумом 2/3",
+      "npa": [
+        "ГОСТ Р 59548-2022 (непрерывность РСБ)"
+      ]
     },
     "node_hourly_status": {
       "class": "B",
       "title": "Часовой диагностический снимок узла",
       "category": "diagnostic",
       "rationale": "Раз в час узел эмитит событие с агрегированным состоянием за окно: uptime процесса и хоста, перечень включённых коллекторов с их emitted_count/last_poll/last_error, разбивку событий по классам A/B/C за окно, RSS, load_avg, последний confirmed checkpoint. Замена частого heartbeat: даёт криминалистически ценный снимок вместо 12 пустых маячков в час. Пропуск > interval × 1.5 = улика прерывания сбора.",
-      "linked_threats": ["УБИ.124"],
-      "added_by": "Оптимизация heartbeat: 12 событий/час → 1 событие/час с богатой диагностикой"
+      "linked_threats": [
+        "УБИ.124"
+      ],
+      "added_by": "Оптимизация heartbeat: 12 событий/час → 1 событие/час с богатой диагностикой",
+      "npa": [
+        "ГОСТ Р 59548-2022 (непрерывность РСБ)"
+      ]
     },
     "privilege_escalation": {
       "class": "A",
@@ -201,8 +351,15 @@
       "category": "authentication",
       "source": "auth.log / auditd",
       "rationale": "Любое успешное повышение прав до root через sudo, su, pkexec или polkit — обязательная точка интереса для атрибуции инцидента. Атакующий после initial access почти всегда эскалирует привилегии.",
-      "linked_threats": ["УБИ.071", "MITRE T1548"],
-      "npa": ["ГОСТ Р 59548-2022 (РСБ)", "Приказ ФСТЭК №17", "Приказ ФСТЭК №239"]
+      "linked_threats": [
+        "УБИ.071",
+        "MITRE T1548"
+      ],
+      "npa": [
+        "ГОСТ Р 59548-2022 (РСБ)",
+        "Приказ ФСТЭК №17",
+        "Приказ ФСТЭК №239"
+      ]
     },
     "user_account_created": {
       "class": "A",
@@ -210,8 +367,15 @@
       "category": "account_management",
       "source": "auditd (useradd/userdel) / watch /etc/passwd",
       "rationale": "Создание новой учётной записи — классический persistence-механизм атакующего. Каждое изменение состава учётных записей требует ручной проверки.",
-      "linked_threats": ["УБИ.071", "MITRE T1136"],
-      "npa": ["ГОСТ Р 59548-2022 (РСБ)", "Приказ ФСТЭК №17", "Приказ ФСТЭК №21"]
+      "linked_threats": [
+        "УБИ.071",
+        "MITRE T1136"
+      ],
+      "npa": [
+        "ГОСТ Р 59548-2022 (РСБ)",
+        "Приказ ФСТЭК №17",
+        "Приказ ФСТЭК №21"
+      ]
     },
     "privileged_group_change": {
       "class": "A",
@@ -219,8 +383,13 @@
       "category": "account_management",
       "source": "auditd / watch /etc/group",
       "rationale": "Добавление учётной записи в группы sudo/wheel/root — скрытая эскалация привилегий, которую легко пропустить при анализе только логинов.",
-      "linked_threats": ["MITRE T1098"],
-      "npa": ["ГОСТ Р 59548-2022 (РСБ)", "Приказ ФСТЭК №17"]
+      "linked_threats": [
+        "MITRE T1098"
+      ],
+      "npa": [
+        "ГОСТ Р 59548-2022 (РСБ)",
+        "Приказ ФСТЭК №17"
+      ]
     },
     "audit_config_changed": {
       "class": "A",
@@ -228,8 +397,14 @@
       "category": "integrity",
       "source": "auditd (auditctl / augenrules)",
       "rationale": "Изменение правил аудита (auditctl, augenrules) — прямая попытка ослепить РСБ перед атакой. Сама подсистема регистрации должна регистрировать изменения своей конфигурации.",
-      "linked_threats": ["УБИ.124", "MITRE T1562.001"],
-      "npa": ["ГОСТ Р 59548-2022 (защита РСБ)", "Приказ ФСТЭК №17"]
+      "linked_threats": [
+        "УБИ.124",
+        "MITRE T1562.001"
+      ],
+      "npa": [
+        "ГОСТ Р 59548-2022 (защита РСБ)",
+        "Приказ ФСТЭК №17"
+      ]
     },
     "log_cleared": {
       "class": "A",
@@ -237,8 +412,15 @@
       "category": "integrity",
       "source": "watch /var/log + journal vacuum + auditd",
       "rationale": "Удаление или очистка журналов (rm /var/log/*, journalctl --vacuum, truncate) — прямое проявление УБИ.124, целевой угрозы реестра. Распределённое хранение делает уже зафиксированные события незатираемыми: затёртое локально событие восстанавливается с честных узлов.",
-      "linked_threats": ["УБИ.124", "MITRE T1070"],
-      "npa": ["ГОСТ Р 59548-2022 (РСБ)", "Приказ ФСТЭК №17", "Приказ ФСТЭК №239"]
+      "linked_threats": [
+        "УБИ.124",
+        "MITRE T1070"
+      ],
+      "npa": [
+        "ГОСТ Р 59548-2022 (РСБ)",
+        "Приказ ФСТЭК №17",
+        "Приказ ФСТЭК №239"
+      ]
     },
     "system_time_changed": {
       "class": "B",
@@ -246,8 +428,12 @@
       "category": "integrity",
       "source": "auditd time-change / timedatectl",
       "rationale": "Скачок системного времени искажает временную привязку всех событий — атакующий может подделать порядок инцидента. В реестре есть независимый consensus_ts, но изменение часов само по себе подозрительно.",
-      "linked_threats": ["MITRE T1070.006"],
-      "npa": ["ГОСТ Р 59548-2022 (РСБ)"]
+      "linked_threats": [
+        "MITRE T1070.006"
+      ],
+      "npa": [
+        "ГОСТ Р 59548-2022 (РСБ)"
+      ]
     },
     "external_media_mount": {
       "class": "B",
@@ -255,8 +441,14 @@
       "category": "device",
       "source": "udev / auditd / kernel USB",
       "rationale": "Монтирование USB-накопителя — канал exfiltration данных или доставки вредоносного ПО. Для защищаемых сегментов требует фиксации.",
-      "linked_threats": ["MITRE T1052", "MITRE T1091"],
-      "npa": ["ГОСТ Р 59548-2022 (РСБ)", "Приказ ФСТЭК №17"]
+      "linked_threats": [
+        "MITRE T1052",
+        "MITRE T1091"
+      ],
+      "npa": [
+        "ГОСТ Р 59548-2022 (РСБ)",
+        "Приказ ФСТЭК №17"
+      ]
     },
     "security_service_failure": {
       "class": "A",
@@ -264,8 +456,15 @@
       "category": "system",
       "source": "journald / systemd unit failure",
       "rationale": "Падение или принудительная остановка СЗИ (антивирус, auditd, межсетевой экран) — либо сбой, либо целенаправленное отключение защиты перед атакой. Эквивалент mdrj_service_killed, но для внешних СЗИ.",
-      "linked_threats": ["УБИ.140", "MITRE T1562.001"],
-      "npa": ["ГОСТ Р 59548-2022 (РСБ)", "Приказ ФСТЭК №17", "Приказ ФСТЭК №239"]
+      "linked_threats": [
+        "УБИ.140",
+        "MITRE T1562.001"
+      ],
+      "npa": [
+        "ГОСТ Р 59548-2022 (РСБ)",
+        "Приказ ФСТЭК №17",
+        "Приказ ФСТЭК №239"
+      ]
     },
     "mdrj_collection_policy_changed": {
       "class": "A",
@@ -273,8 +472,14 @@
       "category": "integrity",
       "source": "внутреннее (UI / API)",
       "rationale": "Эмитится при изменении оператором множества регистрируемых событий (тугл registry_enabled, смена класса). Сама политика мониторинга — часть охраняемого периметра: если злоумышленник отключит регистрацию перед атакой, это останется незатираемой уликой класса A. Хэш политики включается в node_hourly_status и checkpoint.",
-      "linked_threats": ["УБИ.124", "MITRE T1562"],
-      "npa": ["ГОСТ Р 59548-2022 (защита РСБ)", "Приказ ФСТЭК №17"]
+      "linked_threats": [
+        "УБИ.124",
+        "MITRE T1562"
+      ],
+      "npa": [
+        "ГОСТ Р 59548-2022 (защита РСБ)",
+        "Приказ ФСТЭК №17"
+      ]
     }
   }
 }
