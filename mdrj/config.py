@@ -126,6 +126,12 @@ class RuntimeConfig:
     # выключен (но on-demand /checkpoint/verify работает всегда).
     tamper_verify_interval_sec: float = 0.0
 
+    # Часовой диагностический снимок (event_kind=node_hourly_status, класс B).
+    # Заменяет частый heartbeat: одно событие с богатым payload (uptime,
+    # коллекторы, события по классам в окне, RSS, load) вместо 12 пустых
+    # heartbeat за час. Гэп > interval × 1.5 = улика прерывания сбора.
+    hourly_status_interval_sec: float = 0.0
+
 
 @dataclass(slots=True)
 class NodeConfig:
@@ -252,6 +258,7 @@ def _parse_runtime(raw: dict) -> RuntimeConfig:
         class_a_fanout_max_retries=int(raw.get("class_a_fanout_max_retries", 3)),
         frontier_sync_interval_sec=float(raw.get("frontier_sync_interval_sec", 0.0)),
         tamper_verify_interval_sec=float(raw.get("tamper_verify_interval_sec", 0.0)),
+        hourly_status_interval_sec=float(raw.get("hourly_status_interval_sec", 0.0)),
     )
 
 

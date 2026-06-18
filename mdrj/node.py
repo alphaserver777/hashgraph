@@ -149,6 +149,18 @@ class Node:
         self._heartbeat_stop = asyncio.Event()
         self._heartbeat_stop.set()
         self._heartbeat_emitted = 0
+        # Часовой диагностический снимок (замена heartbeat).
+        self._hourly_status_task: Optional[asyncio.Task] = None
+        self._hourly_status_stop = asyncio.Event()
+        self._hourly_status_stop.set()
+        self._hourly_status_emitted = 0
+        self._hourly_window_start_ts = time.time()
+        self._process_start_ts = time.time()
+        # «Защёлка» emitted_count коллекторов на момент прошлого
+        # часового снимка — для вычисления emitted_in_window.
+        self._collector_emitted_at_window_start: Dict[str, int] = {}
+        # «Защёлка» events_by_class_kind на момент прошлого окна.
+        self._events_by_class_at_window_start: Dict[str, int] = {}
         # Состояние дебаунса _recompute_consensus (см. _request_recompute).
         self._recompute_dirty: bool = False
         self._recompute_debounce_task: Optional[asyncio.Task] = None
@@ -234,6 +246,8 @@ class Node:
             self._start_retention()
         if self.config.heartbeat.enabled:
             self._start_heartbeat()
+        if float(getattr(self.config.runtime, "hourly_status_interval_sec", 0.0)) > 0:
+            self._start_hourly_status()
         # Слои 1, 3, 4 — фоновые циклы. Включаются только если в конфиге
         # выставлен соответствующий интервал > 0 (по умолчанию все 0 для
         # обратной совместимости со старыми тестами).
@@ -275,6 +289,7 @@ class Node:
             ("_checkpoint_propose_task", "_checkpoint_propose_stop", "checkpoint_propose"),
             ("_frontier_sync_task", "_frontier_sync_stop", "frontier_sync"),
             ("_tamper_verify_task", "_tamper_verify_stop", "tamper_verify"),
+            ("_hourly_status_task", "_hourly_status_stop", "hourly_status"),
         ):
             task = getattr(self, task_attr)
             if task:
@@ -1242,6 +1257,160 @@ class Node:
             "interval_sec": self.config.heartbeat.interval_sec,
             "emitted_count": self._heartbeat_emitted,
             "running": self._heartbeat_task is not None and not self._heartbeat_task.done(),
+        }
+
+    # ------------------------------------------------------------------
+    # Часовой диагностический снимок — замена частого heartbeat.
+    #
+    # Раз в runtime.hourly_status_interval_sec эмитируется одно событие
+    # event_kind=node_hourly_status (класс B) с агрегированным состоянием
+    # за окно. 12 пустых heartbeat в час → 1 криминалистически ценный
+    # снимок. Пропуск > интервал × 1.5 = улика прерывания сбора
+    # (Слой 2 защиты от УБИ.124).
+    def _start_hourly_status(self) -> None:
+        if self._hourly_status_task and not self._hourly_status_task.done():
+            return
+        self._hourly_status_stop.clear()
+        self._process_start_ts = time.time()
+        self._hourly_window_start_ts = time.time()
+        # Снимок счётчиков коллекторов на старте — база для delta.
+        self._collector_emitted_at_window_start = {
+            c.status.name: int(c.status.emitted_count) for c in self._collectors
+        }
+        self._events_by_class_at_window_start = self._snapshot_events_by_class()
+        self._hourly_status_task = asyncio.create_task(self._hourly_status_loop())
+
+    def _snapshot_events_by_class(self) -> Dict[str, int]:
+        out: Dict[str, int] = {"A": 0, "B": 0, "C": 0}
+        for (cls, _kind), count in self._events_by_class_kind.items():
+            out[cls] = out.get(cls, 0) + count
+        return out
+
+    async def _hourly_status_loop(self) -> None:
+        interval = max(60.0, float(self.config.runtime.hourly_status_interval_sec))
+        # При первом проходе ждём целое окно, чтобы payload содержал
+        # реальную накопленную статистику, а не нулевую.
+        while not self._hourly_status_stop.is_set():
+            try:
+                await asyncio.wait_for(self._hourly_status_stop.wait(), timeout=interval)
+                break  # cancel
+            except asyncio.TimeoutError:
+                pass
+            try:
+                await self._emit_hourly_status()
+            except Exception:
+                logger.exception("hourly status emit failed")
+
+    async def _emit_hourly_status(self) -> None:
+        """Собрать и эмитить один часовой снимок класса B."""
+        now = time.time()
+        window_sec = now - self._hourly_window_start_ts
+        # Коллекторы — список с delta emitted за окно.
+        collectors_snapshot: List[Dict[str, object]] = []
+        for col in self._collectors:
+            s = col.status
+            prev = self._collector_emitted_at_window_start.get(s.name, 0)
+            delta = max(0, int(s.emitted_count) - prev)
+            collectors_snapshot.append({
+                "name": s.name,
+                "enabled": bool(s.enabled),
+                "emitted_in_window": delta,
+                "emitted_total": int(s.emitted_count),
+                "dropped_total": int(s.dropped_count),
+                "last_poll_at": s.last_poll_at,
+                "last_event_at": s.last_event_at,
+                "last_error": s.last_error,
+            })
+        # События по классам за окно.
+        cur_by_class = self._snapshot_events_by_class()
+        delta_by_class = {
+            cls: max(0, cur_by_class.get(cls, 0) - self._events_by_class_at_window_start.get(cls, 0))
+            for cls in ("A", "B", "C")
+        }
+        # Системные показатели хоста.
+        host_uptime, load_1m, mem_used_pct, disk_used_pct = self._collect_host_health()
+        # Последний confirmed checkpoint.
+        last_cp_round, last_cp_age = self._latest_confirmed_checkpoint_summary(now)
+        payload = {
+            "event_kind": "node_hourly_status",
+            "node_id": self.config.node_id,
+            "host_id": self.config.linux_ingest.host_id or self.config.node_id,
+            "window_sec": window_sec,
+            "process_uptime_sec": now - self._process_start_ts,
+            "host_uptime_sec": host_uptime,
+            "collectors": collectors_snapshot,
+            "events_in_window": delta_by_class,
+            "load_avg_1m": load_1m,
+            "mem_used_pct": mem_used_pct,
+            "disk_used_pct_root": disk_used_pct,
+            "last_confirmed_checkpoint_round": last_cp_round,
+            "last_checkpoint_age_sec": last_cp_age,
+            "tamper_evidence": bool(getattr(self, "_tamper_evidence", False)),
+            "peers_known": len(self.list_peers()),
+        }
+        try:
+            await self.emit_event(EventClass.B, payload)
+            self._hourly_status_emitted += 1
+        except Exception:
+            logger.exception("emit_event failed for node_hourly_status")
+            return
+        # Сдвигаем окно вперёд.
+        self._hourly_window_start_ts = now
+        self._collector_emitted_at_window_start = {
+            c.status.name: int(c.status.emitted_count) for c in self._collectors
+        }
+        self._events_by_class_at_window_start = cur_by_class
+
+    def _collect_host_health(self) -> Tuple[float, float, float, float]:
+        host_uptime = 0.0
+        try:
+            with open("/proc/uptime", "r", encoding="ascii") as fp:
+                host_uptime = float(fp.read().split()[0])
+        except Exception:
+            pass
+        load_1m = 0.0
+        try:
+            with open("/proc/loadavg", "r", encoding="ascii") as fp:
+                load_1m = float(fp.read().split()[0])
+        except Exception:
+            pass
+        mem_used_pct = 0.0
+        try:
+            with open("/proc/meminfo", "r", encoding="ascii") as fp:
+                lines = {ln.split(":", 1)[0]: ln.split(":", 1)[1].strip().split()[0]
+                         for ln in fp.read().splitlines() if ":" in ln}
+            total = int(lines.get("MemTotal", "1"))
+            available = int(lines.get("MemAvailable", "0"))
+            if total > 0:
+                mem_used_pct = round((1.0 - available / total) * 100.0, 1)
+        except Exception:
+            pass
+        disk_used_pct = 0.0
+        try:
+            import os as _os
+            st = _os.statvfs("/")
+            if st.f_blocks > 0:
+                disk_used_pct = round((1.0 - st.f_bavail / st.f_blocks) * 100.0, 1)
+        except Exception:
+            pass
+        return host_uptime, load_1m, mem_used_pct, disk_used_pct
+
+    def _latest_confirmed_checkpoint_summary(self, now: float) -> Tuple[int, float]:
+        try:
+            latest = self.storage.latest_confirmed_checkpoint()
+        except Exception:
+            return 0, 0.0
+        if not latest:
+            return 0, 0.0
+        return int(latest.get("round_received") or 0), \
+               max(0.0, now - float(latest.get("confirmed_at") or latest.get("created_at") or 0))
+
+    def hourly_status_runtime(self) -> Dict[str, object]:
+        return {
+            "enabled": float(getattr(self.config.runtime, "hourly_status_interval_sec", 0.0)) > 0,
+            "interval_sec": float(self.config.runtime.hourly_status_interval_sec),
+            "emitted_count": self._hourly_status_emitted,
+            "running": self._hourly_status_task is not None and not self._hourly_status_task.done(),
         }
 
     # ------------------------------------------------------------------

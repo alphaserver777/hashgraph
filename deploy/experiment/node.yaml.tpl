@@ -40,7 +40,7 @@ linux_ingest:
 collectors:
   audit:
     enabled: true
-    poll_interval_sec: 5.0
+    poll_interval_sec: 30.0
   # firewall и proc генерят шум (iptables-save диффы, привилегированные
   # процессы systemd/cron) — десятки событий в минуту, /viz перегружается.
   # Включать только при целевых сценариях расследования.
@@ -52,15 +52,17 @@ collectors:
     poll_interval_sec: 5.0
 
 heartbeat:
-  # Сигнал жизни класса C. На стенде даёт ~12 events/час/узел —
-  # /viz «пульсирует», но граф не перегружен. Защита УБИ.124 через
-  # детект пропусков heartbeat (слой 2).
-  enabled: true
+  # Старый частый маячок — выключен. Заменён часовым диагностическим
+  # снимком (runtime.hourly_status_interval_sec). Heartbeat можно
+  # включить точечно для отладки.
+  enabled: false
   interval_sec: 300.0
 
 retention:
   enabled: true
-  max_age_days: 7
+  # 3 дня горячего хранения по запросу пользователя. Класс A — всегда,
+  # класс B/C старше 3 дней удаляются (остаётся merkle-skeleton).
+  max_age_days: 3
   keep_class_a: true
   poll_interval_sec: 300.0
 
@@ -94,6 +96,12 @@ runtime:
   # При обнаружении подделки эмитим класс A mdrj_tamper_detected,
   # который через Слой 2 гарантированно дойдёт до всех соседей.
   tamper_verify_interval_sec: 120
+
+  # Часовой диагностический снимок (event_kind=node_hourly_status,
+  # класс B). Замена частого heartbeat: вместо 12 пустых маячков в
+  # час — одно событие с богатой диагностикой (uptime, коллекторы,
+  # события по классам в окне, RSS, load_avg, последний checkpoint).
+  hourly_status_interval_sec: 3600
 
 discovery:
   mode: disabled

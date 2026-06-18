@@ -269,6 +269,14 @@ EVENT_CATALOG: Dict[str, Dict[str, object]] = {
             "description": "Эмитится при неудаче ACK-fanout: класс A не подтверждён ≥ 2/3 пиров. Само событие остаётся в _pending для длинной gossip-синхронизации.",
         },
     },
+    "node_hourly_status": {
+        "class": EventClass.B,
+        "title": "Часовой диагностический снимок узла",
+        "payload": {
+            "category": "diagnostic",
+            "description": "Раз в час узел эмитит событие с агрегированным состоянием за окно: uptime процесса и хоста, перечень включённых коллекторов с их emitted_count/last_poll/last_error, разбивку событий по классам A/B/C за окно, RSS, load_avg, последний confirmed checkpoint. Замена частого heartbeat: даёт оператору криминалистически ценный снимок вместо 12 пустых маячков в час. Пропуск > interval × 1.5 = улика прерывания сбора (Слой 2 защиты от УБИ.124).",
+        },
+    },
 }
 
 

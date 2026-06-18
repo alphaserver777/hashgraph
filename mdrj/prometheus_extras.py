@@ -258,13 +258,17 @@ def build_extras(node) -> List[MetricSeries]:
     return out
 
 
-def _collect_peer_heartbeats(node) -> Dict[str, float]:
-    """Найти время последнего heartbeat-события на пира.
+_LIVENESS_KINDS = {"heartbeat", "node_hourly_status"}
 
-    Идём по событиям из storage с event_kind=heartbeat, берём ts_local
-    последнего для каждого источника. Это даёт реальный «возраст»
-    сигнала жизни как видит локальный узел, а не доверчивое last_seen
-    из peer-registry.
+
+def _collect_peer_heartbeats(node) -> Dict[str, float]:
+    """Найти время последнего liveness-события на пира.
+
+    Учитываются оба event_kind: heartbeat (старый частый маячок) и
+    node_hourly_status (часовой диагностический снимок). Берётся
+    самое свежее из них для каждого creator. Это даёт реальный
+    «возраст» сигнала жизни как видит локальный узел, независимо
+    от выбранной политики (heartbeat / hourly_status / оба).
     """
     now = time.time()
     latest: Dict[str, float] = {}
@@ -274,7 +278,7 @@ def _collect_peer_heartbeats(node) -> Dict[str, float]:
         return {}
     for event in events:
         payload = event.payload or {}
-        if payload.get("event_kind") != "heartbeat":
+        if payload.get("event_kind") not in _LIVENESS_KINDS:
             continue
         peer_id = str(payload.get("node_id") or event.source or "").strip()
         if not peer_id:
