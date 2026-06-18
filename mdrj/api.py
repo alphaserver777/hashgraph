@@ -1931,7 +1931,11 @@ VIZ_HTML = """
     .incident-mini, .incident-card-desc { display: block; margin-top: 0.18rem; color: var(--text-2); font-size: 0.74rem; line-height: 1.45; }
     .incident-table-note { color: var(--text-2); max-width: 220px; line-height: 1.45; }
     .incident-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
-    .incident-column { display: flex; flex-direction: column; gap: 0.75rem; padding: 0.9rem; border-radius: 18px; background: rgba(8, 16, 25, 0.76); border: 1px solid rgba(255,255,255,0.05); min-height: 220px; }
+    .incident-column { display: flex; flex-direction: column; gap: 0.75rem; padding: 0.9rem; border-radius: 18px; background: rgba(8, 16, 25, 0.76); border: 1px solid rgba(255,255,255,0.05); min-height: 220px; max-height: calc(100vh - 200px); }
+    .incident-column-body { display: flex; flex-direction: column; gap: 0.75rem; overflow-y: auto; overflow-x: hidden; flex: 1 1 auto; min-height: 0; padding-right: 4px; }
+    .incident-column-body::-webkit-scrollbar { width: 8px; }
+    .incident-column-body::-webkit-scrollbar-thumb { background: rgba(150,190,255,0.25); border-radius: 4px; }
+    .incident-column-head { position: sticky; top: 0; }
     .incident-column.drag-over { border-color: rgba(106, 169, 255, 0.22); background: rgba(14, 25, 38, 0.92); }
     .incident-column-head { display: flex; justify-content: space-between; gap: 0.6rem; align-items: center; }
     .incident-column-head h4 { margin: 0; color: #ffffff; font-size: 0.9rem; }
@@ -3746,7 +3750,7 @@ VIZ_HTML = """
           }).join('');
           return '<section class="incident-column" data-status-column="' + escapeHtml(status) + '">' +
             '<div class="incident-column-head"><h4>' + escapeHtml(status) + '</h4><span class="incident-column-count">' + cards.length + '</span></div>' +
-            (cardHtml || '<div class="incident-empty">Пусто</div>') +
+            '<div class="incident-column-body">' + (cardHtml || '<div class="incident-empty">Пусто</div>') + '</div>' +
           '</section>';
         }).join('');
         incidentBoardViewEl.innerHTML = '<div class="incident-board">' + columns + '</div>';
