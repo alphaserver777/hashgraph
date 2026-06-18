@@ -1,8 +1,15 @@
 # Observability-стек MDRJ-DAG: Prometheus + Grafana.
 #
-# Разворачивается на одном хосте (по умолчанию dev1-robots — на нём
-# 64 GB RAM, есть запас). Scrape-ит 3 узла кластера через публичные
-# IP. Дашборд Grafana автопровизионится из ./grafana/dashboards/.
+# Сетевая модель: network_mode=host. Контейнеры слушают порт хоста
+# напрямую, без docker bridge.
+#
+# Почему host network:
+#   На хостах с Proxmox VE (vmbr0) docker bridge может быть отрезан
+#   от хост-стека iptables-правилами Proxmox. host network обходит
+#   эту проблему — порт сразу на хосте, без NAT.
+#
+# Следствие: Grafana должна обращаться к Prometheus как localhost:9090
+# (см. grafana/provisioning/datasources/prometheus.yml).
 #
 # Запуск:
 #   cd /opt/mdrj-observability && docker compose up -d
@@ -14,6 +21,7 @@ services:
     image: prom/prometheus:v3.0.1
     container_name: mdrj-prometheus
     restart: unless-stopped
+    network_mode: host
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
@@ -22,13 +30,13 @@ services:
       - "--storage.tsdb.path=/prometheus"
       - "--storage.tsdb.retention.time=30d"
       - "--web.enable-lifecycle"
-    ports:
-      - "9090:9090"
+      - "--web.listen-address=:9090"
 
   grafana:
     image: grafana/grafana:11.4.0
     container_name: mdrj-grafana
     restart: unless-stopped
+    network_mode: host
     depends_on:
       - prometheus
     environment:
@@ -37,13 +45,11 @@ services:
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_SERVER_HTTP_PORT: "3000"
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana-data:/var/lib/grafana
-    ports:
-      - "3000:3000"
-
 volumes:
   prometheus-data:
   grafana-data:
