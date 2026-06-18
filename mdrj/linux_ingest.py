@@ -32,6 +32,24 @@ ISO_SSH_ACCEPTED_RE = re.compile(
     r"(?P<source_ip>[0-9a-fA-F:.]+)\s+port\s+(?P<port>\d+)"
 )
 
+# Неуспешный SSH-вход (оба формата времени). Источник для агрегации
+# failed_login_burst — единичные fail не эмитим (шум от ботов), эмитим
+# одно событие класса A при превышении порога за окно.
+SSH_FAILED_RE = re.compile(
+    r"sshd(?:-session)?(?:\[\d+\])?:\s+"
+    r"Failed\s+password\s+for\s+(?:invalid user\s+)?(?P<user>[\w.@-]+)\s+from\s+"
+    r"(?P<source_ip>[0-9a-fA-F:.]+)\s+port\s+(?P<port>\d+)"
+)
+
+# Повышение привилегий: успешная sudo-сессия или su к root.
+SUDO_SESSION_RE = re.compile(
+    r"sudo(?:\[\d+\])?:\s+pam_unix\(sudo:session\):\s+session opened for user\s+(?P<target>[\w.@-]+)"
+    r"(?:\(uid=\d+\))?\s+by\s+(?P<actor>[\w.@-]*)"
+)
+SU_SESSION_RE = re.compile(
+    r"\bsu(?:\[\d+\])?:\s+pam_unix\(su(?:-l)?:session\):\s+session opened for user\s+(?P<target>[\w.@-]+)"
+)
+
 
 @dataclass(slots=True)
 class LinuxIngestStatus:
@@ -78,6 +96,12 @@ class LinuxAuthLogIngestor:
         self._privileged_groups = {
             group.strip() for group in config.privileged_groups if str(group).strip()
         }
+        # Скользящее окно неудачных входов по source_ip для агрегации
+        # failed_login_burst. Порог и окно — разумные дефолты.
+        self._failed_window: Dict[str, List[float]] = {}
+        self._failed_burst_threshold = 5
+        self._failed_burst_window_sec = 120.0
+        self._failed_burst_emitted_at: Dict[str, float] = {}
 
     def poll(self) -> List[Dict[str, object]]:
         now = time.time()
@@ -120,7 +144,9 @@ class LinuxAuthLogIngestor:
             match = SYSLOG_SSH_ACCEPTED_RE.match(line)
             timestamp_kind = "syslog"
         if not match:
-            return None
+            # Не успешный вход — пробуем прочие парсеры (failed burst,
+            # повышение привилегий). Они не зависят от admin_users-фильтра.
+            return self._parse_other(line, line_offset, collected_at_ts)
 
         principal = match.group("user")
         privilege_scope = self._privilege_scope(principal)
@@ -161,6 +187,90 @@ class LinuxAuthLogIngestor:
                 "raw_line": line,
             },
         }
+
+    def _parse_other(
+        self,
+        line: str,
+        line_offset: int,
+        collected_at_ts: float,
+    ) -> Optional[Dict[str, object]]:
+        """Парсеры неуспешных входов (burst) и повышения привилегий."""
+        collected_at = datetime.fromtimestamp(collected_at_ts).isoformat(timespec="seconds") + "Z"
+        raw_ref = f"{self.auth_log_path}:{line_offset}"
+
+        # 1. Failed password → агрегация в failed_login_burst.
+        m = SSH_FAILED_RE.search(line)
+        if m:
+            ip = m.group("source_ip")
+            window = self._failed_window.setdefault(ip, [])
+            window.append(collected_at_ts)
+            cutoff = collected_at_ts - self._failed_burst_window_sec
+            window[:] = [t for t in window if t >= cutoff]
+            if len(window) >= self._failed_burst_threshold:
+                # Не чаще одного burst-события на окно для одного ip.
+                last_emit = self._failed_burst_emitted_at.get(ip, 0.0)
+                if collected_at_ts - last_emit < self._failed_burst_window_sec:
+                    return None
+                self._failed_burst_emitted_at[ip] = collected_at_ts
+                count = len(window)
+                window.clear()
+                return {
+                    "event_kind": "failed_login_burst",
+                    "class": "A",
+                    "host_id": self.host_id,
+                    "node_id": self.node_id,
+                    "collected_at": collected_at,
+                    "source_ip": ip,
+                    "target_service": "sshd",
+                    "result": "failure",
+                    "failed_count": count,
+                    "window_sec": self._failed_burst_window_sec,
+                    "raw_ref": raw_ref,
+                    "title": f"Серия неудачных входов с {ip}",
+                    "description": (
+                        f"Зафиксировано ≥{self._failed_burst_threshold} неудачных "
+                        f"SSH-входов с адреса {ip} за {int(self._failed_burst_window_sec)}с — "
+                        "признак автоматизированного подбора пароля."
+                    ),
+                    "category": "authentication",
+                    "context": {"source_type": self.config.source_type, "raw_line": line},
+                }
+            return None
+
+        # 2. Повышение привилегий: sudo / su сессия.
+        m = SUDO_SESSION_RE.search(line)
+        mechanism = None
+        target = actor = None
+        if m:
+            mechanism = "sudo"
+            target = m.group("target")
+            actor = m.group("actor") or ""
+        else:
+            m = SU_SESSION_RE.search(line)
+            if m:
+                mechanism = "su"
+                target = m.group("target")
+                actor = ""
+        if mechanism and target == "root":
+            return {
+                "event_kind": "privilege_escalation",
+                "class": "A",
+                "host_id": self.host_id,
+                "node_id": self.node_id,
+                "collected_at": collected_at,
+                "mechanism": mechanism,
+                "target_user": target,
+                "actor_user": actor,
+                "raw_ref": raw_ref,
+                "title": f"Повышение привилегий через {mechanism} до {target}",
+                "description": (
+                    f"Открыта привилегированная сессия ({mechanism}) для {target}"
+                    + (f" пользователем {actor}" if actor else "") + "."
+                ),
+                "category": "authentication",
+                "context": {"source_type": self.config.source_type, "raw_line": line},
+            }
+        return None
 
     def _privilege_scope(self, principal: str) -> Optional[str]:
         if principal == "root":

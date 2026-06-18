@@ -72,6 +72,16 @@ def _load_from_json() -> Optional[Dict[str, Dict[str, object]]]:
                 "rationale": str(descriptor.get("rationale", "")),
                 "linked_threats": list(descriptor.get("linked_threats", []) or []),
                 "added_by": str(descriptor.get("added_by", "")),
+                # НПА — нормативно-правовой акт, требующий регистрации
+                # (ГОСТ Р 59548-2022, приказы ФСТЭК №17/21/239).
+                "npa": list(descriptor.get("npa", []) or []),
+                # Источник сбора (auth.log, auditd, journald) — справочно.
+                "source": str(descriptor.get("source", "")),
+                # registry_enabled — политика реестра (ось 3): сохранять ли
+                # распознанное событие в распределённый журнал. По умолчанию
+                # true для обратной совместимости. Управляется оператором
+                # через /catalog/policy.
+                "registry_enabled": bool(descriptor.get("registry_enabled", True)),
             }
         if runtime:
             logger.info("loaded %d event kinds from %s", len(runtime), path)
@@ -277,6 +287,51 @@ EVENT_CATALOG: Dict[str, Dict[str, object]] = {
             "description": "Раз в час узел эмитит событие с агрегированным состоянием за окно: uptime процесса и хоста, перечень включённых коллекторов с их emitted_count/last_poll/last_error, разбивку событий по классам A/B/C за окно, RSS, load_avg, последний confirmed checkpoint. Замена частого heartbeat: даёт оператору криминалистически ценный снимок вместо 12 пустых маячков в час. Пропуск > interval × 1.5 = улика прерывания сбора (Слой 2 защиты от УБИ.124).",
         },
     },
+    "privilege_escalation": {
+        "class": EventClass.A,
+        "title": "Повышение привилегий (sudo/su/pkexec)",
+        "payload": {"category": "authentication"},
+    },
+    "user_account_created": {
+        "class": EventClass.A,
+        "title": "Создание/удаление учётной записи",
+        "payload": {"category": "account_management"},
+    },
+    "privileged_group_change": {
+        "class": EventClass.A,
+        "title": "Изменение привилегированных групп",
+        "payload": {"category": "account_management"},
+    },
+    "audit_config_changed": {
+        "class": EventClass.A,
+        "title": "Изменение настроек подсистемы аудита",
+        "payload": {"category": "integrity"},
+    },
+    "log_cleared": {
+        "class": EventClass.A,
+        "title": "Очистка журналов",
+        "payload": {"category": "integrity"},
+    },
+    "system_time_changed": {
+        "class": EventClass.B,
+        "title": "Изменение системного времени",
+        "payload": {"category": "integrity"},
+    },
+    "external_media_mount": {
+        "class": EventClass.B,
+        "title": "Подключение внешнего носителя",
+        "payload": {"category": "device"},
+    },
+    "security_service_failure": {
+        "class": EventClass.A,
+        "title": "Сбой/отказ службы безопасности",
+        "payload": {"category": "system"},
+    },
+    "mdrj_collection_policy_changed": {
+        "class": EventClass.A,
+        "title": "Изменение политики сбора событий",
+        "payload": {"category": "integrity"},
+    },
 }
 
 
@@ -312,6 +367,50 @@ def event_metadata(kind: str) -> Optional[Dict[str, object]]:
 def all_event_metadata() -> Dict[str, Dict[str, object]]:
     """Return метаданные для всех известных типов событий."""
     return dict(_CATALOG_METADATA)
+
+
+def registry_enabled_for(kind: str) -> bool:
+    """Сохранять ли событие данного типа в распределённый реестр.
+
+    Политика реестра (ось 3). По умолчанию True для типов без метаданных
+    (встроенный fallback) и для неизвестных типов — чтобы случайно не
+    потерять событие. Управляется оператором через set_registry_enabled.
+    """
+    meta = _CATALOG_METADATA.get(kind)
+    if meta is None:
+        return True
+    return bool(meta.get("registry_enabled", True))
+
+
+def set_registry_enabled(kind: str, enabled: bool) -> bool:
+    """Изменить политику реестра для типа события in-memory.
+
+    Возвращает True если тип известен и значение применено. Персистентность
+    (запись в JSON) — ответственность вызывающего слоя; здесь меняется
+    только runtime-состояние текущего процесса.
+    """
+    meta = _CATALOG_METADATA.get(kind)
+    if meta is None:
+        return False
+    meta["registry_enabled"] = bool(enabled)
+    return True
+
+
+def collection_policy_hash() -> str:
+    """Детерминированный хэш текущей политики сбора (kind→registry_enabled).
+
+    Включается в node_hourly_status и checkpoint — делает политику
+    мониторинга tamper-evident: «какая политика действовала в момент
+    инцидента» становится доказуемым.
+    """
+    import hashlib
+
+    items = sorted(
+        (kind, bool(meta.get("registry_enabled", True)))
+        for kind, meta in _CATALOG_METADATA.items()
+    )
+    canonical = ";".join(f"{k}={int(v)}" for k, v in items)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 # Применяем JSON-каталог при импорте, если он найден.

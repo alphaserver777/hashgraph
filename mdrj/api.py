@@ -2294,6 +2294,7 @@ VIZ_HTML = """
                 '<a class="nav-item" href="#filters"><span class="nav-item-group"><span class="nav-icon">≡</span><span class="nav-copy">Фильтры</span></span></a>' +
                 '<a class="nav-item" href="#network-workbench"><span class="nav-item-group"><span class="nav-icon">☷</span><span class="nav-copy">Участники сети</span></span></a>' +
                 '<a class="nav-item" id="incident-nav-item" href="#incident-workbench" style="display:none;"><span class="nav-item-group"><span class="nav-icon">▣</span><span class="nav-copy">Инциденты</span></span></a>' +
+                '<a class="nav-item" href="#sib-policy"><span class="nav-item-group"><span class="nav-icon">⚙</span><span class="nav-copy">Настройка множества СИБ</span></span></a>' +
               '</div>' +
             '</div>' +
           '</nav>' +
@@ -2521,6 +2522,37 @@ VIZ_HTML = """
             '<div id="incident-board-view" style="display:none;"></div>' +
           '</div>';
         main.appendChild(incidentWorkbench);
+
+        var sibPolicy = document.createElement('section');
+        sibPolicy.id = 'sib-policy';
+        sibPolicy.className = 'panel-surface';
+        sibPolicy.innerHTML =
+          '<div class="incident-shell">' +
+            '<div class="incident-toolbar">' +
+              '<div>' +
+                '<h2 style="margin:0;font-size:1.08rem;">Настройка множества СИБ</h2>' +
+                '<div class="panel-hint">Перечень регистрируемых событий ИБ: НПА, класс, источник и тугл сохранения в распределённый реестр. Изменение фиксируется незатираемым событием класса A.</div>' +
+              '</div>' +
+              '<div class="incident-badges">' +
+                '<span class="incident-badge primary" id="sib-count">— событий</span>' +
+                '<span class="incident-badge" id="sib-enabled-count">— включено</span>' +
+              '</div>' +
+            '</div>' +
+            '<div style="overflow-x:auto;">' +
+              '<table id="sib-table" style="width:100%;border-collapse:collapse;font-size:0.86rem;">' +
+                '<thead><tr style="text-align:left;border-bottom:1px solid rgba(255,255,255,0.15);">' +
+                  '<th style="padding:8px 10px;">Событие</th>' +
+                  '<th style="padding:8px 10px;">Класс</th>' +
+                  '<th style="padding:8px 10px;">Источник</th>' +
+                  '<th style="padding:8px 10px;">НПА</th>' +
+                  '<th style="padding:8px 10px;">Угрозы</th>' +
+                  '<th style="padding:8px 10px;">В реестр</th>' +
+                '</tr></thead>' +
+                '<tbody id="sib-tbody"></tbody>' +
+              '</table>' +
+            '</div>' +
+          '</div>';
+        main.appendChild(sibPolicy);
 
         var incidentModal = document.createElement('div');
         incidentModal.id = 'incident-modal-shell';
@@ -3013,6 +3045,80 @@ VIZ_HTML = """
           console.log('incident persist network error');
         };
         xhr.send(JSON.stringify({ items: incidents }));
+      }
+
+      function sibClassCss(cls) {
+        if (cls === 'A') { return 'background:rgba(239,83,80,0.18);color:#ef9a9a;'; }
+        if (cls === 'B') { return 'background:rgba(255,179,0,0.18);color:#ffcc80;'; }
+        return 'background:rgba(79,195,247,0.18);color:#90caf9;';
+      }
+
+      function renderSibPolicy(events) {
+        var tbody = document.getElementById('sib-tbody');
+        if (!tbody) { return; }
+        var enabledCount = 0;
+        var rows = events.map(function (e) {
+          if (e.registry_enabled) { enabledCount += 1; }
+          var npa = (e.npa || []).join('; ');
+          var threats = (e.linked_threats || []).join(', ');
+          var checked = e.registry_enabled ? ' checked' : '';
+          var disabled = e.protected ? ' disabled title="Служебное событие реестра — отключить нельзя"' : '';
+          var lockNote = e.protected ? ' <span style="opacity:0.6;font-size:0.75rem;">(защищено)</span>' : '';
+          return '<tr style="border-bottom:1px solid rgba(255,255,255,0.06);">' +
+            '<td style="padding:7px 10px;"><strong>' + escapeHtml(e.title || e.event_kind) + '</strong>' +
+              '<div style="opacity:0.55;font-size:0.76rem;">' + escapeHtml(e.event_kind) + '</div></td>' +
+            '<td style="padding:7px 10px;"><span style="padding:2px 8px;border-radius:10px;' + sibClassCss(e['class']) + '">' + escapeHtml(e['class']) + '</span></td>' +
+            '<td style="padding:7px 10px;opacity:0.85;">' + escapeHtml(e.source || '—') + '</td>' +
+            '<td style="padding:7px 10px;opacity:0.85;font-size:0.78rem;">' + escapeHtml(npa || '—') + '</td>' +
+            '<td style="padding:7px 10px;opacity:0.75;font-size:0.78rem;">' + escapeHtml(threats || '—') + '</td>' +
+            '<td style="padding:7px 10px;"><label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">' +
+              '<input type="checkbox" data-sib-kind="' + escapeHtml(e.event_kind) + '"' + checked + disabled + ' />' + lockNote +
+            '</label></td>' +
+          '</tr>';
+        }).join('');
+        tbody.innerHTML = rows;
+        var cntEl = document.getElementById('sib-count');
+        var enEl = document.getElementById('sib-enabled-count');
+        if (cntEl) { cntEl.textContent = events.length + ' событий'; }
+        if (enEl) { enEl.textContent = enabledCount + ' включено'; }
+        // Навесить обработчики туглов.
+        var checks = tbody.querySelectorAll('input[data-sib-kind]');
+        for (var i = 0; i < checks.length; i += 1) {
+          checks[i].addEventListener('change', function (ev) {
+            var kind = ev.target.getAttribute('data-sib-kind');
+            var enabled = ev.target.checked;
+            ev.target.disabled = true;
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/catalog/policy', true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.onreadystatechange = function () {
+              if (xhr.readyState !== 4) { return; }
+              ev.target.disabled = false;
+              if (xhr.status >= 200 && xhr.status < 300) {
+                loadSibPolicy();  // перечитать актуальное состояние
+              } else {
+                ev.target.checked = !enabled;  // откатить визуально
+                alert('Не удалось изменить политику: ' + xhr.status + ' ' + xhr.responseText);
+              }
+            };
+            xhr.send(JSON.stringify({ event_kind: kind, enabled: enabled }));
+          });
+        }
+      }
+
+      function loadSibPolicy() {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/catalog', true);
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState !== 4) { return; }
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              var payload = JSON.parse(xhr.responseText);
+              renderSibPolicy(payload && Array.isArray(payload.events) ? payload.events : []);
+            } catch (err) {}
+          }
+        };
+        xhr.send();
       }
 
       function loadIncidents() {
@@ -6732,6 +6838,12 @@ VIZ_HTML = """
         markStable();
       });
 
+      // Политика сбора СИБ: первичная загрузка + периодическое обновление
+      // (политика может меняться на других узлах и доходить через gossip,
+      // но registry_enabled — локальное runtime-состояние, обновляем по /catalog).
+      loadSibPolicy();
+      setInterval(loadSibPolicy, 30000);
+
       window.addEventListener('resize', function () {
         renderGraph();
       });
@@ -7127,6 +7239,8 @@ async def handle_catalog(request: web.Request) -> web.Response:
             linked = meta.get("linked_threats") or []
             if not any(threat_filter in str(t) for t in linked):
                 continue
+        node = request.app.get("node")
+        protected = kind in getattr(node, "POLICY_PROTECTED_KINDS", frozenset()) if node else False
         item: Dict[str, object] = {
             "event_kind": kind,
             "class": cls_val,
@@ -7135,10 +7249,40 @@ async def handle_catalog(request: web.Request) -> web.Response:
             "rationale": meta.get("rationale", ""),
             "linked_threats": meta.get("linked_threats", []),
             "added_by": meta.get("added_by", ""),
+            "npa": meta.get("npa", []),
+            "source": meta.get("source", ""),
+            "registry_enabled": meta.get("registry_enabled", True),
+            "protected": protected,
         }
         items.append(item)
     items.sort(key=lambda i: (str(i["class"]), str(i["event_kind"])))
     return web.json_response({"version": 1, "count": len(items), "events": items})
+
+
+async def handle_catalog_policy(request: web.Request) -> web.Response:
+    """POST /catalog/policy — изменить тугл registry_enabled для event_kind.
+
+    Тело: {"event_kind": "log_cleared", "enabled": false}. Эмитирует
+    улику mdrj_collection_policy_changed класса A. Только для admin.
+    """
+    node = request.app["node"]
+    try:
+        body = await request.json()
+    except json.JSONDecodeError:
+        raise web.HTTPBadRequest(text="invalid JSON")
+    kind = str(body.get("event_kind", "")).strip()
+    if not kind:
+        raise web.HTTPBadRequest(text="missing event_kind")
+    if "enabled" not in body:
+        raise web.HTTPBadRequest(text="missing enabled")
+    enabled = bool(body.get("enabled"))
+    try:
+        result = await node.set_collection_policy(kind, enabled)
+    except KeyError as exc:
+        raise web.HTTPNotFound(text=str(exc))
+    except ValueError as exc:
+        raise web.HTTPForbidden(text=str(exc))
+    return web.json_response({"status": "ok", **result})
 
 
 async def handle_users_list(request: web.Request) -> web.Response:
@@ -7355,6 +7499,7 @@ def build_app(node) -> web.Application:
             web.post("/users/remove", handle_users_remove),
             web.get("/notifier/status", handle_notifier_status),
             web.get("/catalog", handle_catalog),
+            web.post("/catalog/policy", handle_catalog_policy),
             web.get("/gossip/frontier", handle_gossip_frontier),
             web.get("/events/{event_id}/ancestry", handle_event_ancestry),
             web.post("/peers/register", handle_register_peer),

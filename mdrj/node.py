@@ -27,7 +27,13 @@ from .collectors import (
     LinuxProcCollector,
 )
 from .consensus import ConsensusEngine, MembershipEntry
-from .event_catalog import event_class_for, is_known_event_kind
+from .event_catalog import (
+    collection_policy_hash,
+    event_class_for,
+    is_known_event_kind,
+    registry_enabled_for,
+    set_registry_enabled,
+)
 from .gossip import GossipEngine
 from .linux_ingest import LinuxAuthLogIngestor, LinuxIngestStatus
 from .metrics import MetricsEngine
@@ -1165,6 +1171,12 @@ class Node:
                             event.event_kind,
                         )
                         continue
+                    # Политика реестра (ось 3): если оператор выключил этот
+                    # тип через /catalog/policy — не сохраняем в DAG. Счётчик
+                    # отброшенных растёт для прозрачности в node_hourly_status.
+                    if not registry_enabled_for(event.event_kind):
+                        collector.status.record_drop("policy_disabled")
+                        continue
                     cls = event_class_for(event.event_kind)
                     payload = event.to_payload()
                     if self.config.agent_relay.enabled:
@@ -1182,6 +1194,51 @@ class Node:
                 await asyncio.wait_for(self._collectors_stop.wait(), timeout=interval)
             except asyncio.TimeoutError:
                 continue
+
+    # Служебные типы реестра — их регистрацию НЕЛЬЗЯ отключить через
+    # политику, иначе ломается самозащита (tamper-evidence, liveness).
+    POLICY_PROTECTED_KINDS = frozenset({
+        "node_identity", "heartbeat", "node_hourly_status",
+        "mdrj_service_start", "mdrj_service_stop", "mdrj_service_killed",
+        "host_boot", "host_reboot", "mdrj_tamper_detected",
+        "mdrj_event_replication_failed", "mdrj_collection_policy_changed",
+    })
+
+    async def set_collection_policy(self, kind: str, enabled: bool) -> Dict[str, object]:
+        """Изменить политику реестра для event_kind и эмитировать улику класса A.
+
+        Само изменение политики сбора — часть охраняемого периметра:
+        отключение регистрации перед атакой остаётся незатираемым
+        событием mdrj_collection_policy_changed класса A.
+        """
+        if not is_known_event_kind(kind):
+            raise KeyError(f"unknown event_kind: {kind!r}")
+        if kind in self.POLICY_PROTECTED_KINDS:
+            raise ValueError(f"event_kind {kind!r} is protected and cannot be disabled")
+        previous = registry_enabled_for(kind)
+        applied = set_registry_enabled(kind, enabled)
+        if not applied:
+            raise KeyError(f"cannot set policy for {kind!r}")
+        # Эмитируем улику об изменении политики (класс A, durable через Слой 2).
+        await self.emit_event(
+            EventClass.A,
+            {
+                "event_kind": "mdrj_collection_policy_changed",
+                "node_id": self.config.node_id,
+                "host_id": self.config.linux_ingest.host_id or self.config.node_id,
+                "changed_kind": kind,
+                "previous_enabled": bool(previous),
+                "new_enabled": bool(enabled),
+                "policy_hash": collection_policy_hash(),
+                "changed_at": utc_timestamp(),
+            },
+        )
+        return {
+            "kind": kind,
+            "previous_enabled": bool(previous),
+            "new_enabled": bool(enabled),
+            "policy_hash": collection_policy_hash(),
+        }
 
     def list_collector_status(self) -> List[Dict[str, object]]:
         return [collector.status.to_dict() for collector in self._collectors]
@@ -1347,6 +1404,9 @@ class Node:
             "last_checkpoint_age_sec": last_cp_age,
             "tamper_evidence": bool(getattr(self, "_tamper_evidence", False)),
             "peers_known": len(self.list_peers()),
+            # Хэш политики сбора — tamper-evidence политики мониторинга:
+            # «какая политика действовала в этот час» становится доказуемым.
+            "collection_policy_hash": collection_policy_hash(),
         }
         try:
             await self.emit_event(EventClass.B, payload)
