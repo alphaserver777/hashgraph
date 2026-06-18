@@ -3530,9 +3530,9 @@ VIZ_HTML = """
 
       function setIncidentWorkbenchEnabled(enabled) {
         incidentEnabled = !!enabled;
-        if (incidentWorkbenchEl) {
-          incidentWorkbenchEl.style.display = incidentEnabled ? '' : 'none';
-        }
+        // Видимостью самой секции управляет роутер страниц (routeToPage):
+        // incident-workbench показывается ТОЛЬКО на своей странице, а не
+        // на дашборде. Здесь — только доступность раздела (nav-item) и данные.
         if (incidentNavItemEl) {
           incidentNavItemEl.style.display = incidentEnabled ? '' : 'none';
         }
@@ -3541,6 +3541,11 @@ VIZ_HTML = """
             loadIncidents();
           }
           renderIncidentWorkbench();
+        }
+        // Пересинхронизировать видимость страниц (статус узла мог прийти
+        // асинхронно уже после первичного роутинга).
+        if (typeof window.__mdrjRoute === 'function') {
+          window.__mdrjRoute();
         }
         if (!incidentEnabled) {
           incidentsLoaded = false;
@@ -6891,6 +6896,7 @@ VIZ_HTML = """
         }
       }
       window.addEventListener('hashchange', routeToPage);
+      window.__mdrjRoute = routeToPage;
       routeToPage();
 
       window.addEventListener('resize', function () {
