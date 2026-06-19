@@ -5232,67 +5232,78 @@ VIZ_HTML = """
         el.className = 'hero-kpi-delta ' + (delta > 0 ? 'up' : 'down');
       }
 
-      function renderHeroSparkline(svgEl, points, color, maxValue) {
-        if (!svgEl) {
-          return;
-        }
-        var width = 220;
-        var chartHeight = 66;
-        var offsetY = 8;
-        svgEl.innerHTML = '';
-        if (!points || points.length < 2) {
-          return;
-        }
+      function heroSparkGrid(svgEl, width) {
         [12, 34, 56].forEach(function (y) {
           var line = document.createElementNS(svgNS, 'line');
           line.setAttribute('class', 'hero-spark-grid');
-          line.setAttribute('x1', '0');
-          line.setAttribute('x2', String(width));
-          line.setAttribute('y1', String(y));
-          line.setAttribute('y2', String(y));
+          line.setAttribute('x1', '0'); line.setAttribute('x2', String(width));
+          line.setAttribute('y1', String(y)); line.setAttribute('y2', String(y));
           svgEl.appendChild(line);
         });
-        var area = document.createElementNS(svgNS, 'path');
-        area.setAttribute('class', 'hero-spark-area');
-        area.setAttribute('fill', color);
-        area.setAttribute('d', buildAreaPath(points, width, chartHeight, maxValue));
-        area.setAttribute('transform', 'translate(0 ' + offsetY + ')');
-        svgEl.appendChild(area);
-        var poly = document.createElementNS(svgNS, 'polyline');
-        poly.setAttribute('class', 'hero-spark-line');
-        poly.setAttribute('stroke', color);
-        poly.setAttribute('points', buildPolyline(points, width, chartHeight, maxValue));
-        poly.setAttribute('transform', 'translate(0 ' + offsetY + ')');
-        svgEl.appendChild(poly);
       }
 
-      function renderHeroMultiSparkline(svgEl, seriesList, maxValue) {
-        if (!svgEl) {
-          return;
-        }
-        var width = 220;
-        var chartHeight = 66;
-        var offsetY = 8;
+      // Одиночная гистограмма. baseline по минимуму: при почти-константных
+      // значениях (память/сеть) видны колебания, при растущих (объём) —
+      // динамика прироста, а не сплошная стена.
+      function renderHeroSparkline(svgEl, points, color, maxValue) {
+        if (!svgEl) { return; }
+        var width = 220, chartHeight = 66, offsetY = 8;
         svgEl.innerHTML = '';
-        if (!seriesList || !seriesList.length) {
-          return;
+        if (!points || !points.length) { return; }
+        heroSparkGrid(svgEl, width);
+        var mn = Math.min.apply(null, points);
+        var mx = Math.max.apply(null, points);
+        var span = mx - mn;
+        var n = points.length;
+        var slot = width / n;
+        var gap = Math.min(4, slot * 0.25);
+        var bw = Math.max(1, slot - gap);
+        for (var i = 0; i < n; i += 1) {
+          var norm = span > 1e-9 ? (points[i] - mn) / span : 0.5;
+          // минимум 12% высоты, чтобы столбец всегда читался
+          var h = (0.12 + 0.88 * norm) * chartHeight;
+          var x = i * slot + gap / 2;
+          var y = offsetY + (chartHeight - h);
+          var rect = document.createElementNS(svgNS, 'rect');
+          rect.setAttribute('x', x.toFixed(2)); rect.setAttribute('y', y.toFixed(2));
+          rect.setAttribute('width', bw.toFixed(2)); rect.setAttribute('height', h.toFixed(2));
+          rect.setAttribute('rx', Math.min(2, bw / 2).toFixed(1));
+          rect.setAttribute('fill', color);
+          rect.setAttribute('opacity', i === n - 1 ? '1' : '0.55');
+          svgEl.appendChild(rect);
         }
-        [12, 34, 56].forEach(function (y) {
-          var line = document.createElementNS(svgNS, 'line');
-          line.setAttribute('class', 'hero-spark-grid');
-          line.setAttribute('x1', '0');
-          line.setAttribute('x2', String(width));
-          line.setAttribute('y1', String(y));
-          line.setAttribute('y2', String(y));
-          svgEl.appendChild(line);
-        });
-        seriesList.forEach(function (entry) {
-          var poly = document.createElementNS(svgNS, 'polyline');
-          poly.setAttribute('class', 'hero-spark-line ' + entry.cls);
-          poly.setAttribute('points', buildPolyline(entry.points, width, chartHeight, maxValue));
-          poly.setAttribute('transform', 'translate(0 ' + offsetY + ')');
-          svgEl.appendChild(poly);
-        });
+      }
+
+      // Сгруппированная гистограмма по классам A/B/C от нуля.
+      function renderHeroMultiSparkline(svgEl, seriesList, maxValue) {
+        if (!svgEl) { return; }
+        var width = 220, chartHeight = 66, offsetY = 8;
+        svgEl.innerHTML = '';
+        if (!seriesList || !seriesList.length) { return; }
+        heroSparkGrid(svgEl, width);
+        var clsColor = { 'class-a': '#ff6d6d', 'class-b': '#ffc971', 'class-c': '#5aa5ff' };
+        var n = seriesList[0].points.length;
+        if (!n) { return; }
+        var mx = Math.max(maxValue || 1, 1);
+        var slot = width / n;
+        var groupGap = Math.min(4, slot * 0.2);
+        var innerW = slot - groupGap;
+        var sub = seriesList.length;
+        var bw = Math.max(1, innerW / sub - 1);
+        for (var i = 0; i < n; i += 1) {
+          for (var s = 0; s < sub; s += 1) {
+            var v = seriesList[s].points[i] || 0;
+            var h = Math.max(v > 0 ? 2 : 0, (v / mx) * chartHeight);
+            var x = i * slot + groupGap / 2 + s * (innerW / sub);
+            var y = offsetY + (chartHeight - h);
+            var rect = document.createElementNS(svgNS, 'rect');
+            rect.setAttribute('x', x.toFixed(2)); rect.setAttribute('y', y.toFixed(2));
+            rect.setAttribute('width', bw.toFixed(2)); rect.setAttribute('height', h.toFixed(2));
+            rect.setAttribute('rx', '1');
+            rect.setAttribute('fill', clsColor[seriesList[s].cls] || '#90caf9');
+            svgEl.appendChild(rect);
+          }
+        }
       }
 
       function buildIntensitySeries(windowSeconds, bucketCount) {
