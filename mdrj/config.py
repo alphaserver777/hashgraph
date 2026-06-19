@@ -151,6 +151,9 @@ class NodeConfig:
     agent_relay: AgentRelayConfig = field(default_factory=AgentRelayConfig)
     heartbeat: HeartbeatConfig = field(default_factory=HeartbeatConfig)
     runtime: RuntimeConfig = field(default_factory=RuntimeConfig)
+    # Обслуживает ли узел web-UI. False = headless: только кворум, gossip
+    # и наблюдаемость (для слабых хостов). Ортогонален profile.role.
+    ui_enabled: bool = True
 
     @property
     def host(self) -> str:
@@ -228,6 +231,8 @@ def load_config(path: str | Path) -> NodeConfig:
     agent_relay = _parse_agent_relay(raw.get("agent_relay", {}) or {})
     heartbeat = _parse_heartbeat(raw.get("heartbeat", {}) or {})
     runtime = _parse_runtime(raw.get("runtime", {}) or {})
+    ui_raw = raw.get("ui", {}) or {}
+    ui_enabled = bool(ui_raw.get("enabled", True))
     return NodeConfig(
         node_id=raw["node_id"],
         listen=raw["listen"],
@@ -245,6 +250,7 @@ def load_config(path: str | Path) -> NodeConfig:
         agent_relay=agent_relay,
         heartbeat=heartbeat,
         runtime=runtime,
+        ui_enabled=ui_enabled,
     )
 
 

@@ -7747,6 +7747,29 @@ async def handle_viz_stream(request: web.Request) -> web.StreamResponse:
             await response.write_eof()
     return response
 
+HEADLESS_STUB_HTML = """<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8"><title>MDRJ-DAG — headless узел</title>
+<style>body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;
+background:#0a131f;color:#eff3ff;font-family:system-ui,sans-serif;text-align:center;}
+.card{max-width:520px;padding:2.5rem;border-radius:18px;background:#121c2c;
+border:1px solid rgba(255,255,255,0.08);}
+h1{font-size:1.3rem;margin:0 0 0.8rem;} p{color:#8892a6;line-height:1.5;}
+code{color:#90caf9;}</style></head>
+<body><div class="card">
+<h1>⚙ Узел в headless-режиме</h1>
+<p>Этот узел участвует в кворуме, gossip и подписании checkpoint, но не
+обслуживает графический кабинет (экономия ресурсов на слабом хосте).</p>
+<p>Графический интерфейс доступен на узле с ролью реагирования
+(<code>ui.enabled: true</code>). Машинные endpoint-ы доступны:
+<code>/status</code>, <code>/metrics/prometheus</code>,
+<code>/checkpoint/list</code>.</p>
+</div></body></html>"""
+
+
+async def handle_viz_headless_stub(request: web.Request) -> web.Response:
+    return web.Response(text=HEADLESS_STUB_HTML, content_type="text/html")
+
+
 def build_app(node) -> web.Application:
     # Order matters: session middleware runs FIRST (outermost). If a valid
     # session is present, hmac middleware skips the HMAC check.
@@ -7758,47 +7781,56 @@ def build_app(node) -> web.Application:
             "security.hmac_key is not set — HTTP API accepts unauthenticated state changes. "
             "Set security.hmac_key in node config before exposing the API to untrusted networks."
         )
-    app.add_routes(
-        [
-            web.post("/event/batch", handle_event_batch),
-            web.post("/event/emit", handle_emit_local),
-            web.get("/dag/frontier", handle_frontier),
-            web.get("/dag", handle_dag),
-            web.get("/status", handle_status),
-            web.get("/metrics", handle_metrics),
-            web.get("/metrics/prometheus", handle_metrics_prometheus),
-            web.get("/metrics/history", handle_metrics_history),
-            web.post("/checkpoint/propose", handle_checkpoint_propose),
-            web.get("/checkpoint/list", handle_checkpoint_list),
-            web.get("/checkpoint/verify", handle_checkpoint_verify),
-            web.post("/peers/approve", handle_peer_approve),
-            web.post("/peers/reject", handle_peer_reject),
-            web.get("/auth/login", handle_login_page),
-            web.post("/auth/login", handle_login),
-            web.post("/auth/logout", handle_logout),
-            web.get("/auth/me", handle_me),
-            web.get("/users", handle_users_list),
-            web.post("/users/add", handle_users_add),
-            web.post("/users/remove", handle_users_remove),
-            web.get("/notifier/status", handle_notifier_status),
-            web.get("/catalog", handle_catalog),
-            web.post("/catalog/policy", handle_catalog_policy),
-            web.get("/gossip/frontier", handle_gossip_frontier),
-            web.get("/events/{event_id}/ancestry", handle_event_ancestry),
-            web.post("/peers/register", handle_register_peer),
-            web.post("/peers/update", handle_update_peer),
-            web.post("/peers/remove", handle_remove_peer),
-            web.get("/peers", handle_peers),
-            web.post("/consensus/reconfigure", handle_reconfigure_consensus_membership),
-            web.get("/viz", handle_viz_page),
-            web.get("/viz/graph", handle_viz_graph),
-            web.get("/viz/stream", handle_viz_stream),
-            web.post("/viz/simulate", handle_viz_simulate),
-            web.post("/viz/simulation/control", handle_viz_simulation_control),
-            web.post("/viz/clear", handle_viz_clear),
-            web.get("/incidents", handle_incidents),
-            web.put("/incidents", handle_incidents),
-            web.get("/consensus/digest", handle_consensus_digest),
-        ]
-    )
+    # Inter-node + наблюдаемость: нужны для участия в кворуме и gossip,
+    # регистрируются ВСЕГДА (в т.ч. на headless-узлах).
+    inter_node_routes = [
+        web.post("/event/batch", handle_event_batch),
+        web.post("/event/emit", handle_emit_local),
+        web.get("/dag/frontier", handle_frontier),
+        web.get("/dag", handle_dag),
+        web.get("/status", handle_status),
+        web.get("/metrics", handle_metrics),
+        web.get("/metrics/prometheus", handle_metrics_prometheus),
+        web.post("/checkpoint/propose", handle_checkpoint_propose),
+        web.get("/checkpoint/list", handle_checkpoint_list),
+        web.get("/checkpoint/verify", handle_checkpoint_verify),
+        web.post("/peers/approve", handle_peer_approve),
+        web.post("/peers/reject", handle_peer_reject),
+        web.get("/gossip/frontier", handle_gossip_frontier),
+        web.get("/events/{event_id}/ancestry", handle_event_ancestry),
+        web.post("/peers/register", handle_register_peer),
+        web.post("/peers/update", handle_update_peer),
+        web.post("/peers/remove", handle_remove_peer),
+        web.get("/peers", handle_peers),
+        web.post("/consensus/reconfigure", handle_reconfigure_consensus_membership),
+        web.get("/consensus/digest", handle_consensus_digest),
+    ]
+    # UI-роуты (тяжёлые / интерактивные): только на узлах с ui.enabled=true.
+    ui_routes = [
+        web.get("/metrics/history", handle_metrics_history),
+        web.get("/auth/login", handle_login_page),
+        web.post("/auth/login", handle_login),
+        web.post("/auth/logout", handle_logout),
+        web.get("/auth/me", handle_me),
+        web.get("/users", handle_users_list),
+        web.post("/users/add", handle_users_add),
+        web.post("/users/remove", handle_users_remove),
+        web.get("/notifier/status", handle_notifier_status),
+        web.get("/catalog", handle_catalog),
+        web.post("/catalog/policy", handle_catalog_policy),
+        web.get("/viz", handle_viz_page),
+        web.get("/viz/graph", handle_viz_graph),
+        web.get("/viz/stream", handle_viz_stream),
+        web.post("/viz/simulate", handle_viz_simulate),
+        web.post("/viz/simulation/control", handle_viz_simulation_control),
+        web.post("/viz/clear", handle_viz_clear),
+        web.get("/incidents", handle_incidents),
+        web.put("/incidents", handle_incidents),
+    ]
+    ui_enabled = bool(getattr(getattr(node, "config", None), "ui_enabled", True))
+    if ui_enabled:
+        app.add_routes(inter_node_routes + ui_routes)
+    else:
+        # Headless: вместо кабинета — лёгкая заглушка на /viz.
+        app.add_routes(inter_node_routes + [web.get("/viz", handle_viz_headless_stub)])
     return app

@@ -103,6 +103,12 @@ runtime:
   # события по классам в окне, RSS, load_avg, последний checkpoint).
   hourly_status_interval_sec: 3600
 
+# Графический web-UI. enabled: false = headless-режим: узел участвует
+# в кворуме/gossip/checkpoint, но не обслуживает кабинет (для слабых
+# хостов). Машинные endpoint-ы (/status, /metrics, /checkpoint/*) работают.
+ui:
+  enabled: __UI_ENABLED__
+
 discovery:
   mode: disabled
 

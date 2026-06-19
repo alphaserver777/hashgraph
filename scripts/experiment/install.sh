@@ -22,11 +22,13 @@ REPO_URL="${REPO_URL:-https://github.com/alphaserver777/hashgraph.git}"
 BRANCH="${BRANCH:-main}"
 PEERS=""
 HMAC_KEY=""
+HEADLESS_PEERS=""
 
 while [[ $# -gt 0 ]]; do
   case $1 in
     --peers) PEERS=$2; shift 2;;
     --hmac-key) HMAC_KEY=$2; shift 2;;
+    --headless-peers) HEADLESS_PEERS=$2; shift 2;;
     --branch) BRANCH=$2; shift 2;;
     --repo) REPO_URL=$2; shift 2;;
     *) echo "unknown arg: $1"; exit 2;;
@@ -87,8 +89,16 @@ install_one() {
   echo ""
   echo "==== Installing on $host (ip=$self_ip) ===="
 
+  # Headless-режим для слабых хостов из списка --headless-peers.
+  local ui_enabled="true"
+  if [[ ",$HEADLESS_PEERS," == *",$host,"* ]]; then
+    ui_enabled="false"
+    echo "  $host: headless-режим (ui.enabled=false)"
+  fi
+
   local node_yaml
   node_yaml=$(sed -e "s/__NODE_ID__/${host}/g" -e "s|__HMAC_KEY__|$HMAC_KEY|g" \
+                -e "s/__UI_ENABLED__/${ui_enabled}/g" \
                 "$REPO_ROOT/deploy/experiment/node.yaml.tpl")
   node_yaml=$(python3 -c "
 import sys

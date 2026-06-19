@@ -247,7 +247,10 @@ class Node:
         if self.config.linux_ingest.enabled:
             self._start_linux_ingest()
         self._start_collectors()
-        self._start_metrics_history()
+        # История метрик нужна только UI-графикам. На headless-узле не
+        # запускаем — /metrics/prometheus отдаёт live snapshot, не историю.
+        if getattr(self.config, "ui_enabled", True):
+            self._start_metrics_history()
         if self.config.retention.enabled:
             self._start_retention()
         if self.config.heartbeat.enabled:
@@ -2497,6 +2500,7 @@ class Node:
             "consensus_pending_peers": pending_peers,
             "linux_ingest": self._linux_ingest_status.to_dict(),
             "demo_controls_enabled": self.demo_controls_enabled(),
+            "ui_enabled": bool(getattr(self.config, "ui_enabled", True)),
         }
 
     def metrics_snapshot(self) -> Dict[str, object]:
