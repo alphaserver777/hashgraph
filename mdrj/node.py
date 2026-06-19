@@ -2258,11 +2258,16 @@ class Node:
                         )
                         continue
                     mismatch_reasons = self._consensus_mismatch_reasons(local_snapshot, peer_snapshot)
+                    # consensus_epoch НЕ включаем в критерий: это локальный
+                    # монотонный счётчик reconfigure, законно расходящийся при
+                    # независимых вызовах на разных узлах. Согласие СОСТАВА
+                    # гарантирует membership_snapshot_hash; согласие ДАННЫХ —
+                    # finalized hash + event_count. epoch-расхождение при
+                    # совпадающем membership_hash — не рассогласование.
                     match = (
                         peer_snapshot.get("hash") == local_snapshot.get("hash")
                         and peer_snapshot.get("event_count") == local_snapshot.get("event_count")
                         and peer_snapshot.get("membership_snapshot_hash") == local_snapshot.get("membership_snapshot_hash")
-                        and peer_snapshot.get("consensus_epoch") == local_snapshot.get("consensus_epoch")
                     )
                     self._notify_consensus_status(
                         peer.address,
@@ -2359,10 +2364,13 @@ class Node:
             reasons.append("event_count")
         if peer_snapshot.get("hash") != local_snapshot.get("hash"):
             reasons.append("hash")
-        if peer_snapshot.get("consensus_epoch") != local_snapshot.get("consensus_epoch"):
-            reasons.append("epoch")
         if peer_snapshot.get("membership_snapshot_hash") != local_snapshot.get("membership_snapshot_hash"):
             reasons.append("membership")
+        # epoch-расхождение при совпадающем membership_hash диагностически
+        # отмечаем отдельно, но оно НЕ считается рассогласованием (см. match).
+        if (peer_snapshot.get("consensus_epoch") != local_snapshot.get("consensus_epoch")
+                and peer_snapshot.get("membership_snapshot_hash") != local_snapshot.get("membership_snapshot_hash")):
+            reasons.append("epoch")
         return reasons
 
     async def _propagate_simulation(
