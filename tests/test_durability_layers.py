@@ -240,6 +240,28 @@ async def test_ancestry_unknown_event_returns_empty(tmp_path, aiohttp_client):
         await node.stop()
 
 
+def test_ancestry_item_deserializes_to_envelope(tmp_path):
+    """Регрессия: _pull_ancestry должен уметь разобрать ancestry-item
+    обратно в Envelope. Раньше использовался несуществующий
+    Event.from_dict → frontier sync падал на всём кластере, headless-узлы
+    не могли догнать DAG."""
+    from mdrj.models import Envelope, Event, EventClass
+
+    ev = Event.create(
+        cls_name=EventClass.A, source="n", ts_local=1.0, vclock={"n": 1},
+        parents=[], creator="n", self_parent_id=None, other_parent_id=None,
+        payload={"event_kind": "virus"},
+    )
+    # Формат, который отдаёт handle_event_ancestry.
+    event_dict = ev.to_dict()
+    event_dict["consensus_ts"] = ev.consensus_ts
+    item = {"event": event_dict, "path_meta": [{"node": "n"}]}
+    env = Envelope.from_dict(item)
+    assert env.event.id == ev.id
+    assert env.event.cls == EventClass.A
+    assert env.path_meta == [{"node": "n"}]
+
+
 # ====================================================================
 # Слой 4 — tamper verify
 # ====================================================================

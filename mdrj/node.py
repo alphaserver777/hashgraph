@@ -1705,8 +1705,7 @@ class Node:
         envelopes: List[Envelope] = []
         for item in payload.get("events", []):
             try:
-                event = Event.from_dict(item["event"])
-                envelopes.append(Envelope(event=event, path_meta=item.get("path_meta") or []))
+                envelopes.append(Envelope.from_dict(item))
             except Exception:
                 logger.exception("malformed envelope from ancestry")
         return envelopes
